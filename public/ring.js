@@ -223,8 +223,9 @@
       class: "ring-seg",
       fill: team.color,
       "data-key": keyOf(team),
+      "data-name": team.name || "",
     });
-    const mark = el("g", { "data-key": keyOf(team) });
+    const mark = el("g", { "data-key": keyOf(team), "data-name": team.name || "" });
     const scale = logoNode(team);
     scale.classList.add("ring-logo-scale");
     mark.appendChild(scale);
@@ -339,5 +340,30 @@
     ring.timer.classList.toggle("paused", Boolean(paused));
   }
 
-  return { mount, update, setTimer };
+  function itemMatches(item, name) {
+    if (!item || !name) return false;
+    const want = String(name).toLowerCase();
+    const team = item.team || {};
+    return [team.name, team.short, team.identityId, item.key]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase() === want);
+  }
+
+  function anchorFor(svg, name) {
+    const ring = svg && svg._ring;
+    if (!ring) return null;
+    const item = (ring.items || []).find((it) => itemMatches(it, name) && !it.leaving);
+    if (!item) return null;
+    const mid = midAngle(item.a0, item.a1);
+    const [x, y] = polar(CX, CY, R_OUTER + 6, mid);
+    const ctm = svg.getScreenCTM && svg.getScreenCTM();
+    if (!ctm) return { x, y, angle: mid };
+    const pt = svg.createSVGPoint();
+    pt.x = x;
+    pt.y = y;
+    const sp = pt.matrixTransform(ctm);
+    return { x: sp.x, y: sp.y, angle: mid };
+  }
+
+  return { mount, update, setTimer, anchorFor };
 });

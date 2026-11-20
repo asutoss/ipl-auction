@@ -382,3 +382,96 @@ describe("bid button amounts", () => {
     assert.equal(paused.canOptOut, false);
   });
 });
+
+describe("emotes", () => {
+  const { loadPlayers: loadPool } = require("../server/players");
+  const { EMOTES, isValidEmoteId, emojis, phrases, EMOTE_COOLDOWN_MS } = require("../public/emotes");
+  const { meta, players } = loadPool();
+
+  function liveRoom() {
+    const room = new GameRoom({
+      code: "EMO001",
+      purseLakhs: 100,
+      timers: { lotStartMs: 60_000, bidMs: 60_000, captainMs: 45_000, soldRevealMs: 0 },
+      allPlayers: players,
+      meta,
+    });
+    room.addPlayer("Ashutosh", "s1");
+    room.addPlayer("Priya", "s2");
+    room.forcedStartBid = 2;
+    const started = room.startAuction("Ashutosh");
+    assert.equal(started.ok, true);
+    return room;
+  }
+
+  test("rejects unknown emote ids and accepts the whitelist", () => {
+    assert.equal(emojis().length, 8);
+    assert.equal(phrases().length, 8);
+    for (const e of EMOTES) assert.equal(isValidEmoteId(e.id), true);
+    assert.equal(isValidEmoteId("not-a-real-emote"), false);
+    assert.equal(isValidEmoteId(""), false);
+    assert.equal(isValidEmoteId(null), false);
+
+    const room = liveRoom();
+    const bad = room.emote("Ashutosh", "not-a-real-emote");
+    assert.equal(bad.ok, false);
+    assert.match(bad.error, /unknown emote/i);
+    const also = room.emote("Ashutosh", { id: "laugh" });
+    assert.equal(also.ok, false);
+
+    const events = [];
+    room.on("emote", (evt) => events.push(evt));
+    const ok = room.emote("Ashutosh", "laugh");
+    assert.equal(ok.ok, true);
+    assert.equal(ok.emoteId, "laugh");
+    assert.equal(ok.teamId, "ashutosh");
+    assert.equal(events.length, 1);
+    assert.deepEqual(events[0], { teamId: "ashutosh", emoteId: "laugh" });
+
+    const lobby = new GameRoom({
+      code: "EMO002",
+      purseLakhs: 100,
+      timers: { lotStartMs: 1000, bidMs: 1000, captainMs: 1000, soldRevealMs: 0 },
+      allPlayers: players,
+      meta,
+    });
+    lobby.addPlayer("Ashutosh", "s1");
+    lobby.addPlayer("Priya", "s2");
+    const tooSoon = lobby.emote("Ashutosh", "laugh");
+    assert.equal(tooSoon.ok, false);
+    assert.match(tooSoon.error, /auction/i);
+  });
+
+  test("rate-limits a team to one emote every 2 seconds", () => {
+    const room = liveRoom();
+    const first = room.emote("Priya", "fire");
+    assert.equal(first.ok, true);
+    const second = room.emote("Priya", "clap");
+    assert.equal(second.ok, false);
+    assert.match(second.error, /wait a moment/i);
+    // A different team can still emote immediately.
+    const other = room.emote("Ashutosh", "cool");
+    assert.equal(other.ok, true);
+    const team = room.findByName("Priya");
+    team.lastEmoteAt = Date.now() - EMOTE_COOLDOWN_MS;
+    const third = room.emote("Priya", "clap");
+    assert.equal(third.ok, true);
+    assert.equal(third.emoteId, "clap");
+  });
+
+  test("broadcasts {teamId, emoteId} and works while paused", () => {
+    const room = liveRoom();
+    const events = [];
+    room.on("emote", (evt) => events.push(evt));
+    const paused = room.pause("Priya");
+    assert.equal(paused.ok, true);
+    const snapBefore = [];
+    room.on("snapshot", (reason) => snapBefore.push(reason));
+    const sent = room.emote("Ashutosh", "bas-kar");
+    assert.equal(sent.ok, true);
+    assert.deepEqual(events, [{ teamId: "ashutosh", emoteId: "bas-kar" }]);
+    assert.equal(snapBefore.length, 0);
+    assert.equal(room.getState("Priya").lastEmote, undefined);
+    assert.equal(room.auction && room.auction.emotes, undefined);
+  });
+});

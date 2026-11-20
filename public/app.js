@@ -447,7 +447,7 @@ function teamStripHtml(a) {
         row.eliminated ? "eliminated" : done ? "squad complete" : out ? "opted out of this player" : `${pending} slot${pending === 1 ? "" : "s"} left`
       }`;
       const fr = { id: row.identityId, color: row.color, color2: row.color2, text: row.text };
-      return `<button type="button" class="${cls}" title="${esc(tip)}" style="--c:${esc(row.color)};--c2:${esc(row.color2 || "")};--ct:${esc(row.text || row.color)}">
+      return `<button type="button" class="${cls}" data-team-id="${esc((row.name || "").toLowerCase())}" data-team-name="${esc(row.name)}" title="${esc(tip)}" style="--c:${esc(row.color)};--c2:${esc(row.color2 || "")};--ct:${esc(row.text || row.color)}">
         ${teamMark(fr, "sm", row.name)}
         <span class="chip-name">${esc(row.name)}</span>
         <span class="chip-meta"><b>${row.purseLakhs}</b><small>${esc(need)}</small></span>
@@ -912,10 +912,255 @@ async function emitOrToast(event, payload, fallback) {
   return res;
 }
 
+
+function emoteCatalog() {
+  return window.IplEmotes || { EMOTES: [], emojis: () => [], phrases: () => [], getEmote: () => null, isValidEmoteId: () => false, EMOTE_DURATION_MS: 2000, EMOTE_MAX_VISIBLE: 4, EMOTE_COOLDOWN_MS: 2000 };
+}
+
+let emotePickerOpen = false;
+let emoteCoolUntil = 0;
+const liveEmotes = [];
+
+function closeEmotePicker() {
+  emotePickerOpen = false;
+  const pop = document.getElementById("emote-popover");
+  const btn = document.getElementById("emote-btn");
+  if (pop) pop.hidden = true;
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
+
+function toggleEmotePicker() {
+  if (emotePickerOpen) {
+    closeEmotePicker();
+    return;
+  }
+  emotePickerOpen = true;
+  const pop = document.getElementById("emote-popover");
+  const btn = document.getElementById("emote-btn");
+  if (pop) pop.hidden = false;
+  if (btn) btn.setAttribute("aria-expanded", "true");
+}
+
+function emotePickerHtml() {
+  const cat = emoteCatalog();
+  const emojiBtns = (cat.emojis ? cat.emojis() : []).map((e) => (
+    `<button type="button" class="emote-pick-emoji" data-emote="${esc(e.id)}" title="${esc(e.glyph)}" aria-label="${esc(e.glyph)}">${e.glyph}</button>`
+  )).join("");
+  const phraseBtns = (cat.phrases ? cat.phrases() : []).map((e) => (
+    `<button type="button" class="emote-pick-phrase" data-emote="${esc(e.id)}">${esc(e.text)}</button>`
+  )).join("");
+  return `
+    <button type="button" class="emote-btn" id="emote-btn" aria-expanded="false" aria-haspopup="dialog" aria-controls="emote-popover" title="Send a reaction" aria-label="Send a reaction">😀</button>
+    <div class="emote-popover" id="emote-popover" role="dialog" aria-label="Reactions" hidden>
+      <div class="emote-emoji-row">${emojiBtns}</div>
+      <div class="emote-phrase-list">${phraseBtns}</div>
+    </div>`;
+}
+
+function ensureEmoteDock() {
+  let dock = document.getElementById("emote-dock");
+  if (dock) return dock;
+  dock = document.createElement("div");
+  dock.id = "emote-dock";
+  dock.className = "emote-dock";
+  dock.hidden = true;
+  dock.innerHTML = emotePickerHtml();
+  document.body.appendChild(dock);
+  return dock;
+}
+
+function syncEmoteDock() {
+  const dock = ensureEmoteDock();
+  const show = Boolean(state && state.phase === "auction" && state.you);
+  dock.hidden = !show;
+  if (!show) {
+    closeEmotePicker();
+    dock.classList.remove("is-fixed");
+    if (dock.parentElement !== document.body) document.body.appendChild(dock);
+    return;
+  }
+  const overlayUp = isSoldRevealActive() || Boolean(state.paused);
+  const wrap = document.querySelector(".ring-wrap");
+  if (wrap && !overlayUp) {
+    if (dock.parentElement !== wrap) wrap.appendChild(dock);
+    dock.classList.remove("is-fixed");
+  } else {
+    if (dock.parentElement !== document.body) document.body.appendChild(dock);
+    dock.classList.add("is-fixed");
+  }
+  const btn = document.getElementById("emote-btn");
+  if (btn) btn.disabled = Date.now() < emoteCoolUntil;
+  const pop = document.getElementById("emote-popover");
+  if (pop) pop.hidden = !emotePickerOpen;
+  if (btn) btn.setAttribute("aria-expanded", emotePickerOpen ? "true" : "false");
+}
+
+function findEmoteTeam(teamId) {
+  const id = String(teamId || "").toLowerCase();
+  if (!id || !state) return null;
+  const lists = [
+    state.franchises || [],
+    (state.auction && state.auction.stillIn) || [],
+    (state.auction && state.auction.lotSnapshot) || [],
+  ];
+  for (const list of lists) {
+    const hit = list.find((t) => {
+      const name = (t.name || "").toLowerCase();
+      const key = (t.key || t.identityId || "").toLowerCase();
+      return name === id || key === id;
+    });
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function emoteTeamStyle(teamId) {
+  const team = findEmoteTeam(teamId);
+  const fr = (team && (team.franchise || team)) || {};
+  const color = fr.color || fr.text || "#f5c518";
+  const text = fr.text || color;
+  return { team, name: (team && team.name) || teamId, color, text };
+}
+
+function emoteAnchorPoint(teamId) {
+  const info = emoteTeamStyle(teamId);
+  const svg = document.getElementById("auction-ring");
+  if (svg && window.IplRing && typeof IplRing.anchorFor === "function") {
+    const pt = IplRing.anchorFor(svg, info.name || teamId);
+    if (pt) return avoidEmoteCollisions(pt);
+  }
+  const id = String(teamId || "").toLowerCase();
+  const chip = document.querySelector(`.team-chip[data-team-id="${CSS.escape(id)}"]`)
+    || (info.name ? document.querySelector(`.team-chip[data-team-name="${CSS.escape(info.name)}"]`) : null);
+  if (chip) {
+    const r = chip.getBoundingClientRect();
+    return avoidEmoteCollisions({ x: r.left + r.width / 2, y: r.top + 2 });
+  }
+  const btn = document.getElementById("emote-btn");
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top - 8 };
+  }
+  return { x: window.innerWidth / 2, y: window.innerHeight * 0.3 };
+}
+
+function avoidEmoteCollisions(pt) {
+  const hub = document.getElementById("auction-hub");
+  const wrap = document.querySelector(".ring-wrap");
+  let x = pt.x;
+  let y = pt.y;
+  if (hub && wrap) {
+    const wr = wrap.getBoundingClientRect();
+    const cx = wr.left + wr.width / 2;
+    const cy = wr.top + wr.height / 2;
+    const hr = hub.getBoundingClientRect();
+    const safe = hr.width / 2 + 10;
+    const dx = x - cx;
+    const dy = y - cy;
+    const dist = Math.hypot(dx, dy) || 1;
+    if (dist < safe) {
+      const scale = safe / dist;
+      x = cx + dx * scale;
+      y = cy + dy * scale;
+    }
+  }
+  const bid = document.getElementById("bid-box");
+  if (bid) {
+    const b = bid.getBoundingClientRect();
+    if (x >= b.left - 8 && x <= b.right + 8 && y >= b.top - 8 && y <= b.bottom + 8) {
+      y = b.top - 16;
+    }
+  }
+  return { x, y, angle: pt.angle };
+}
+
+function pruneLiveEmotes() {
+  const cat = emoteCatalog();
+  const max = cat.EMOTE_MAX_VISIBLE || 4;
+  while (liveEmotes.length > max) {
+    const old = liveEmotes.shift();
+    if (old && old.el) old.el.remove();
+    if (old && old.timer) clearTimeout(old.timer);
+  }
+}
+
+function showEmote(payload) {
+  const cat = emoteCatalog();
+  const emote = cat.getEmote && cat.getEmote(payload && payload.emoteId);
+  if (!emote) return;
+  let layer = document.getElementById("emote-layer");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.id = "emote-layer";
+    layer.className = "emote-layer";
+    layer.setAttribute("aria-hidden", "true");
+    document.body.appendChild(layer);
+  }
+  const info = emoteTeamStyle(payload.teamId);
+  const at = emoteAnchorPoint(payload.teamId);
+  const el = document.createElement("div");
+  const isPhrase = emote.kind === "phrase";
+  el.className = `emote-float ${isPhrase ? "is-phrase" : "is-emoji"}`;
+  el.style.setProperty("--c", info.color);
+  el.style.setProperty("--ct", info.text);
+  el.style.left = `${Math.round(at.x)}px`;
+  el.style.top = `${Math.round(at.y)}px`;
+  if (Number.isFinite(at.angle)) {
+    const rad = ((at.angle - 90) * Math.PI) / 180;
+    const dist = isPhrase ? 44 : 36;
+    el.style.setProperty("--dx", `${Math.round(Math.cos(rad) * dist)}px`);
+    el.style.setProperty("--dy", `${Math.round(Math.sin(rad) * dist)}px`);
+  }
+  if (isPhrase) el.textContent = emote.text;
+  else el.textContent = emote.glyph;
+  layer.appendChild(el);
+  const rec = { el, timer: null };
+  liveEmotes.push(rec);
+  pruneLiveEmotes();
+  const life = cat.EMOTE_DURATION_MS || 2000;
+  rec.timer = setTimeout(() => {
+    el.remove();
+    const i = liveEmotes.indexOf(rec);
+    if (i >= 0) liveEmotes.splice(i, 1);
+  }, life);
+}
+
+async function sendEmote(id) {
+  closeEmotePicker();
+  if (!state || state.phase !== "auction" || !id) return;
+  const res = await emit("emote", { emoteId: id });
+  if (res && res.ok) {
+    const cat = emoteCatalog();
+    emoteCoolUntil = Date.now() + (cat.EMOTE_COOLDOWN_MS || 2000);
+    const btn = document.getElementById("emote-btn");
+    if (btn) {
+      btn.disabled = true;
+      setTimeout(() => { if (btn) btn.disabled = Date.now() < emoteCoolUntil; }, (cat.EMOTE_COOLDOWN_MS || 2000) + 20);
+    }
+    // The broadcast also arrives on this socket; don't double-show here.
+    return;
+  }
+  if (res && res.error && !/wait a moment/i.test(res.error)) toast(res.error);
+}
+
 function wireGlobal() {
   if (wireGlobal.done) return;
   wireGlobal.done = true;
   document.addEventListener("click", async (e) => {
+    const emotePick = e.target.closest("[data-emote]");
+    if (emotePick) {
+      e.preventDefault();
+      sendEmote(emotePick.getAttribute("data-emote"));
+      return;
+    }
+    if (e.target.closest("#emote-btn")) {
+      e.preventDefault();
+      toggleEmotePicker();
+      return;
+    }
+    if (emotePickerOpen && !e.target.closest("#emote-dock")) {
+      closeEmotePicker();
+    }
     const ident = e.target.closest("[data-identity]");
     if (ident) {
       await emitOrToast("selectIdentity", { identityId: ident.getAttribute("data-identity") }, "Could not pick that logo.");
@@ -970,6 +1215,7 @@ function render() {
     lastBidShown = null;
     main.innerHTML = homeView();
     wireHome();
+    syncEmoteDock();
     return;
   }
   if (
@@ -980,6 +1226,7 @@ function render() {
     main.querySelector("#auction-ring")
   ) {
     patchAuction();
+    syncEmoteDock();
     return;
   }
   if (state.phase === "lobby") main.innerHTML = lobbyView();
@@ -989,6 +1236,7 @@ function render() {
   else main.innerHTML = homeView();
   wireCurrent();
   if (state.phase === "auction") mountAuctionRing();
+  syncEmoteDock();
 }
 
 function wireHome() {
@@ -1146,6 +1394,11 @@ socket.on("gameEnded", (info) => {
   goHome();
 });
 
+socket.on("emote", (evt) => {
+  if (!evt || !evt.emoteId) return;
+  showEmote(evt);
+});
+
 socket.on("connect_error", () => toast("Connection issue — retrying…"));
 
 wireGlobal();
@@ -1153,7 +1406,10 @@ startTicks();
 window.addEventListener("resize", () => {
   if (state && state.phase === "auction") fitHubName();
 });
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && emotePickerOpen) closeEmotePicker();
+});
 render();
 
 
-window.IplApp = { get state() { return state; }, emit, socket };
+window.IplApp = { get state() { return state; }, emit, socket, showEmote, syncEmoteDock };

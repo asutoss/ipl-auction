@@ -27,6 +27,7 @@ const {
 } = require("./rules");
 const { getBooster, canAffordAny, publicCatalog } = require("./boosters");
 const { IDENTITIES, getIdentity, nextIdentity, publicIdentity } = require("../public/identities");
+const { isValidEmoteId, EMOTE_COOLDOWN_MS } = require("../public/emotes");
 
 function normalizeName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
@@ -1188,7 +1189,25 @@ class GameRoom extends EventEmitter {
     });
   }
 
+  emote(byName, emoteId) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.phase !== "auction") return { ok: false, error: "Emotes are available during the auction." };
+    const id = typeof emoteId === "string" ? emoteId : "";
+    if (!isValidEmoteId(id)) return { ok: false, error: "Unknown emote." };
+    const now = Date.now();
+    if (team.lastEmoteAt && now - team.lastEmoteAt < EMOTE_COOLDOWN_MS) {
+      return { ok: false, error: "Wait a moment before sending another emote." };
+    }
+    team.lastEmoteAt = now;
+    const payload = { teamId: team.key, emoteId: id };
+    this.emit("emote", payload);
+    return { ok: true, ...payload };
+  }
+
   getMatches() {
+
     if (!this.tournament) return null;
     return {
       leagueMatches: this.tournament.leagueMatches || [],

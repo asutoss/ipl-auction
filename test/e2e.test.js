@@ -358,3 +358,63 @@ describe("identities, pause, start bid and end game over sockets", () => {
     if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
   });
 });
+
+describe("emote broadcast over sockets", () => {
+  let ctx;
+  const sockets = [];
+
+  test("validates, rate-limits, and broadcasts {teamId, emoteId} to the room", async () => {
+    ctx = await start(0);
+    const url = `http://127.0.0.1:${ctx.server.address().port}`;
+    const ash = await connect(url, "Ashutosh");
+    const priya = await connect(url, "Priya");
+    sockets.push(ash, priya);
+    const created = await ack(ash, "createRoom", {
+      name: "Ashutosh",
+      testTimers: { lotStartMs: 20000, bidMs: 20000, captainMs: 8000, soldRevealMs: 0 },
+    });
+    assert.equal(created.ok, true);
+    assert.equal((await ack(priya, "joinRoom", { code: created.code, name: "Priya" })).ok, true);
+    assert.equal((await ack(ash, "startAuction")).ok, true);
+    await waitState(ash, (s) => s.phase === "auction" && s.auction && s.auction.nominee);
+    await waitState(priya, (s) => s.phase === "auction" && s.auction);
+
+    const unknown = await ack(ash, "emote", { emoteId: "not-real" });
+    assert.equal(unknown.ok, false);
+    assert.match(unknown.error || "", /unknown emote/i);
+
+    const seen = [];
+    const got = new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("no emote broadcast")), 3000);
+      function onEmote(evt) {
+        seen.push({ who: this.playerName, evt });
+        if (seen.length >= 2) {
+          clearTimeout(t);
+          resolve(seen);
+        }
+      }
+      ash.on("emote", onEmote);
+      priya.on("emote", onEmote);
+    });
+    const sent = await ack(priya, "emote", { emoteId: "overpaid" });
+    assert.equal(sent.ok, true);
+    assert.equal(sent.teamId, "priya");
+    assert.equal(sent.emoteId, "overpaid");
+    const events = await got;
+    assert.equal(events.length, 2);
+    for (const row of events) {
+      assert.deepEqual(row.evt, { teamId: "priya", emoteId: "overpaid" });
+    }
+    const again = await ack(priya, "emote", { emoteId: "steal" });
+    assert.equal(again.ok, false);
+    assert.match(again.error || "", /wait a moment/i);
+  });
+
+  after(async () => {
+    for (const s of sockets) {
+      try { s.close(); } catch {}
+    }
+    if (ctx?.io) ctx.io.close();
+    if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
+  });
+});

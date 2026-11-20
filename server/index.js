@@ -86,6 +86,13 @@ function bindRoom(room) {
       }
     }
   });
+  room.on("emote", (evt) => {
+    for (const [, sock] of io.of("/").sockets) {
+      if (sock.data && sock.data.code === room.code) {
+        sock.emit("emote", evt);
+      }
+    }
+  });
   room.on("ended", (info) => {
     for (const [, sock] of io.of("/").sockets) {
       if (sock.data && sock.data.code === room.code) {
@@ -260,6 +267,13 @@ io.on("connection", (socket) => {
     const room = getRoom(socket.data.code);
     if (!room) return cb && cb({ ok: false, error: "Join a room first." });
     const result = room.continueReveal(socket.data.name);
+    cb && cb(result);
+  });
+
+  socket.on("emote", (payload = {}, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.emote(socket.data.name, payload.emoteId);
     cb && cb(result);
   });
 
