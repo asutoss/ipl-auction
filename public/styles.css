@@ -238,18 +238,62 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 
 .top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-.auction-stage { display: grid; justify-items: center; gap: 8px; }
+.auction-stage { display: grid; justify-items: center; gap: 8px; padding: 16px 10px 24px; }
 .ring-wrap {
   position: relative; width: min(460px, 100%); aspect-ratio: 1;
   margin: 0 auto;
+  overflow: visible;
+}
+.ring-stage {
+  position: relative;
+  width: 100%; height: 100%;
+  perspective: 860px;
+  perspective-origin: 50% 42%;
+  transform-style: preserve-3d;
+}
+.ring-ground-shadow {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -4%;
+  height: 22%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.32) 40%, rgba(0,0,0,0) 74%);
+  transform: translateY(6px) scaleY(0.7);
+}
+.ring-tilt {
+  position: relative;
+  z-index: 1;
+  width: 100%; height: 100%;
+  transform: rotateX(12deg);
+  transform-origin: 50% 52%;
+  transform-style: preserve-3d;
 }
 #auction-ring { width: 100%; height: 100%; overflow: visible; }
-.ring-seg { stroke: rgba(0,0,0,0.25); stroke-width: 1; transition: filter 240ms ease; }
+.ring-seg { stroke: rgba(0,0,0,0.28); stroke-width: 1; transition: filter 250ms ease, opacity 250ms ease; }
 .ring-seg.is-leader {
-  filter: drop-shadow(0 0 10px currentColor) drop-shadow(0 0 18px rgba(255,255,255,0.35));
+  filter: saturate(1.2) brightness(1.08) drop-shadow(0 0 10px currentColor) drop-shadow(0 0 16px rgba(255,255,255,0.35));
   animation: ring-glow 900ms ease-in-out infinite;
 }
-.ring-seg.is-leaving { pointer-events: none; }
+.ring-seg.is-dim { filter: saturate(0.35) brightness(0.62); }
+.ring-seg.is-leaving, .ring-item.is-leaving { pointer-events: none; }
+.ring-seg-bevel { mix-blend-mode: soft-light; }
+.ring-item-lift {
+  --lift-x: 0;
+  --lift-y: 0;
+  transform: translate(calc(var(--lift-x) * var(--u, 1px)), calc(var(--lift-y) * var(--u, 1px)));
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.32, 1);
+}
+.ring-item.is-leader {
+  --bob-x: 0;
+  --bob-y: 0;
+  animation: ring-bob 2.6s ease-in-out 250ms infinite;
+}
+@keyframes ring-bob {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(calc(var(--bob-x) * var(--u, 1px)), calc(var(--bob-y) * var(--u, 1px))); }
+}
 .ring-timer { transition: stroke 200ms linear, stroke-dashoffset 200ms linear; }
 .ring-timer.low { stroke: #ff5d6c; }
 .ring-timer.paused { stroke: #9aa6c3; }
@@ -270,6 +314,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 
 .hub {
   position: absolute;
+  z-index: 4;
   width: 63%; height: 63%;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
@@ -424,11 +469,6 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .team-mark-wrap .team-mark-img { width: 100%; height: 100%; }
 .logo-choice .team-mark-img { width: 96px; height: 96px; }
 
-.ring-seg { transition: filter 280ms ease, opacity 280ms ease; }
-.ring-seg.is-dim { filter: saturate(0.35) brightness(0.62); }
-.ring-seg.is-leader {
-  filter: saturate(1.2) brightness(1.08) drop-shadow(0 0 10px currentColor) drop-shadow(0 0 16px rgba(255,255,255,0.35));
-}
 .ring-sheen-path { mix-blend-mode: screen; opacity: 0; pointer-events: none; transition: opacity 280ms ease; }
 .ring-pointer { transition: transform 320ms cubic-bezier(0.22, 1, 0.32, 1), opacity 200ms ease; }
 .ring-pointer-head { filter: drop-shadow(0 0 4px rgba(245, 197, 24, 0.9)); }
@@ -743,3 +783,12 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   .emote-pick-phrase { padding: 5px 6px; font-size: 11px; white-space: normal; }
   html.is-auction .toast { bottom: 210px; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-item.is-leader,
+  .ring-seg.is-leader,
+  .ring-logo-scale.is-leader { animation: none; }
+  .ring-item-lift { transition: none; }
+  .ring-sheen-path { transition: none; }
+}
+

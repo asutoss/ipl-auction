@@ -1,5 +1,6 @@
 /**
- * Auction ring: equal-arc team segments around the player card.
+ * Auction ring: equal-arc team segments around the player card,
+ * drawn with a modest 3D tilt and a floating leader segment.
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
@@ -14,6 +15,8 @@
   const R_LOGO = 170;
   const GAP = 2.2;
   const DURATION = 320;
+  const LIFT = 12;
+  const EXTRUDE_Y = 5;
 
   function polar(cx, cy, r, angle) {
     const a = ((angle - 90) * Math.PI) / 180;
@@ -59,10 +62,109 @@
     return team.identityId || team.short || team.name;
   }
 
+  function prefersReducedMotion() {
+    try {
+      return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function syncScale(svg) {
+    const w = (svg.clientWidth || (svg.getBoundingClientRect && svg.getBoundingClientRect().width) || 400);
+    const u = w / 400;
+    svg.style.setProperty("--u", `${u}px`);
+  }
+
+  function observeScale(svg) {
+    syncScale(svg);
+    if (typeof ResizeObserver !== "function") return;
+    if (svg._ringScaleObs) svg._ringScaleObs.disconnect();
+    const obs = new ResizeObserver(() => syncScale(svg));
+    obs.observe(svg);
+    svg._ringScaleObs = obs;
+  }
+
   function mount(svg) {
     svg.setAttribute("viewBox", "0 0 400 400");
+    svg.setAttribute("overflow", "visible");
     svg.innerHTML = "";
-    const bg = el("circle", { cx: CX, cy: CY, r: R_TIMER + 4, fill: "rgba(7,11,22,0.85)", class: "ring-bg" });
+    const defs = el("defs", {});
+
+    const sheen = el("linearGradient", {
+      id: "ring-sheen", x1: "0", y1: "0", x2: "1", y2: "1",
+      gradientUnits: "objectBoundingBox",
+    });
+    sheen.innerHTML = `
+      <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="35%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#fff" stop-opacity="0.7"/>
+      <stop offset="65%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    `;
+    if (!prefersReducedMotion()) {
+      const anim = el("animateTransform", {
+        attributeName: "gradientTransform",
+        type: "translate",
+        from: "-1 0",
+        to: "1 0",
+        dur: "1.6s",
+        repeatCount: "indefinite",
+      });
+      sheen.appendChild(anim);
+    }
+    defs.appendChild(sheen);
+
+    const bevel = el("radialGradient", {
+      id: "ring-bevel",
+      gradientUnits: "userSpaceOnUse",
+      cx: "155", cy: "128", r: "250",
+    });
+    bevel.innerHTML = `
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="32%" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="68%" stop-color="#000000" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.42"/>
+    `;
+    defs.appendChild(bevel);
+
+    const rimLit = el("linearGradient", {
+      id: "ring-rim-lit",
+      gradientUnits: "userSpaceOnUse",
+      x1: "200", y1: "4", x2: "200", y2: "396",
+    });
+    rimLit.innerHTML = `
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.78"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="70%" stop-color="#000000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.55"/>
+    `;
+    defs.appendChild(rimLit);
+
+    const shadow = el("filter", {
+      id: "ring-lift-shadow",
+      x: "-45%", y: "-45%", width: "190%", height: "200%",
+    });
+    shadow.innerHTML = `
+      <feDropShadow dx="1" dy="8" stdDeviation="3.6" flood-color="#000000" flood-opacity="0.62"/>
+    `;
+    defs.appendChild(shadow);
+
+    const thickness = el("g", { class: "ring-thickness", transform: `translate(0 ${EXTRUDE_Y})`, "aria-hidden": "true" });
+    const thickBand = el("circle", {
+      cx: CX, cy: CY, r: (R_INNER + R_OUTER) / 2,
+      fill: "none",
+      stroke: "#05070f",
+      "stroke-width": String(R_OUTER - R_INNER + 6),
+    });
+    const thickFace = el("circle", {
+      cx: CX, cy: CY, r: (R_INNER + R_OUTER) / 2,
+      fill: "none",
+      stroke: "#1a2236",
+      "stroke-width": String(R_OUTER - R_INNER + 1),
+    });
+    thickness.append(thickBand, thickFace);
+
     const timerTrack = el("circle", {
       cx: CX, cy: CY, r: R_TIMER, fill: "none",
       stroke: "rgba(255,255,255,0.08)", "stroke-width": 8,
@@ -77,28 +179,41 @@
       transform: `rotate(-90 ${CX} ${CY})`,
       class: "ring-timer",
     });
-    const defs = el("defs", {});
-    const sheen = el("linearGradient", {
-      id: "ring-sheen", x1: "0", y1: "0", x2: "1", y2: "1",
-      gradientUnits: "objectBoundingBox",
-    });
-    sheen.innerHTML = `
-      <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
-      <stop offset="35%" stop-color="#fff" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#fff" stop-opacity="0.7"/>
-      <stop offset="65%" stop-color="#fff" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
-      <animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="1.6s" repeatCount="indefinite"/>
-    `;
-    defs.appendChild(sheen);
+
     const segs = el("g", { class: "ring-segs" });
     const sheenPath = el("path", { class: "ring-sheen-path", fill: "url(#ring-sheen)", "pointer-events": "none" });
+
+    const rims = el("g", { class: "ring-rims", "pointer-events": "none" });
+    rims.appendChild(el("circle", {
+      class: "ring-rim-outer",
+      cx: CX, cy: CY, r: R_OUTER + 0.6,
+      fill: "none",
+      stroke: "url(#ring-rim-lit)",
+      "stroke-width": "2.4",
+    }));
+    rims.appendChild(el("circle", {
+      class: "ring-rim-inner",
+      cx: CX, cy: CY, r: R_INNER - 0.4,
+      fill: "none",
+      stroke: "url(#ring-rim-lit)",
+      "stroke-width": "2",
+    }));
+
+    const well = el("circle", {
+      class: "ring-well-shadow",
+      cx: CX, cy: CY, r: R_INNER - 2,
+      fill: "none",
+      stroke: "rgba(0,0,0,0.55)",
+      "stroke-width": "7",
+      "pointer-events": "none",
+    });
+
     const hubDisc = el("circle", {
       cx: CX, cy: CY, r: R_INNER - 1.5,
       fill: "#070b14",
       class: "ring-hub-disc",
     });
-    const marks = el("g", { class: "ring-marks" });
+
     const pointer = el("g", { class: "ring-pointer", "aria-hidden": "true" });
     const tipR = R_OUTER - 2;
     const baseR = R_TIMER + 1;
@@ -111,8 +226,10 @@
       "stroke-linejoin": "round",
     });
     pointer.appendChild(head);
-    svg.append(defs, bg, timerTrack, timer, segs, sheenPath, hubDisc, marks, pointer);
-    svg._ring = { segs, marks, timer, timerC, items: [], pointer, sheenPath, pointerAngle: 0 };
+
+    svg.append(defs, thickness, timerTrack, timer, segs, rims, well, hubDisc, pointer);
+    svg._ring = { segs, timer, timerC, items: [], pointer, sheenPath, pointerAngle: 0, pointerLift: 0 };
+    observeScale(svg);
     return svg._ring;
   }
 
@@ -132,14 +249,42 @@
     }));
   }
 
+  function applyLift(item) {
+    const on = Boolean(item.team && item.team.isLeader && !item.leaving);
+    if (item.root) item.root.classList.toggle("is-leader", on);
+    if (item.lift) item.lift.classList.toggle("is-leader", on);
+    const mid = midAngle(item.a0, item.a1);
+    const [dx, dy] = on ? polar(0, 0, LIFT, mid) : [0, 0];
+    const [bx, by] = on ? polar(0, 0, LIFT * 0.22, mid) : [0, 0];
+    const target = item.lift || item.root;
+    if (target) {
+      target.style.setProperty("--lift-x", dx.toFixed(2));
+      target.style.setProperty("--lift-y", dy.toFixed(2));
+    }
+    if (item.root) {
+      item.root.style.setProperty("--bob-x", bx.toFixed(2));
+      item.root.style.setProperty("--bob-y", by.toFixed(2));
+    }
+    if (item.lift) {
+      if (on) item.lift.setAttribute("filter", "url(#ring-lift-shadow)");
+      else item.lift.removeAttribute("filter");
+    }
+    if (on && item.root && item.root.parentNode) {
+      item.root.parentNode.appendChild(item.root);
+    }
+  }
+
   function setPath(item, a0, a1) {
     item.a0 = a0;
     item.a1 = a1;
     const d = donutPath(a0, a1);
     item.path.setAttribute("d", d);
+    if (item.extrude) item.extrude.setAttribute("d", d);
+    if (item.bevel) item.bevel.setAttribute("d", d);
     const mid = midAngle(a0, a1);
     const [lx, ly] = polar(CX, CY, R_LOGO, mid);
     item.mark.setAttribute("transform", `translate(${lx.toFixed(1)} ${ly.toFixed(1)})`);
+    applyLift(item);
   }
 
   function paintLeader(item) {
@@ -149,6 +294,8 @@
     if (item.scale) item.scale.classList.toggle("is-leader", on);
     item.mark.classList.toggle("is-leader", on);
     item.mark.classList.toggle("is-dim", !on);
+    if (item.extrude) item.extrude.classList.toggle("is-leader", on);
+    applyLift(item);
   }
 
   function shortestTurn(from, to) {
@@ -158,9 +305,11 @@
     return from + d;
   }
 
-  function applyPointerAngle(ring, ang) {
-    ring.pointer.setAttribute("transform", `rotate(${ang} ${CX} ${CY})`);
+  function applyPointerAngle(ring, ang, lift) {
+    const L = lift || 0;
+    ring.pointer.setAttribute("transform", `rotate(${ang} ${CX} ${CY}) translate(0 ${(-L).toFixed(2)})`);
     ring.pointerAngle = ang;
+    ring.pointerLift = L;
   }
 
   function pointToLeader(svg, animateMotion) {
@@ -170,31 +319,35 @@
     const mid = leader ? midAngle(leader.a0, leader.a1) : 0;
     const from = ring.pointerAngle || 0;
     const next = shortestTurn(from, mid);
+    const fromLift = ring.pointerLift || 0;
+    const nextLift = leader ? LIFT : 0;
     if (ring._pointerAnim) {
       cancelAnimationFrame(ring._pointerAnim);
       ring._pointerAnim = null;
     }
     const paintSheen = () => {
       if (!ring.sheenPath) return;
-      if (leader) {
+      if (leader && leader.lift) {
+        if (ring.sheenPath.parentNode !== leader.lift) leader.lift.appendChild(ring.sheenPath);
         ring.sheenPath.setAttribute("d", donutPath(leader.a0, leader.a1));
         ring.sheenPath.style.opacity = "1";
       } else {
         ring.sheenPath.setAttribute("d", "");
         ring.sheenPath.style.opacity = "0";
+        if (ring.sheenPath.parentNode) ring.sheenPath.parentNode.removeChild(ring.sheenPath);
       }
     };
     ring.pointer.style.opacity = leader ? "1" : "0";
     paintSheen();
-    if (animateMotion === false || Math.abs(next - from) < 0.2) {
-      applyPointerAngle(ring, next);
+    if (animateMotion === false || (Math.abs(next - from) < 0.2 && Math.abs(nextLift - fromLift) < 0.2)) {
+      applyPointerAngle(ring, next, nextLift);
       return;
     }
     const t0 = performance.now();
     function frame(now) {
       const t = Math.min(1, (now - t0) / DURATION);
       const e = 1 - Math.pow(1 - t, 3);
-      applyPointerAngle(ring, from + (next - from) * e);
+      applyPointerAngle(ring, from + (next - from) * e, fromLift + (nextLift - fromLift) * e);
       if (t < 1) ring._pointerAnim = requestAnimationFrame(frame);
       else ring._pointerAnim = null;
     }
@@ -219,17 +372,32 @@
   }
 
   function makeItem(team, a0, a1) {
+    const root = el("g", { class: "ring-item", "data-key": keyOf(team), "data-name": team.name || "" });
+    const extrude = el("path", {
+      class: "ring-seg-extrude",
+      transform: `translate(0 ${EXTRUDE_Y})`,
+      fill: "#070a12",
+      "pointer-events": "none",
+    });
+    const lift = el("g", { class: "ring-item-lift" });
     const path = el("path", {
       class: "ring-seg",
       fill: team.color,
       "data-key": keyOf(team),
       "data-name": team.name || "",
     });
+    const bevel = el("path", {
+      class: "ring-seg-bevel",
+      fill: "url(#ring-bevel)",
+      "pointer-events": "none",
+    });
     const mark = el("g", { "data-key": keyOf(team), "data-name": team.name || "" });
     const scale = logoNode(team);
     scale.classList.add("ring-logo-scale");
     mark.appendChild(scale);
-    const item = { key: keyOf(team), team, path, mark, scale, a0, a1, leaving: false };
+    lift.append(path, bevel, mark);
+    root.append(extrude, lift);
+    const item = { key: keyOf(team), team, root, lift, path, bevel, extrude, mark, scale, a0, a1, leaving: false };
     setPath(item, a0, a1);
     paintLeader(item);
     return item;
@@ -245,17 +413,17 @@
       let item = fromMap.get(spec.key);
       if (!item) {
         item = makeItem(spec.team, spec.a0, spec.a1);
-        item.path.style.opacity = "0";
-        ring.segs.appendChild(item.path);
-        ring.marks.appendChild(item.mark);
+        item.root.style.opacity = "0";
+        ring.segs.appendChild(item.root);
         requestAnimationFrame(() => {
-          item.path.style.transition = `opacity ${DURATION}ms ease`;
-          item.path.style.opacity = "1";
+          item.root.style.transition = `opacity ${DURATION}ms ease`;
+          item.root.style.opacity = "1";
         });
       } else {
         item.team = spec.team;
         item.leaving = false;
         item.path.classList.remove("is-leaving");
+        item.root.classList.remove("is-leaving");
         paintLeader(item);
       }
       item._t0 = { a0: item.a0, a1: item.a1 };
@@ -267,7 +435,10 @@
     for (const item of fromItems || []) {
       if (toMap.has(item.key)) continue;
       item.leaving = true;
+      item.team = item.team ? { ...item.team, isLeader: false } : item.team;
       item.path.classList.add("is-leaving");
+      item.root.classList.add("is-leaving");
+      applyLift(item);
       item._t0 = { a0: item.a0, a1: item.a1 };
       const mid = midAngle(item.a0, item.a1);
       item._t1 = { a0: mid, a1: mid };
@@ -284,16 +455,14 @@
         const a1 = item._t0.a1 + (item._t1.a1 - item._t0.a1) * e;
         setPath(item, a0, a1);
         if (item.leaving) {
-          item.path.style.opacity = String(1 - e);
-          item.mark.style.opacity = String(1 - e);
+          item.root.style.opacity = String(1 - e);
         }
       }
       pointToLeader(svg, false);
       if (t < 1) requestAnimationFrame(frame);
       else {
         for (const item of leaving) {
-          item.path.remove();
-          item.mark.remove();
+          item.root.remove();
         }
         ring.items = nextItems;
         pointToLeader(svg, true);
@@ -305,21 +474,21 @@
 
   function update(svg, stillIn) {
     const ring = ensure(svg);
+    syncScale(svg);
     const spec = segmentTarget(stillIn || []);
     if (!ring.items.length) {
       for (const s of spec) {
         const item = makeItem(s.team, s.a0, s.a1);
-        ring.segs.appendChild(item.path);
-        ring.marks.appendChild(item.mark);
+        ring.segs.appendChild(item.root);
         ring.items.push(item);
       }
       pointToLeader(svg, false);
       return;
     }
-    const same =
+    const sameLayout =
       ring.items.length === spec.length &&
-      ring.items.every((it, i) => it.key === spec[i].key && Boolean(it.team.isLeader) === Boolean(spec[i].team.isLeader) && !it.leaving);
-    if (same) {
+      ring.items.every((it, i) => it.key === spec[i].key && !it.leaving);
+    if (sameLayout) {
       ring.items.forEach((it, i) => {
         it.team = spec[i].team;
         paintLeader(it);
@@ -356,7 +525,8 @@
     if (!item) return null;
     const mid = midAngle(item.a0, item.a1);
     const [x, y] = polar(CX, CY, R_OUTER + 6, mid);
-    const ctm = svg.getScreenCTM && svg.getScreenCTM();
+    const node = item.lift || item.path || svg;
+    const ctm = (node.getScreenCTM && node.getScreenCTM()) || (svg.getScreenCTM && svg.getScreenCTM());
     if (!ctm) return { x, y, angle: mid };
     const pt = svg.createSVGPoint();
     pt.x = x;

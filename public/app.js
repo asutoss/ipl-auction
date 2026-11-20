@@ -552,8 +552,12 @@ function auctionView() {
         <p class="lede">On the block ${a.pass === 2 ? "· unsold list" : ""} · ${a.soldCount} sold · ${a.remainingLots} still to come · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
         <div class="auction-stage">
           <div class="ring-wrap">
-            <svg id="auction-ring" role="img" aria-label="Teams still bidding"></svg>
-            <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
+            <div class="ring-stage">
+              <div class="ring-ground-shadow" aria-hidden="true"></div>
+              <div class="ring-tilt">
+                <svg id="auction-ring" role="img" aria-label="Teams still bidding"></svg>
+              </div>
+              <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
               <div class="hub-inner">
                 <p class="hub-name" id="hub-name">${esc(p.name)}</p>
                 <p class="hub-bid" id="hub-bid">
@@ -566,6 +570,7 @@ function auctionView() {
                   <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>
                 </div>
                 <p class="hub-timer ${secs <= 3 ? "low" : ""}" id="timer">${state.paused ? "Paused" : secs + "s"}</p>
+              </div>
               </div>
             </div>
           </div>
