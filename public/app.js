@@ -456,15 +456,6 @@ function teamStripHtml(a) {
     .join("");
 }
 
-function canPayStep(step) {
-  const a = state && state.auction;
-  const you = state && state.you;
-  if (!a || !a.youCanBid || !you) return false;
-  const amount = a.currentBidLakhs + step;
-  const slotsAfter = Math.max(0, 11 - ((you.squad || []).length + 1));
-  return you.purseLakhs - amount >= slotsAfter * 1;
-}
-
 function leaderLine(a) {
   if (!a) return "";
   if (a.isDefaultBidLeading) {
@@ -477,15 +468,19 @@ function leaderLine(a) {
 }
 
 function bidButtonsHtml(a) {
-  const steps = (a && a.bidSteps) || [1, 2, 5];
-  const current = a ? a.currentBidLakhs : 0;
-  return steps
-    .map((step) => {
-      const amount = current + step;
-      const on = canPayStep(step) && !(state && state.paused);
-      return `<button class="btn" data-step="${step}" ${on ? "" : "disabled"}>+${step} <span class="lede" style="display:inline;margin:0">(${money(amount)})</span></button>`;
+  const choices = (window.IplState && IplState.bidChoices(state)) || { options: [], canOptOut: false };
+  const raises = choices.options
+    .filter((o) => o.show)
+    .map((o) => {
+      return `<button class="btn bid-amt" data-step="${o.step}" aria-label="Bid ${o.amount} points" ${o.enabled ? "" : "disabled"}>
+        <span class="bid-amt-num">${o.amount}</span>
+        <span class="bid-amt-unit">pt${o.amount === 1 ? "" : "s"}</span>
+      </button>`;
     })
-    .join("") + `<button class="btn danger" id="optout" ${a && a.youCanOptOut && !(state && state.paused) ? "" : "disabled"}>Opt out</button>`;
+    .join("");
+  const opt = `<button class="btn bid-optout" id="optout" ${choices.canOptOut ? "" : "disabled"}>Opt out</button>`;
+  const raisesWrap = raises ? `<div class="bid-raises">${raises}</div>` : "";
+  return `${raisesWrap}${opt}`;
 }
 
 function auctionView() {
@@ -526,11 +521,11 @@ function auctionView() {
           </div>
           <div class="team-strip" id="team-strip">${teamStripHtml(a)}</div>
         </div>
-        <div class="bid-box">
-          <p class="label">Raise the bid</p>
-          <div class="actions bid-steps" id="bid-actions">${bidButtonsHtml(a)}</div>
+        <div class="bid-box" id="bid-box">
+          <p class="bid-label">Your bid</p>
+          <div class="bid-bar" id="bid-actions">${bidButtonsHtml(a)}</div>
           ${a.youReason ? `<p class="why" id="bid-why">${esc(a.youReason)}</p>` : `<p class="why" id="bid-why" hidden></p>`}
-          <p class="hint">A random starting bid (1–5 points) is assigned as the default bid. Use +1, +2 or +5 to raise. When only one team is left, the player is locked immediately. New lots get 15 seconds; each bid also resets the timer to 15.</p>
+          <p class="hint">Buttons show the exact points you would pay — current bid plus 1, 2 or 5. Amounts you cannot afford are hidden. When only one team is left, the player is locked immediately. New lots get 15 seconds; each bid also resets the timer to 15.</p>
           <p class="error">${esc(lastError)}</p>
         </div>
       </div>
@@ -901,6 +896,8 @@ function wireGlobal() {
 }
 
 function render() {
+  const auctionLive = Boolean(state && state.phase === "auction" && state.auction);
+  document.documentElement.classList.toggle("is-auction", auctionLive);
   syncOverlays();
   renderTop();
   if (!state || !state.phase || !state.code || state.phase === "ended") {

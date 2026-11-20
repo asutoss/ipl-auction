@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const { loadPlayers } = require("../server/players");
 const { GameRoom } = require("../server/game");
 const { RoomManager, makeRoomCode, ROOM_CODE_LENGTH, ROOM_CODE_ALPHABET } = require("../server/manager");
-const { applyDelta } = require("../public/state");
+const { applyDelta, bidChoices, canAffordAmount } = require("../public/state");
 
 class FakeClock {
   constructor(start = 1_000_000) {
@@ -314,5 +314,71 @@ describe("delta events and lite results", () => {
     assert.equal(state.you.purseLakhs, 9800);
     assert.equal(state.you.roleCounts.BAT, 1);
     assert.equal(state.auction, null);
+  });
+});
+
+describe("bid button amounts", () => {
+  function stateFor(overrides = {}) {
+    return {
+      paused: Boolean(overrides.paused),
+      you: {
+        name: "Priya",
+        purseLakhs: 100,
+        squad: [],
+        complete: false,
+        eliminated: false,
+        remainingQuota: { BAT: 4, WK: 1, AR: 2, BOWL: 4 },
+        ...(overrides.you || {}),
+      },
+      auction: overrides.auction === null ? null : {
+        nominee: { id: "virat-kohli", name: "Virat Kohli", role: "BAT" },
+        currentBidLakhs: 5,
+        bidSteps: [1, 2, 5],
+        youCanBid: true,
+        youCanOptOut: true,
+        youReason: null,
+        ...(overrides.auction || {}),
+      },
+    };
+  }
+
+  test("labels are the absolute bid amounts, not +1/+2/+5", () => {
+    const choices = bidChoices(stateFor());
+    assert.deepEqual(choices.options.map((o) => o.amount), [6, 7, 10]);
+    assert.deepEqual(choices.options.map((o) => o.label), ["6 pts", "7 pts", "10 pts"]);
+    assert.equal(choices.options.every((o) => o.show && o.enabled), true);
+    assert.equal(choices.canOptOut, true);
+  });
+
+  test("hides amounts that would break the 1-point reserve, and updates when the bid rises", () => {
+    const state = stateFor({ you: { purseLakhs: 17 } });
+    // After buying a BAT, 10 role slots remain, so reserve is 10. 17-6 and 17-7 leave enough; 17-10 does not.
+    assert.equal(canAffordAmount(state.you, state.auction, 6), true);
+    assert.equal(canAffordAmount(state.you, state.auction, 7), true);
+    assert.equal(canAffordAmount(state.you, state.auction, 10), false);
+    let choices = bidChoices(state);
+    assert.deepEqual(choices.options.filter((o) => o.show).map((o) => o.amount), [6, 7]);
+
+    state.auction.currentBidLakhs = 8;
+    choices = bidChoices(state);
+    assert.deepEqual(choices.options.map((o) => o.amount), [9, 10, 13]);
+    assert.deepEqual(choices.options.filter((o) => o.show).map((o) => o.amount), []);
+  });
+
+  test("hides bid amounts when the team cannot bid, and disables them while paused", () => {
+    const leading = bidChoices(stateFor({
+      auction: { currentBidLakhs: 5, youCanBid: false, youCanOptOut: false, youReason: "You have the leading bid." },
+    }));
+    assert.equal(leading.options.every((o) => o.show === false), true);
+    assert.equal(leading.canOptOut, false);
+
+    const done = bidChoices(stateFor({
+      you: { complete: true, remainingQuota: { BAT: 0, WK: 0, AR: 0, BOWL: 0 } },
+    }));
+    assert.equal(done.options.every((o) => o.show === false), true);
+
+    const paused = bidChoices(stateFor({ paused: true }));
+    assert.equal(paused.options.every((o) => o.show && !o.enabled), true);
+    assert.equal(paused.canOptOut, false);
   });
 });

@@ -28,9 +28,9 @@ async function waitFor(page, fn, timeout = 20000, label = "condition") {
   throw new Error(`timeout waiting for ${label}`);
 }
 
-async function shot(page, name) {
+async function shot(page, name, opts = {}) {
   const dest = path.join(OUT, name);
-  await page.screenshot({ path: dest, fullPage: true });
+  await page.screenshot({ path: dest, fullPage: opts.fullPage !== false });
   console.log("wrote", dest);
   return dest;
 }
@@ -108,13 +108,24 @@ async function main() {
       const n = await ash.evaluate(() => (IplApp.state.auction && IplApp.state.auction.stillIn && IplApp.state.auction.stillIn.length) || 0);
       return n >= 3;
     }, 8000, "several teams still in");
-    await sleep(400);
-    await shot(ash, "auction-ring.png");
-    await shot(ash, "auction.png");
 
-    const defaultName = await ash.evaluate(() => IplApp.state.auction.currentBidderName);
     const pages = [ash, ...others];
     const names = await Promise.all(pages.map((p) => p.evaluate(() => IplApp.state.you && IplApp.state.you.name)));
+    let bidderPage = null;
+    for (let i = 0; i < pages.length; i++) {
+      const can = await pages[i].evaluate(() => Boolean(IplApp.state && IplApp.state.auction && IplApp.state.auction.youCanBid));
+      if (can) { bidderPage = pages[i]; break; }
+    }
+    if (!bidderPage) bidderPage = others[0] || ash;
+    await sleep(400);
+    await shot(bidderPage, "auction-ring.png");
+    await shot(bidderPage, "auction.png");
+    await bidderPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+    await sleep(200);
+    await shot(bidderPage, "auction-mobile.png", { fullPage: false });
+    await bidderPage.setViewport({ width: 1400, height: 900, deviceScaleFactor: 1 });
+
+    const defaultName = await ash.evaluate(() => IplApp.state.auction.currentBidderName);
     let opted = 0;
     for (let i = 0; i < pages.length; i++) {
       if (names[i] === defaultName) continue;

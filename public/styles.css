@@ -100,7 +100,59 @@ input:focus, select:focus { border-color: var(--gold); }
 .still-item .who { font-weight: 700; }
 .still-item .meta { color: var(--muted); font-size: 12px; }
 
-.bid-box { margin-top: 16px; background: #0c1324; border-radius: 16px; padding: 14px; }
+.bid-box {
+  margin: 14px auto 0;
+  background: #0c1324;
+  border: 1px solid #334169;
+  border-radius: 20px;
+  padding: 14px 16px 16px;
+  width: 100%;
+  max-width: min(520px, 100%);
+}
+.bid-label {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.bid-bar { display: grid; gap: 10px; margin: 0; }
+.bid-raises { display: flex; gap: 10px; align-items: stretch; }
+.bid-amt {
+  flex: 1 1 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0;
+  min-height: 76px; min-width: 0;
+  border-radius: 16px; padding: 8px 6px 10px;
+  background: var(--gold); color: #1a1400;
+  box-shadow: 0 8px 20px rgba(245, 197, 24, 0.28);
+  line-height: 1;
+}
+.bid-amt-num {
+  font-family: var(--display);
+  font-size: clamp(36px, 7vw, 52px);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 0.85;
+}
+.bid-amt-unit {
+  margin-top: 2px;
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  opacity: 0.72;
+}
+.bid-amt:disabled { box-shadow: none; }
+.bid-optout {
+  justify-self: stretch;
+  min-height: 44px;
+  background: transparent;
+  color: #ffd5da;
+  border: 1px solid #7a2836;
+  box-shadow: none;
+  font-size: 15px;
+}
+.bid-optout:not(:disabled):hover { background: #3a1520; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
 .chip { background: #1c2744; color: var(--text); border: 1px solid #334169; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
 .chip:hover { border-color: var(--gold); }
@@ -150,7 +202,6 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .name-bar input { max-width: 360px; }
 .home { display: flex; flex-direction: column; gap: 24px; }
 .bid-steps { flex-wrap: wrap; }
-.bid-steps .btn { min-width: 92px; }
 .prep-layout { display: grid; gap: 18px; grid-template-columns: 1.1fr 0.9fr; }
 @media (max-width: 900px) { .prep-layout { grid-template-columns: 1fr; } }
 .booster-grid { display: grid; gap: 10px; }
@@ -399,4 +450,45 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   .sold-card { padding: 22px 16px 28px; border-radius: 22px; }
   .sold-logo .team-mark-wrap, .sold-logo .team-mark-img { width: 76px; height: 76px; }
   .sold-card #sold-continue { min-width: 140px; width: 100%; }
+}
+
+@media (max-width: 700px) {
+  html.is-auction #app { padding: 10px 12px 176px; }
+  html.is-auction .toast { bottom: 168px; }
+  html.is-auction .topbar { margin-bottom: 10px; align-items: flex-start; gap: 8px; }
+  html.is-auction .brand-kicker { display: none; }
+  html.is-auction .brand h1 { font-size: 28px; }
+  html.is-auction .panel { padding: 12px 12px 10px; }
+  html.is-auction .player-card > .lede { font-size: 12px; margin-bottom: 8px; }
+  html.is-auction .ring-wrap { width: min(300px, 100%, calc(100dvh - 360px)); }
+  html.is-auction .team-strip { margin-bottom: 2px; }
+  .bid-box {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 30;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    border-radius: 20px 20px 0 0;
+    border-left: 0; border-right: 0; border-bottom: 0;
+    border-top: 1px solid var(--line);
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.5);
+    background: #0c1324;
+  }
+  .bid-label { margin-bottom: 8px; }
+  .bid-raises { gap: 8px; }
+  .bid-amt {
+    min-height: 68px;
+    border-radius: 14px;
+    padding: 8px 4px 8px;
+    box-shadow: 0 4px 14px rgba(245, 197, 24, 0.3);
+  }
+  .bid-amt-num { font-size: 40px; }
+  .bid-optout {
+    width: 100%;
+    min-height: 46px;
+    border-radius: 12px;
+  }
+  .bid-box .hint { display: none; }
 }

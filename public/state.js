@@ -57,6 +57,59 @@
     if (live) state.you = { ...live, isYou: true };
   }
 
+  const BID_STEPS = [1, 2, 5];
+  const ROLE_ORDER = ["BAT", "WK", "AR", "BOWL"];
+
+  function canVoluntaryBid(you, auction) {
+    if (!you || !auction) return false;
+    if (you.eliminated || you.complete) return false;
+    const role = auction.nominee && auction.nominee.role;
+    if (role && you.remainingQuota && (you.remainingQuota[role] || 0) <= 0) return false;
+    return true;
+  }
+
+  function canAffordAmount(you, auction, amount) {
+    if (!canVoluntaryBid(you, auction)) return false;
+    const bid = Number(amount);
+    if (!Number.isFinite(bid) || bid > you.purseLakhs) return false;
+    const needed = { BAT: 0, WK: 0, AR: 0, BOWL: 0, ...(you.remainingQuota || {}) };
+    const role = auction.nominee && auction.nominee.role;
+    if (role && Object.prototype.hasOwnProperty.call(needed, role)) {
+      needed[role] = Math.max(0, (needed[role] || 0) - 1);
+    }
+    const reserve = ROLE_ORDER.reduce((sum, r) => sum + Math.max(0, needed[r] || 0), 0);
+    return you.purseLakhs - bid >= reserve;
+  }
+
+  function bidChoices(state) {
+    const a = state && state.auction;
+    const you = state && state.you;
+    const paused = Boolean(state && state.paused);
+    const steps = (a && a.bidSteps && a.bidSteps.length) ? a.bidSteps : BID_STEPS;
+    const current = a ? Number(a.currentBidLakhs) || 0 : 0;
+    const canBid = Boolean(a && you && a.youCanBid && canVoluntaryBid(you, a));
+    const options = steps.map((step) => {
+      const amount = current + step;
+      const affordable = canBid && canAffordAmount(you, a, amount);
+      return {
+        step,
+        amount,
+        label: `${amount} pt${amount === 1 ? "" : "s"}`,
+        affordable,
+        show: affordable,
+        enabled: affordable && !paused,
+      };
+    });
+    return {
+      current,
+      options,
+      canBid,
+      canOptOut: Boolean(a && a.youCanOptOut && !paused),
+      youReason: (a && a.youReason) || null,
+      paused,
+    };
+  }
+
   function applyDelta(state, evt) {
     if (!state || !evt) return state;
     const quotas = state.quotas || DEFAULT_QUOTA;
@@ -190,5 +243,5 @@
     return state;
   }
 
-  return { applyDelta, decorateAuctionYou, recomputeTeam };
+  return { applyDelta, decorateAuctionYou, recomputeTeam, canAffordAmount, canVoluntaryBid, bidChoices };
 });
