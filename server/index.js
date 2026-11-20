@@ -256,6 +256,13 @@ io.on("connection", (socket) => {
     cb && cb(result);
   });
 
+  socket.on("continueReveal", (_payload, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.continueReveal(socket.data.name);
+    cb && cb(result);
+  });
+
   socket.on("endGame", (_payload, cb) => {
     const room = getRoom(socket.data.code);
     if (!room) return cb && cb({ ok: false, error: "Join a room first." });

@@ -17,7 +17,7 @@ This is a local MVP. Nothing is deployed, and no accounts are required.
   - **Bid** with the **+1**, **+2** or **+5** buttons (bid = current + n). There is no custom amount box. Once outbid, the default-bid team may bid higher again. Voluntary bids must still leave **1 point per remaining role slot** to complete the squad; the automatic default bid does not apply that reserve check.
   - **Opt out** of this player (the button is always visible). That decision is final for this lot only. The default (or current leading) bidder cannot opt out while they hold the lead. When only one team remains in the race, bidding **closes immediately** and the player is sold to them.
   - The ring shows **only teams still in** — not opted out or eliminated, and automatically hidden if their *voluntary* role quota is full or they cannot afford a legal bid (the leading default bidder always stays visible). When a team opts out, their segment animates out and the remaining arcs redistribute equally.
-  - The player is **locked** to the highest bidder when every other team is out, or when the timer expires with a leading bid. A new player gets **15 seconds**; each bid resets the timer to **10 seconds**. After each sale, everyone sees a short full-screen "SOLD to [team] for N pts" celebration (about 1 second, with a clap animation) before the next lot's timer starts. Unsold lots get a quieter notice.
+  - The player is **locked** to the highest bidder when every other team is out, or when the timer expires with a leading bid. A new player gets **15 seconds**, and each bid also resets the timer to **15 seconds**. After each sale, everyone sees a full-screen "SOLD to [team] for N pts" celebration (with a clap animation) for **up to 5 seconds** before the next lot's timer starts. Anyone can press **Continue** to skip ahead. Unsold lots get a quieter notice with the same Continue button.
   - Nomination order is a **full random shuffle** of the pool, so stars and weaker known names appear in mixed order, but once some teams are finished the server prefers players in roles still needed by someone.
 - **Captain & boosters:** once the auction ends, teams have 45 seconds to pick a captain and (if they have leftover points) buy funny boosters from the shop. One of each booster per team, priced 15–40 points. Unspent points are kept but unused. If time runs out, the server auto-picks the highest-rated captain. The captain gets a +5% rating boost. Bought boosters have modest effects on the simulation and show up in results with any moments they triggered.
 - **Tournament:** only BAT, WK and AR players bat; only AR and BOWL players bowl. Strength is averaged over a full unit (7 batting-capable, 6 bowling-capable), so missing batters or bowlers count as zero and lopsided squads suffer. Then a round-robin league and playoffs (IPL-style if there are 4+ teams, or a top-2 final if fewer). Results are computed immediately and revealed on screen in about 30–60 seconds (or skip). Target: under 2 minutes.
@@ -74,7 +74,8 @@ test/                 Logic tests + Socket.IO e2e
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
 | `LOT_START_MS` | `15000` | Timer when a new player comes up |
-| `BID_TIMER_MS` | `10000` | Timer reset after each bid |
+| `BID_TIMER_MS` | `15000` | Timer reset after each bid |
+| `SOLD_REVEAL_MS` | `5000` | How long the sold/unsold overlay stays up before the next lot (can be skipped with Continue) |
 | `CAPTAIN_TIMER_MS` | `45000` | Combined captain-pick and booster-shop timeout |
 | `ALLOW_TEST_TIMERS` | unset | If `1`, `createRoom` may pass short `testTimers` (used by tests) |
 | `MAX_ROOMS` | `20` | Cap on concurrent live rooms |

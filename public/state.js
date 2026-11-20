@@ -165,6 +165,10 @@
         state.pauseRemainingMs = evt.remainingMs;
         break;
       }
+      case "revealContinued": {
+        state.soldRevealUntil = null;
+        break;
+      }
       case "resumed": {
         state.paused = false;
         state.pausedBy = null;
@@ -173,6 +177,11 @@
           state.auction.endsAt = evt.auctionEndsAt || evt.endsAt;
         }
         if (evt.captainEndsAt) state.captainEndsAt = evt.captainEndsAt;
+        if (Object.prototype.hasOwnProperty.call(evt, "soldRevealUntil")) {
+          state.soldRevealUntil = evt.soldRevealUntil || null;
+        } else if (!state.auction && evt.endsAt) {
+          state.soldRevealUntil = evt.endsAt;
+        }
         break;
       }
       default:

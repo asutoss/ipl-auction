@@ -20,7 +20,7 @@ function roomWith(names, timers) {
   const room = new GameRoom({
     code: "TEST",
     purseLakhs: 100,
-    timers: { lotStartMs: 15_000, bidMs: 10_000, captainMs: 45_000, soldRevealMs: 0, ...(timers || {}) },
+    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
   });
@@ -497,6 +497,90 @@ describe("squad completion and sold reveal", () => {
     assert.equal(room.auction.nominee.id, bats[1].id);
     assert.equal(room.phase, "auction");
   });
+
+  test("Continue ends the sold reveal immediately and starts the next lot", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { soldRevealMs: 400 });
+    const bats = players.filter((p) => p.role === "BAT");
+    room.queue = [bats[0], bats[1]];
+    room.phase = "auction";
+    room.nominateNext();
+    const firstId = room.auction.nominee.id;
+    assert.equal(room.optOut("Priya").ok || room.optOut("Ashutosh").ok, true);
+    // One of the two is the leader and cannot opt out; the other sells the lot.
+    if (room.auction) {
+      const other = room.auction.currentBidderKey === "ashutosh" ? "Priya" : "Ashutosh";
+      assert.equal(room.optOut(other).ok, true);
+    }
+    assert.equal(room.lastEvent.type, "sold");
+    assert.equal(room.lastEvent.player.id, firstId);
+    assert.equal(room.auction, null);
+    assert.ok(room.revealUntil && room.revealUntil > Date.now());
+    const nextBefore = room.continueReveal("Priya");
+    assert.equal(nextBefore.ok, true, nextBefore.error);
+    assert.equal(room.revealUntil, null);
+    assert.ok(room.auction, "next lot should start as soon as someone continues");
+    assert.equal(room.auction.nominee.id, bats[1].id);
+    const again = room.continueReveal("Ashutosh");
+    assert.equal(again.ok, true);
+    assert.equal(again.already, true);
+    assert.equal(room.auction.nominee.id, bats[1].id, "a second Continue must not skip the new lot");
+    await new Promise((r) => setTimeout(r, 80));
+    assert.equal(room.auction.nominee.id, bats[1].id);
+  });
+
+  test("Continue is ignored while the sold reveal is paused, then works after resume", async () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"], { soldRevealMs: 250 });
+    const bats = players.filter((p) => p.role === "BAT");
+    room.queue = [bats[0], bats[1]];
+    room.phase = "auction";
+    room.nominateNext();
+    const firstId = room.auction.nominee.id;
+    for (const name of ["Ashutosh", "Priya", "Rohan"]) {
+      if (room.auction && room.auction.currentBidderKey !== name.toLowerCase()) {
+        room.optOut(name);
+      }
+    }
+    assert.equal(room.lastEvent.type, "sold");
+    assert.equal(room.lastEvent.player.id, firstId);
+    assert.ok(room.revealUntil);
+    assert.equal(room.pause("Priya").ok, true);
+    const blocked = room.continueReveal("Ashutosh");
+    assert.equal(blocked.ok, false);
+    assert.match(blocked.error, /paused/i);
+    assert.ok(room.revealUntil, "reveal should still be pending while paused");
+    assert.equal(room.auction, null);
+    await new Promise((r) => setTimeout(r, 280));
+    assert.equal(room.auction, null, "paused reveal must not auto-advance");
+    assert.equal(room.resume("Priya").ok, true);
+    assert.ok(room.revealUntil && room.revealUntil > Date.now());
+    const snap = room.getState("Ashutosh");
+    assert.ok(snap.soldRevealUntil && snap.soldRevealUntil > Date.now());
+    const ok = room.continueReveal("Rohan");
+    assert.equal(ok.ok, true, ok.error);
+    assert.equal(room.revealUntil, null);
+    assert.ok(room.auction);
+    assert.equal(room.auction.nominee.id, bats[1].id);
+  });
+
+  test("unsold notices use the same reveal and can be fast-tracked", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { soldRevealMs: 400 });
+    const bats = players.filter((p) => p.role === "BAT");
+    room.queue = [bats[0], bats[1]];
+    room.phase = "auction";
+    room.nominateNext();
+    // Force an unsold path: drop the default/leading bidder so no one is left.
+    room.auction.currentBidderKey = null;
+    room.auction.defaultBidderKey = null;
+    room.unsoldCurrent();
+    assert.equal(room.lastEvent.type, "unsold");
+    assert.ok(room.revealUntil && room.revealUntil > Date.now());
+    assert.equal(room.auction, null);
+    const res = room.continueReveal("Ashutosh");
+    assert.equal(res.ok, true, res.error);
+    assert.equal(room.revealUntil, null);
+    assert.ok(room.auction);
+    assert.equal(room.auction.nominee.id, bats[1].id);
+  });
 });
 
 describe("tournament simulation", () => {
@@ -600,8 +684,8 @@ describe("nomination order and timers", () => {
     assert.ok([...firsts].some((id) => !top.includes(id)) || firsts.size >= 6);
   });
 
-  test("a new lot gets 15 seconds and a bid resets the timer to 10", () => {
-    const room = roomWith(["Ashutosh", "Priya"], { lotStartMs: 15_000, bidMs: 10_000, captainMs: 45_000 });
+  test("a new lot gets 15 seconds and a bid also resets the timer to 15", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000 });
     room.queue = [players.find((p) => p.id === "virat-kohli")];
     room.phase = "auction";
     const t0 = Date.now();
@@ -612,7 +696,28 @@ describe("nomination order and timers", () => {
     const t1 = Date.now();
     assert.equal(room.bid(lead, room.auction.currentBidLakhs + 1).ok, true);
     const bidLeft = room.auction.endsAt - t1;
-    assert.ok(bidLeft > 9000 && bidLeft <= 10100, `bid reset ${bidLeft}`);
+    assert.ok(bidLeft > 14000 && bidLeft <= 15100, `bid reset ${bidLeft}`);
+  });
+
+  test("default timers are 15s for lots and bids, and 5s for the sold reveal", () => {
+    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS"];
+    const prev = {};
+    for (const k of keys) {
+      prev[k] = process.env[k];
+      delete process.env[k];
+    }
+    try {
+      const room = new GameRoom({ code: "DEF", purseLakhs: 100, allPlayers: players, meta });
+      assert.equal(room.timers.lotStartMs, 15000);
+      assert.equal(room.timers.bidMs, 15000);
+      assert.equal(room.timers.soldRevealMs, 5000);
+      assert.equal(room.timers.captainMs, 45000);
+    } finally {
+      for (const k of keys) {
+        if (prev[k] == null) delete process.env[k];
+        else process.env[k] = prev[k];
+      }
+    }
   });
 });
 

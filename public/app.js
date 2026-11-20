@@ -123,6 +123,63 @@ function hideSoldModal(force) {
   if (force) soldModalKey = null;
 }
 
+function soldRevealLeftMs() {
+  if (state && state.paused) return Math.max(0, state.pauseRemainingMs || 0);
+  const until = state && state.soldRevealUntil;
+  return Math.max(0, (until || 0) - Date.now());
+}
+
+function updateSoldRevealUi() {
+  const modal = document.getElementById("sold-modal");
+  if (!modal || modal.hidden) return;
+  const total = Number(state && state.lastEvent && state.lastEvent.revealMs) || 5000;
+  const left = soldRevealLeftMs();
+  const bar = document.getElementById("sold-progress-bar");
+  if (bar) {
+    const pct = total > 0 ? Math.max(0, Math.min(100, (left / total) * 100)) : 0;
+    bar.style.width = `${pct}%`;
+  }
+  const count = document.getElementById("sold-countdown");
+  if (count) {
+    if (state && state.paused) count.textContent = "Paused";
+    else {
+      const secs = Math.ceil(left / 1000);
+      count.textContent = secs > 0 ? `Next lot in ${secs}s` : "Starting next lot…";
+    }
+  }
+  const btn = document.getElementById("sold-continue");
+  if (btn) btn.disabled = Boolean(state && state.paused);
+}
+
+function isSoldRevealActive() {
+  if (!state || state.phase === "ended" || state.auction) return false;
+  const evt = state.lastEvent;
+  if (!evt || (evt.type !== "sold" && evt.type !== "unsold" && evt.type !== "skipped")) return false;
+  const until = state.soldRevealUntil;
+  if (until && until > Date.now()) return true;
+  // Keep showing if the reveal was paused past the original deadline.
+  if (state.paused && until && !state.auction) return true;
+  return false;
+}
+
+function armSoldModalHide() {
+  if (soldModalTimer) {
+    clearTimeout(soldModalTimer);
+    soldModalTimer = null;
+  }
+  if (state && state.paused) return;
+  const ms = soldRevealLeftMs();
+  const modal = document.getElementById("sold-modal");
+  soldModalTimer = setTimeout(() => {
+    soldModalTimer = null;
+    if (state && state.paused && isSoldRevealActive()) return;
+    if (modal) {
+      modal.hidden = true;
+      modal.classList.remove("is-in", "is-unsold");
+    }
+  }, Math.max(0, ms));
+}
+
 function fillSoldModal(evt) {
   const modal = document.getElementById("sold-modal");
   if (!modal || !evt) return null;
@@ -160,25 +217,20 @@ function showSoldModal(evt) {
   if (!evt || !evt.player) return;
   if (evt.type !== "sold" && evt.type !== "unsold" && evt.type !== "skipped") return;
   const key = `${evt.type}:${evt.player.id}:${evt.buyerName || ""}:${evt.priceLakhs || ""}`;
-  if (soldModalKey === key) return;
-  soldModalKey = key;
-  const modal = fillSoldModal(evt);
+  const already = soldModalKey === key;
+  const modal = already ? document.getElementById("sold-modal") : fillSoldModal(evt);
   if (!modal) return;
-  modal.hidden = false;
-  modal.classList.remove("is-in");
-  void modal.offsetWidth;
-  modal.classList.add("is-in");
-  if (soldModalTimer) clearTimeout(soldModalTimer);
-  let ms = 1000;
-  if (evt.revealUntil) ms = Math.max(200, evt.revealUntil - Date.now());
-  else if (evt.revealMs != null) ms = Math.max(200, Number(evt.revealMs) || 1000);
-  const hide = () => {
-    soldModalTimer = null;
-    if (state && state.paused && state.soldRevealUntil) return;
-    modal.hidden = true;
-    modal.classList.remove("is-in", "is-unsold");
-  };
-  soldModalTimer = setTimeout(hide, ms);
+  soldModalKey = key;
+  if (!already) {
+    modal.hidden = false;
+    modal.classList.remove("is-in");
+    void modal.offsetWidth;
+    modal.classList.add("is-in");
+  } else {
+    modal.hidden = false;
+  }
+  armSoldModalHide();
+  updateSoldRevealUi();
 }
 
 function syncSoldModal() {
@@ -186,12 +238,12 @@ function syncSoldModal() {
     hideSoldModal(true);
     return;
   }
-  const until = state.soldRevealUntil;
-  const evt = state.lastEvent;
-  if (until && until > Date.now() && evt && (evt.type === "sold" || evt.type === "unsold" || evt.type === "skipped")) {
-    showSoldModal({ ...evt, revealUntil: until });
+  if (isSoldRevealActive()) {
+    const evt = state.lastEvent;
+    showSoldModal({ ...evt, revealUntil: state.soldRevealUntil });
     return;
   }
+  hideSoldModal();
 }
 
 function syncOverlays() {
@@ -478,7 +530,7 @@ function auctionView() {
           <p class="label">Raise the bid</p>
           <div class="actions bid-steps" id="bid-actions">${bidButtonsHtml(a)}</div>
           ${a.youReason ? `<p class="why" id="bid-why">${esc(a.youReason)}</p>` : `<p class="why" id="bid-why" hidden></p>`}
-          <p class="hint">A random starting bid (1–5 points) is assigned as the default bid. Use +1, +2 or +5 to raise. When only one team is left, the player is locked immediately. New lots get 15 seconds; each bid resets the timer to 10.</p>
+          <p class="hint">A random starting bid (1–5 points) is assigned as the default bid. Use +1, +2 or +5 to raise. When only one team is left, the player is locked immediately. New lots get 15 seconds; each bid also resets the timer to 15.</p>
           <p class="error">${esc(lastError)}</p>
         </div>
       </div>
@@ -817,6 +869,10 @@ function wireGlobal() {
       await emitOrToast("resume", {}, "Could not resume.");
       return;
     }
+    if (e.target.closest("#sold-continue")) {
+      await emitOrToast("continueReveal", {}, "Could not continue.");
+      return;
+    }
     if (e.target.closest("#end-game")) {
       const ok = await confirmAction("This ends the game for everyone and returns you to the start page. The room will be closed.");
       if (!ok) return;
@@ -947,6 +1003,9 @@ function startTicks() {
   if (tickTimer) return;
   tickTimer = setInterval(() => {
     if (!state) return;
+    if (state.phase === "auction" && !state.auction) {
+      updateSoldRevealUi();
+    }
     if (state.phase === "auction" && state.auction) {
       updateAuctionTimer();
     } else if (state.phase === "captains" || state.phase === "results" || state.phase === "simulating") {

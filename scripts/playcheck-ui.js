@@ -11,7 +11,7 @@ fs.mkdirSync(OUT, { recursive: true });
 process.env.LOT_START_MS = process.env.LOT_START_MS || "60000";
 process.env.BID_TIMER_MS = process.env.BID_TIMER_MS || "60000";
 process.env.CAPTAIN_TIMER_MS = process.env.CAPTAIN_TIMER_MS || "30000";
-process.env.SOLD_REVEAL_MS = process.env.SOLD_REVEAL_MS || "1200";
+process.env.SOLD_REVEAL_MS = process.env.SOLD_REVEAL_MS || "8000";
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -151,12 +151,17 @@ async function main() {
     }, 8000, "sold modal");
     await sleep(180);
     await shot(ash, "sold-modal.png");
+    const desktopVp = { width: 1400, height: 900, deviceScaleFactor: 1 };
+    await ash.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+    await sleep(120);
+    await shot(ash, "sold-modal-mobile.png");
+    await ash.setViewport(desktopVp);
     await waitFor(ash, async () => {
       return ash.evaluate(() => {
         const m = document.getElementById("sold-modal");
         return Boolean(IplApp.state && IplApp.state.phase === "auction" && IplApp.state.auction && (!m || m.hidden));
       });
-    }, 8000, "next lot after sold reveal");
+    }, 15000, "next lot after sold reveal");
 
     await ash.click("#pause");
     await waitFor(ash, async () => {

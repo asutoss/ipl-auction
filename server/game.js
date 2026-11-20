@@ -54,9 +54,9 @@ function envMs(name, fallback) {
 function defaultTimers() {
   return {
     lotStartMs: Number(process.env.LOT_START_MS) || 15000,
-    bidMs: Number(process.env.BID_TIMER_MS) || 10000,
+    bidMs: Number(process.env.BID_TIMER_MS) || 15000,
     captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 45000,
-    soldRevealMs: envMs("SOLD_REVEAL_MS", 1000),
+    soldRevealMs: envMs("SOLD_REVEAL_MS", 5000),
   };
 }
 
@@ -442,11 +442,7 @@ class GameRoom extends EventEmitter {
     } else if (kind === "reveal" && this.phase === "auction" && remaining != null) {
       this.revealUntil = Date.now() + remaining;
       endsAt = this.revealUntil;
-      this.armTimer(() => {
-        if (this.paused || this.ended) return;
-        this.revealUntil = null;
-        this.nominateNext();
-      }, remaining);
+      this.armTimer(() => this.finishReveal(), remaining);
     } else if (kind === "captain" && this.phase === "captains" && remaining != null) {
       this.captainEndsAt = Date.now() + remaining;
       endsAt = this.captainEndsAt;
@@ -457,6 +453,7 @@ class GameRoom extends EventEmitter {
       endsAt,
       captainEndsAt: this.captainEndsAt,
       auctionEndsAt: this.auction ? this.auction.endsAt : null,
+      soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
     });
     return { ok: true };
   }
@@ -736,11 +733,31 @@ class GameRoom extends EventEmitter {
       return;
     }
     this.revealUntil = Date.now() + ms;
-    this.armTimer(() => {
-      if (this.paused || this.ended) return;
-      this.revealUntil = null;
-      this.nominateNext();
-    }, ms);
+    this.armTimer(() => this.finishReveal(), ms);
+  }
+
+  finishReveal() {
+    if (this.paused || this.ended) return;
+    if (this.phase !== "auction") return;
+    if (this.auction || !this.revealUntil) return;
+    this.clearTimer();
+    this.revealUntil = null;
+    this.nominateNext();
+  }
+
+  continueReveal(byName) {
+    const gate = this.requireUnpaused();
+    if (!gate.ok) return gate;
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.phase !== "auction" || this.auction || !this.revealUntil) {
+      return { ok: true, already: true };
+    }
+    this.clearTimer();
+    this.revealUntil = null;
+    this.emitDelta({ type: "revealContinued", byName: team.name, soldRevealUntil: null });
+    this.nominateNext();
+    return { ok: true };
   }
 
   soldPack(winner, player, price) {
