@@ -155,6 +155,22 @@
         syncYou(state);
         break;
       }
+      case "paused": {
+        state.paused = true;
+        state.pausedBy = evt.byName;
+        state.pauseRemainingMs = evt.remainingMs;
+        break;
+      }
+      case "resumed": {
+        state.paused = false;
+        state.pausedBy = null;
+        state.pauseRemainingMs = null;
+        if (state.auction && (evt.auctionEndsAt || evt.endsAt)) {
+          state.auction.endsAt = evt.auctionEndsAt || evt.endsAt;
+        }
+        if (evt.captainEndsAt) state.captainEndsAt = evt.captainEndsAt;
+        break;
+      }
       default:
         break;
     }

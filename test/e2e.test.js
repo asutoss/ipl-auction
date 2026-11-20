@@ -255,3 +255,90 @@ describe("e2e: 3 clients through a full game", () => {
     }
   });
 });
+
+describe("identities, pause, start bid and end game over sockets", () => {
+  let ctx;
+  let url;
+  const sockets = [];
+
+  test("unique logos, random start bid, single-team close, pause, and host end game", async () => {
+    ctx = await start({ port: 0 });
+    url = `http://127.0.0.1:${ctx.server.address().port}`;
+    const ash = await connect(url, "Ashutosh");
+    const priya = await connect(url, "Priya");
+    const rohan = await connect(url, "Rohan");
+    sockets.push(ash, priya, rohan);
+
+    const created = await ack(ash, "createRoom", {
+      name: "Ashutosh",
+      testTimers: { lotStartMs: 800, bidMs: 800, captainMs: 800 },
+    });
+    assert.equal(created.ok, true);
+    const code = created.code;
+    assert.equal((await ack(priya, "joinRoom", { code, name: "Priya" })).ok, true);
+    assert.equal((await ack(rohan, "joinRoom", { code, name: "Rohan" })).ok, true);
+
+    await waitState(ash, (s) => s.franchises && s.franchises.length === 3);
+    const ids = ash.state.franchises.map((f) => f.franchise.id);
+    assert.equal(new Set(ids).size, 3);
+    const taken = ash.state.you.franchise.id;
+    const fail = await ack(priya, "selectIdentity", { identityId: taken });
+    assert.equal(fail.ok, false);
+    const catalog = ash.state.identities || [];
+    const free = catalog.find((t) => !ids.includes(t.id));
+    assert.ok(free, "need a free logo");
+    const picked = await ack(priya, "selectIdentity", { identityId: free.id });
+    assert.equal(picked.ok, true);
+    await waitState(priya, (s) => s.you && s.you.franchise.id === free.id);
+    assert.notEqual(ash.state.you.franchise.id, priya.state.you.franchise.id);
+
+    const started = await ack(ash, "startAuction");
+    assert.equal(started.ok, true);
+    const lot = await waitState(ash, (s) => s.phase === "auction" && s.auction && s.auction.nominee);
+    const startBid = lot.auction.startBidLakhs;
+    assert.ok(Number.isInteger(startBid) && startBid >= 1 && startBid <= 5, String(startBid));
+    assert.equal(lot.auction.currentBidLakhs, startBid);
+    const nomineeId = lot.auction.nominee.id;
+    const defaultName = lot.auction.currentBidderName;
+
+    const paused = await ack(priya, "pause");
+    assert.equal(paused.ok, true);
+    await waitState(ash, (s) => s.paused === true && s.pausedBy === "Priya");
+    assert.equal(ash.state.pausedBy, "Priya");
+    const bidWhilePaused = await ack(rohan, "bid", { amountLakhs: startBid + 1 });
+    assert.equal(bidWhilePaused.ok, false);
+    const rohanResume = await ack(rohan, "resume");
+    assert.equal(rohanResume.ok, false);
+    const resumed = await ack(priya, "resume");
+    assert.equal(resumed.ok, true);
+    await waitState(ash, (s) => s.paused === false);
+
+    const others = [ash, priya, rohan].filter((s) => s.playerName !== defaultName);
+    for (const s of others) {
+      const res = await ack(s, "optOut");
+      assert.equal(res.ok, true, res && res.error);
+    }
+    const sold = await waitState(ash, (s) => s.lastEvent && s.lastEvent.type === "sold" && s.lastEvent.player && s.lastEvent.player.id === nomineeId);
+    assert.equal(sold.lastEvent.buyerName, defaultName);
+
+    const ended = new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("no gameEnded")), 5000);
+      priya.once("gameEnded", (info) => {
+        clearTimeout(t);
+        resolve(info);
+      });
+    });
+    const hostEnd = await ack(ash, "endGame");
+    assert.equal(hostEnd.ok, true);
+    const info = await ended;
+    assert.equal(info.ok, true);
+  });
+
+  after(async () => {
+    for (const s of sockets) {
+      try { s.close(); } catch {}
+    }
+    if (ctx?.io) ctx.io.close();
+    if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
+  });
+});

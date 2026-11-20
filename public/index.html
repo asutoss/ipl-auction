@@ -27,8 +27,18 @@
       <main id="main"></main>
       <div id="toast" class="toast" hidden></div>
     </div>
+    <div id="pause-modal" class="pause-modal" hidden>
+      <div class="pause-card">
+        <p class="kicker">Hold on</p>
+        <h2>Game paused</h2>
+        <p id="pause-msg" class="lede">Game paused.</p>
+        <button class="btn" id="resume" type="button">Resume</button>
+      </div>
+    </div>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/identities.js"></script>
     <script src="/state.js"></script>
+    <script src="/ring.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

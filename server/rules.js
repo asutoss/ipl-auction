@@ -2,25 +2,17 @@ const ROLES = ["BAT", "WK", "AR", "BOWL"];
 const QUOTA = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
 const SQUAD_SIZE = 11;
 const MAX_OVERSEAS = 4;
-const BASE_PRICE_POINTS = 2;
+const MIN_START_BID = 1;
+const MAX_START_BID = 5;
+const BASE_PRICE_POINTS = MIN_START_BID; // reserve uses the minimum possible starting bid
 const DEFAULT_PURSE_POINTS = 100;
 const BID_STEPS = [1, 2, 5];
 const DEFAULT_PURSE_LAKHS = DEFAULT_PURSE_POINTS; // amounts are in points
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 10;
 
-const FRANCHISES = [
-  { id: "csk", name: "Chennai Super Kings", short: "CSK", color: "#F9CD05" },
-  { id: "mi", name: "Mumbai Indians", short: "MI", color: "#045093" },
-  { id: "rcb", name: "Royal Challengers Bengaluru", short: "RCB", color: "#DA1818" },
-  { id: "kkr", name: "Kolkata Knight Riders", short: "KKR", color: "#3B0A75" },
-  { id: "dc", name: "Delhi Capitals", short: "DC", color: "#2563EB" },
-  { id: "rr", name: "Rajasthan Royals", short: "RR", color: "#EA1A8E" },
-  { id: "pbks", name: "Punjab Kings", short: "PBKS", color: "#ED1B24" },
-  { id: "srh", name: "Sunrisers Hyderabad", short: "SRH", color: "#F7A821" },
-  { id: "gt", name: "Gujarat Titans", short: "GT", color: "#1C3A5A" },
-  { id: "lsg", name: "Lucknow Super Giants", short: "LSG", color: "#1BA39C" },
-];
+const { IDENTITIES } = require("../public/identities");
+const FRANCHISES = IDENTITIES;
 
 function roleCounts(squad) {
   const counts = { BAT: 0, WK: 0, AR: 0, BOWL: 0 };
@@ -196,7 +188,7 @@ function canTakeRole(squad, player) {
 
 /**
  * Whether a franchise can legally bid `amountLakhs` (points) for `player`.
- * Voluntary bids must leave 2 points per remaining slot to reach 11.
+ * Voluntary bids must leave 1 point per remaining slot to reach 11.
  * The automatic default bid only checks role quota and purse >= bid.
  */
 function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
@@ -217,7 +209,7 @@ function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
     if (franchise.purseLakhs - amountLakhs < reserve) {
       return {
         ok: false,
-        reason: "Bid would leave too little purse to reach 11 players (2 points per remaining slot).",
+        reason: "Bid would leave too little purse to reach 11 players (1 point per remaining slot).",
       };
     }
   }
@@ -234,6 +226,8 @@ module.exports = {
   QUOTA,
   SQUAD_SIZE,
   MAX_OVERSEAS,
+  MIN_START_BID,
+  MAX_START_BID,
   BASE_PRICE_POINTS,
   DEFAULT_PURSE_POINTS,
   DEFAULT_PURSE_LAKHS,

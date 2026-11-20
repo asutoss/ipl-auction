@@ -23,6 +23,7 @@ function roomWith(names, timers) {
     meta,
   });
   names.forEach((n, i) => room.addPlayer(n, `sock-${i}`));
+  room.forcedStartBid = 2; // keep existing tests stable; start-bid range is tested separately
   return room;
 }
 
@@ -38,7 +39,7 @@ describe("player pool", () => {
       assert.ok(p.id && p.name);
       assert.ok(["BAT", "WK", "AR", "BOWL"].includes(p.role), p.name);
       assert.equal(typeof p.overseas, "boolean");
-      assert.equal(p.basePriceLakhs, 2);
+      assert.equal(p.basePriceLakhs, 1);
       assert.ok(p.batting >= 0 && p.batting <= 100);
       assert.ok(p.bowling >= 0 && p.bowling <= 100);
     }
@@ -114,7 +115,8 @@ describe("auction opt-out and lock-in", () => {
     // Default bid goes to the first team in round-robin (Ashutosh).
     assert.equal(room.auction.nominee.id, "virat-kohli");
     assert.equal(room.auction.currentBidderKey, "ashutosh");
-    assert.equal(room.auction.currentBidLakhs, kohli.basePriceLakhs);
+    const startBid = room.auction.startBidLakhs;
+    assert.equal(room.auction.currentBidLakhs, startBid);
     assert.ok(room.stillInTeams().length >= 2);
 
     const out = room.optOut("Priya");
@@ -122,8 +124,8 @@ describe("auction opt-out and lock-in", () => {
     const csk = room.findByName("Ashutosh");
     assert.equal(csk.squad.length, 1);
     assert.equal(csk.squad[0].player.id, "virat-kohli");
-    assert.equal(csk.squad[0].priceLakhs, kohli.basePriceLakhs);
-    assert.equal(csk.purseLakhs, 100 - kohli.basePriceLakhs);
+    assert.equal(csk.squad[0].priceLakhs, startBid);
+    assert.equal(csk.purseLakhs, 100 - startBid);
   });
 
   test("default bid means the player does not go unsold if someone can take the role", () => {
@@ -205,7 +207,7 @@ describe("default bid, round-robin and elimination", () => {
     room.phase = "auction";
     room.nominateNext();
     assert.equal(room.auction.currentBidderKey, "ashutosh");
-    assert.equal(room.auction.currentBidLakhs, bats[0].basePriceLakhs);
+    assert.equal(room.auction.currentBidLakhs, room.auction.startBidLakhs);
     assert.equal(room.getState("Ashutosh").auction.isDefaultBidLeading, true);
 
     room.optOut("Priya");
@@ -315,7 +317,7 @@ describe("default bid, round-robin and elimination", () => {
   test("default bid is awarded even when a voluntary reserve check would block it", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
     const star = players.find((p) => p.id === "jasprit-bumrah");
-    room.findByName("Ashutosh").purseLakhs = star.basePriceLakhs; // exact base, not enough to fill 10 more slots
+    room.findByName("Ashutosh").purseLakhs = 2; // can afford the start bid, but not a full 11-player reserve
     room.queue = [star];
     room.phase = "auction";
     room.nominateNext();
@@ -323,7 +325,7 @@ describe("default bid, round-robin and elimination", () => {
     assert.equal(room.findByName("Ashutosh").eliminated, false);
     // A voluntary overbid by Priya that leaves her unable to fill the XI is still rejected.
     const priya = room.findByName("Priya");
-    priya.purseLakhs = 22; // 11 slots would need 22 at 2 points; bidding +5 leaves too little
+    priya.purseLakhs = 16; // 10 remaining slots need 10 pts; bidding +5 from 2 leaves 9
     const denied = room.bid("Priya", room.auction.currentBidLakhs + 5);
     assert.equal(denied.ok, false);
     assert.match(denied.error, /purse/i);
@@ -559,5 +561,173 @@ describe("booster shop", () => {
       assert.ok("nr" in row);
       assert.equal(row.points, row.won * 2 + (row.nr || 0));
     }
+  });
+});
+
+
+describe("team identities", () => {
+  test("assigns unique logos on join and rejects a taken logo", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    const ids = room.franchises.map((f) => f.franchise.id);
+    assert.equal(new Set(ids).size, 3);
+    for (const id of ids) assert.ok(id);
+    const taken = ids[0];
+    const fail = room.selectIdentity("Priya", taken);
+    assert.equal(fail.ok, false);
+    const { unusedIdentities } = require("../public/identities");
+    const free = unusedIdentities(new Set(ids))[0];
+    const ok = room.selectIdentity("Priya", free.id);
+    assert.equal(ok.ok, true);
+    assert.equal(room.findByName("Priya").franchise.id, free.id);
+    assert.notEqual(room.findByName("Ashutosh").franchise.id, room.findByName("Priya").franchise.id);
+  });
+
+  test("auto-assigns unique logos for anyone who has not picked before start", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.findByName("Priya").franchise = { id: "unknown" };
+    room.startAuction("Ashutosh");
+    const ids = room.franchises.map((f) => f.franchise.id);
+    assert.equal(new Set(ids).size, 2);
+    const { getIdentity } = require("../public/identities");
+    for (const id of ids) assert.ok(getIdentity(id));
+  });
+
+  test("keeps logos that were picked in the lobby", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const { unusedIdentities } = require("../public/identities");
+    const free = unusedIdentities(room.franchises.map((f) => f.franchise.id))[0];
+    assert.equal(room.selectIdentity("Priya", free.id).ok, true);
+    const ash = room.findByName("Ashutosh").franchise.id;
+    room.startAuction("Ashutosh");
+    assert.equal(room.findByName("Ashutosh").franchise.id, ash);
+    assert.equal(room.findByName("Priya").franchise.id, free.id);
+  });
+});
+
+describe("random starting bids", () => {
+  test("starting bid is a server-chosen integer from 1 to 5", () => {
+    const seen = new Set();
+    for (let i = 0; i < 80; i++) {
+      const room = roomWith(["Ashutosh", "Priya"]);
+      room.forcedStartBid = null;
+      room.queue = [...players];
+      room.phase = "auction";
+      room.nominateNext();
+      const bid = room.auction.startBidLakhs;
+      assert.ok(Number.isInteger(bid) && bid >= 1 && bid <= 5, String(bid));
+      assert.equal(room.auction.currentBidLakhs, bid);
+      seen.add(bid);
+    }
+    assert.ok(seen.size >= 3, `only saw ${[...seen]}`);
+  });
+
+  test("default team is eliminated only when it cannot afford the starting bid", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.forcedStartBid = 5;
+    room.findByName("Ashutosh").purseLakhs = 4;
+    room.queue = [players.find((p) => p.id === "virat-kohli")];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.equal(room.findByName("Ashutosh").eliminated, true);
+    // Only Priya can afford it, so the lot closes immediately to her.
+    assert.ok(room.findByName("Priya").squad.some((s) => s.player.id === "virat-kohli"));
+    assert.ok(!room.findByName("Ashutosh").squad.some((s) => s.player && s.player.id === "virat-kohli"));
+  });
+});
+
+describe("default bid guarantee", () => {
+  test("a player is sold to the default team even if unsoldCurrent is called", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.startAuction("Ashutosh");
+    const id = room.auction.nominee.id;
+    const def = room.auction.defaultBidderKey;
+    room.unsoldCurrent();
+    const team = room.franchises.find((f) => f.key === def);
+    assert.ok(team.squad.some((s) => s.player.id === id), "default team must receive the player");
+    assert.notEqual((room.lastEvent && room.lastEvent.type) || "", "unsold");
+  });
+
+  test("timeout sells to the default bidder when nobody else bid", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.startAuction("Ashutosh");
+    const id = room.auction.nominee.id;
+    const def = room.auction.defaultBidderKey;
+    room.onLotTimeout(room.lotId);
+    const team = room.franchises.find((f) => f.key === def);
+    assert.ok(team.squad.some((s) => s.player.id === id));
+    assert.equal(room.lastEvent.type, "sold");
+  });
+});
+
+describe("single-team close", () => {
+  test("closes bidding as soon as only one team remains", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    room.startAuction("Ashutosh");
+    const id = room.auction.nominee.id;
+    const defName = room.franchises.find((f) => f.key === room.auction.defaultBidderKey).name;
+    const others = ["Ashutosh", "Priya", "Rohan"].filter((n) => n !== defName);
+    for (const name of others) {
+      const res = room.optOut(name);
+      assert.equal(res.ok, true, res.error);
+    }
+    const winner = room.findByName(defName);
+    assert.ok(winner.squad.some((s) => s.player.id === id));
+    assert.equal(room.lastEvent.type, "sold");
+    assert.equal(room.lastEvent.buyerName, defName);
+  });
+});
+
+describe("pause and resume", () => {
+  test("freezes the lot timer and resumes with remaining time", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { lotStartMs: 400, bidMs: 400, captainMs: 800 });
+    room.startAuction("Ashutosh");
+    const before = Math.max(0, room.auction.endsAt - Date.now());
+    const pause = room.pause("Priya");
+    assert.equal(pause.ok, true);
+    assert.equal(room.paused, true);
+    assert.equal(room.pausedBy, "Priya");
+    const held = room.pauseRemainingMs;
+    assert.ok(held <= before && held >= before - 80, `held=${held} before=${before}`);
+    assert.equal(room.bid("Priya", room.auction.currentBidLakhs + 1).ok, false);
+    await new Promise((r) => setTimeout(r, 250));
+    assert.equal(room.phase, "auction");
+    assert.ok(room.auction.nominee);
+    assert.equal(room.pauseRemainingMs, held);
+    const denied = room.resume("Priya");
+    // Priya is the pauser, should be allowed
+    assert.equal(denied.ok, true, denied.error);
+    assert.equal(room.paused, false);
+    const left = room.auction.endsAt - Date.now();
+    assert.ok(left <= held + 30, `left=${left} held=${held}`);
+    assert.ok(left >= held - 80, `left=${left} held=${held}`);
+  });
+
+  test("only the pauser or the host can resume", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    room.startAuction("Ashutosh");
+    assert.equal(room.pause("Priya").ok, true);
+    assert.equal(room.resume("Rohan").ok, false);
+    assert.equal(room.resume("Ashutosh").ok, true);
+    assert.equal(room.paused, false);
+  });
+});
+
+describe("end game and leave", () => {
+  test("host ends the game and non-host cannot", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const fail = room.endGame("Priya");
+    assert.equal(fail.ok, false);
+    const ok = room.endGame("Ashutosh");
+    assert.equal(ok.ok, true);
+    assert.equal(room.phase, "ended");
+    assert.equal(room.ended, true);
+  });
+
+  test("leave in the lobby removes the player", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const res = room.leave("Priya");
+    assert.equal(res.ok, true);
+    assert.equal(room.franchises.length, 1);
+    assert.equal(room.franchises[0].name, "Ashutosh");
   });
 });

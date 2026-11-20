@@ -12,6 +12,8 @@ let lastError = "";
 let bidDraft = null;
 let reveal = null; // { startedAt, skipped }
 let tickTimer = null;
+let lastNomineeId = null;
+let lastBidShown = null;
 
 function money(points) {
   const n = Number(points) || 0;
@@ -54,7 +56,59 @@ function esc(s) {
 }
 
 function remainingMs(endsAt) {
+  if (state && state.paused) return Math.max(0, state.pauseRemainingMs || 0);
   return Math.max(0, (endsAt || 0) - Date.now());
+}
+
+function teamMark(franchise, size = "") {
+  if (!franchise) return "";
+  const svg = (window.IplIdentities && franchise.id) ? IplIdentities.logoSvg(franchise.id) : "";
+  const inner = svg || esc(franchise.emoji || franchise.short || "");
+  return `<span class="team-mark-wrap ${esc(size)}" style="--c:${esc(franchise.color)};--c2:${esc(franchise.color2 || "")}" title="${esc(franchise.name || "")}">${inner}</span>`;
+}
+
+function goHome() {
+  try { sessionStorage.removeItem(STORE_KEY); } catch {}
+  state = null;
+  lastError = "";
+  lastNomineeId = null;
+  render();
+}
+
+async function confirmAction(message) {
+  return new Promise((resolve) => {
+    const wrap = document.createElement("div");
+    wrap.className = "confirm-backdrop";
+    wrap.innerHTML = `<div class="confirm-card">
+      <h2>Are you sure?</h2>
+      <p class="lede">${esc(message)}</p>
+      <div class="actions">
+        <button class="btn danger" data-ok>End game</button>
+        <button class="btn secondary" data-cancel>Cancel</button>
+      </div>
+    </div>`;
+    const done = (val) => { wrap.remove(); resolve(val); };
+    wrap.querySelector("[data-ok]").addEventListener("click", () => done(true));
+    wrap.querySelector("[data-cancel]").addEventListener("click", () => done(false));
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) done(false); });
+    document.body.appendChild(wrap);
+  });
+}
+
+function syncOverlays() {
+  const modal = document.getElementById("pause-modal");
+  if (!modal) return;
+  const paused = Boolean(state && state.paused && state.phase && state.phase !== "ended");
+  modal.hidden = !paused;
+  const msg = document.getElementById("pause-msg");
+  if (msg) msg.textContent = paused ? `Game paused by ${state.pausedBy || "a player"}.` : "";
+  const btn = document.getElementById("resume");
+  if (btn) {
+    const you = state && state.you;
+    const can = you && (you.isHost || (state.pausedBy && you.name === state.pausedBy));
+    btn.hidden = !paused;
+    btn.disabled = !can;
+  }
 }
 
 function meter(value) {
@@ -67,18 +121,27 @@ function roleTag(role) {
 }
 
 function renderTop() {
-  if (!state || !state.code) {
+  if (!state || !state.code || state.phase === "ended") {
     topMeta.hidden = true;
     topMeta.innerHTML = "";
     return;
   }
   topMeta.hidden = false;
   const you = state.you;
+  const canPause = state.phase === "auction" || state.phase === "captains";
+  const pauseLabel = state.paused ? "Paused" : "Pause";
+  const hostEnd = you && you.isHost
+    ? `<button class="btn danger" id="end-game" type="button">End game</button>`
+    : `<button class="btn secondary" id="leave" type="button">Leave</button>`;
   topMeta.innerHTML = `
     <span class="pill">Room <strong>${esc(state.code)}</strong></span>
     <span class="pill">${esc(state.phase)}</span>
-    ${you ? `<span class="pill"><span style="color:${esc(you.franchise.color)}">${esc(you.franchise.short)}</span> · ${esc(you.name)}</span>` : ""}
+    ${you ? `<span class="pill" style="display:inline-flex;gap:8px;align-items:center">${teamMark(you.franchise, "sm")}<span style="color:${esc(you.franchise.color)}">${esc(you.franchise.short)}</span> · ${esc(you.name)}</span>` : ""}
     ${you ? `<span class="pill">Purse <strong>${money(you.purseLakhs)}</strong></span>` : ""}
+    <span class="top-actions">
+      ${canPause ? `<button class="btn secondary" id="pause" type="button" ${state.paused ? "disabled" : ""}>${pauseLabel}</button>` : ""}
+      ${hostEnd}
+    </span>
   `;
 }
 
@@ -121,13 +184,30 @@ function homeView() {
 function lobbyView() {
   const isHost = state.you && state.you.isHost;
   const ready = state.franchises.length >= state.minPlayers;
+  const catalog = (window.IplIdentities && IplIdentities.IDENTITIES) || state.identities || [];
+  const mine = state.you && state.you.franchise && state.you.franchise.id;
+  const taken = new Set((state.franchises || []).map((f) => f.franchise && f.franchise.id).filter(Boolean));
+  const picker = catalog
+    .map((id) => {
+      const pack = id.id ? id : (IplIdentities.getIdentity(id) || {});
+      const selected = mine && pack.id === mine;
+      const used = taken.has(pack.id) && !selected;
+      return `<button type="button" class="logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""}>
+        ${IplIdentities.logoSvg(pack.id)}
+        <span>${esc(pack.name)}</span>
+      </button>`;
+    })
+    .join("");
   const cards = state.franchises
     .map(
       (f) => `
       <div class="franchise-card ${f.connected ? "" : "offline"}" style="--c:${esc(f.franchise.color)}">
-        <p class="short">${esc(f.franchise.short)}</p>
-        <p class="owner">${esc(f.franchise.name)}</p>
-        <p class="owner">${esc(f.name)}${f.isHost ? " · host" : ""}${f.connected ? "" : " · offline"}${f.eliminated ? " · eliminated" : ""}</p>
+        ${teamMark(f.franchise, "lg")}
+        <div>
+          <p class="short" style="color:${esc(f.franchise.color)}">${esc(f.franchise.short)}</p>
+          <p class="owner">${esc(f.franchise.name)}</p>
+          <p class="owner">${esc(f.name)}${f.isHost ? " · host" : ""}${f.connected ? "" : " · offline"}${f.eliminated ? " · eliminated" : ""}</p>
+        </div>
       </div>`
     )
     .join("");
@@ -135,7 +215,9 @@ function lobbyView() {
     <section class="panel">
       <p class="lede">Share this code</p>
       <p class="room-code">${esc(state.code)}</p>
-      <p class="lede">${state.franchises.length} / ${state.maxPlayers} franchises · purse ${money(state.purseLakhs)} each. Host starts the auction when at least ${state.minPlayers} have joined.</p>
+      <p class="lede">${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Pick a unique logo before the host starts. Unpicked logos are auto-assigned. Need at least ${state.minPlayers} to start.</p>
+      <h3>Choose your team</h3>
+      <div class="logo-picker">${picker}</div>
       ${
         isHost
           ? `<div class="row row-2" style="max-width:420px">
@@ -190,6 +272,38 @@ function squadSlots(franchise) {
   return `<div class="slots">${rows.join("")}</div>`;
 }
 
+function canPayStep(step) {
+  const a = state && state.auction;
+  const you = state && state.you;
+  if (!a || !a.youCanBid || !you) return false;
+  const amount = a.currentBidLakhs + step;
+  const slotsAfter = Math.max(0, 11 - ((you.squad || []).length + 1));
+  return you.purseLakhs - amount >= slotsAfter * 1;
+}
+
+function leaderLine(a) {
+  if (!a) return "";
+  if (a.isDefaultBidLeading) {
+    return `Default bid: <strong style="color:${esc(a.currentBidderColor)}">${esc(a.currentBidderShort)}</strong> · ${esc(a.currentBidderName)}`;
+  }
+  if (a.hasBidder) {
+    return `Leading: <strong style="color:${esc(a.currentBidderColor)}">${esc(a.currentBidderShort)}</strong> · ${esc(a.currentBidderName)}`;
+  }
+  return "Waiting for a bid";
+}
+
+function bidButtonsHtml(a) {
+  const steps = (a && a.bidSteps) || [1, 2, 5];
+  const current = a ? a.currentBidLakhs : 0;
+  return steps
+    .map((step) => {
+      const amount = current + step;
+      const on = canPayStep(step) && !(state && state.paused);
+      return `<button class="btn" data-step="${step}" ${on ? "" : "disabled"}>+${step} <span class="lede" style="display:inline;margin:0">(${money(amount)})</span></button>`;
+    })
+    .join("") + `<button class="btn danger" id="optout" ${a && a.youCanOptOut && !(state && state.paused) ? "" : "disabled"}>Opt out</button>`;
+}
+
 function auctionView() {
   const a = state.auction;
   const you = state.you;
@@ -198,97 +312,119 @@ function auctionView() {
   }
   const p = a.nominee;
   const secs = Math.ceil(remainingMs(a.endsAt) / 1000);
-  const still = a.stillIn
-    .map(
-      (t) => `
-      <div class="still-item ${t.isLeader ? "leader" : ""}" style="--c:${esc(t.color)}">
-        <div>
-          <div class="who">${esc(t.short)} ${t.isYou ? "(you)" : ""} ${t.isLeader ? "· leading" : ""}</div>
-          <div class="meta">${esc(t.name)} · purse ${money(t.purseLakhs)}</div>
-        </div>
-      </div>`
-    )
-    .join("");
-
   const event = state.lastEvent;
   let banner = "";
   if (event && event.player && event.player.id !== p.id) {
     if (event.type === "sold") {
-      banner = `<div class="sold-banner"><strong>${esc(event.short)}</strong> signed ${esc(event.player.name)} for ${money(event.priceLakhs)}.</div>`;
+      banner = `<div class="sold-banner">${event.short ? teamMark({ id: null, short: event.short, color: event.color, name: event.short }, "sm") : ""} <strong>${esc(event.short)}</strong> signed ${esc(event.player.name)} for ${money(event.priceLakhs)}.</div>`;
     } else if (event.type === "unsold" || event.type === "skipped") {
-      banner = `<div class="sold-banner unsold">${esc(event.player.name)} was skipped — no team could take this role.</div>`;
+      banner = `<div class="sold-banner unsold">${esc(event.player.name)} was skipped — no team could take this player.</div>`;
     } else if (event.type === "eliminated") {
       banner = `<div class="sold-banner unsold"><strong>${esc(event.short)}</strong> ${esc(event.reason || "Eliminated - insufficient purse")}.</div>`;
     }
-  }
-
-  const steps = a.bidSteps || [1, 2, 5];
-  const current = a.currentBidLakhs;
-  const slotsAfter = you ? Math.max(0, 11 - ((you.squad || []).length + 1)) : 0;
-  function canPay(step) {
-    if (!a.youCanBid || !you) return false;
-    const amount = current + step;
-    return you.purseLakhs - amount >= slotsAfter * 2;
   }
 
   return `
     <div>${banner}</div>
     <section class="auction-layout">
       <div class="panel player-card">
-        <p class="lede">On the block ${a.pass === 2 ? "· unsold list" : ""} · ${a.soldCount} sold · ${a.remainingLots} still to come</p>
-        <h2>${esc(p.name)}</h2>
-        <div class="tags">
-          ${roleTag(p.role)}
-          <span class="tag">${esc(p.country)}</span>
-          ${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
-          <span class="tag">Base ${money(p.basePriceLakhs)}</span>
-        </div>
-        <div class="stats">
-          <div class="stat"><span>Batting (est.)</span><b>${p.batting}</b>${meter(p.batting)}</div>
-          <div class="stat"><span>Bowling (est.)</span><b>${p.bowling}</b>${meter(p.bowling)}</div>
-          <div class="stat"><span>Timer</span><p class="timer ${secs <= 3 ? "low" : ""}" id="timer">${secs}</p></div>
-        </div>
-        <div class="bid-board">
-          <div>
-            <p class="label">Current bid</p>
-            <p class="amount">${money(a.currentBidLakhs)}</p>
-            <p class="lede" style="margin:6px 0 0">${
-              a.isDefaultBidLeading
-                ? `Default bid: <strong>${esc(a.currentBidderShort)}</strong> (${esc(a.currentBidderName)}) at base price. Outbid them or the player is locked here.`
-                : a.hasBidder
-                  ? `Leading: <strong>${esc(a.currentBidderShort)}</strong> (${esc(a.currentBidderName)})`
-                  : "No bids yet"
-            }</p>
+        <p class="lede">On the block ${a.pass === 2 ? "· unsold list" : ""} · ${a.soldCount} sold · ${a.remainingLots} still to come · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
+        <div class="auction-stage">
+          <div class="ring-wrap">
+            <svg id="auction-ring" role="img" aria-label="Teams still bidding"></svg>
+            <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
+              <p class="hub-name">${esc(p.name)}</p>
+              <div class="hub-meta">${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}<span class="tag">Bat ${p.batting}</span><span class="tag">Bowl ${p.bowling}</span></div>
+              <p class="hub-bid" id="hub-bid">${money(a.currentBidLakhs)}</p>
+              <p class="hub-leader" id="hub-leader">${leaderLine(a)}</p>
+              <p class="hub-timer ${secs <= 3 ? "low" : ""}" id="timer">${state.paused ? "Paused" : secs + "s"}</p>
+            </div>
           </div>
-        </div>
-        <div class="still-in">
-          <h3>Still in for this player</h3>
-          <div class="still-list">${still || `<p class="lede">No teams left in.</p>`}</div>
         </div>
         <div class="bid-box">
           <p class="label">Raise the bid</p>
-          <div class="actions bid-steps">
-            ${steps
-              .map((step) => {
-                const amount = current + step;
-                const on = canPay(step);
-                return `<button class="btn" data-step="${step}" ${on ? "" : "disabled"}>+${step} <span class="lede" style="display:inline;margin:0">(${money(amount)})</span></button>`;
-              })
-              .join("")}
-            <button class="btn danger" id="optout" ${a.youCanOptOut ? "" : "disabled"}>Opt out</button>
-          </div>
-          ${a.youReason ? `<p class="why">${esc(a.youReason)}</p>` : ""}
-          <p class="hint">Default bid is 2 points, assigned round-robin when a player comes up. Use +1, +2 or +5 to raise. Opting out is final for this player. New lots get 15 seconds; each bid resets the timer to 10. Ratings are estimates.</p>
+          <div class="actions bid-steps" id="bid-actions">${bidButtonsHtml(a)}</div>
+          ${a.youReason ? `<p class="why" id="bid-why">${esc(a.youReason)}</p>` : `<p class="why" id="bid-why" hidden></p>`}
+          <p class="hint">A random starting bid (1–5 points) is assigned as the default bid. Use +1, +2 or +5 to raise. When only one team is left, the player is locked immediately. New lots get 15 seconds; each bid resets the timer to 10.</p>
           <p class="error">${esc(lastError)}</p>
         </div>
       </div>
       <aside class="panel side">
-        <h3>${you ? esc(you.franchise.short) : "Squad"}</h3>
+        <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm") : ""}${you ? esc(you.franchise.short) : "Squad"}</h3>
         ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede">${you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.squad.length < 11 ? ` · need ${11 - you.squad.length} more` : you.squad.length > 11 ? " · full squad+" : " · min 11 reached"}</p>` : ""}
         ${you ? squadSlots(you) : ""}
       </aside>
     </section>
   `;
+}
+
+function mountAuctionRing() {
+  const svg = document.getElementById("auction-ring");
+  if (!svg || !state || !state.auction || !window.IplRing) return;
+  IplRing.mount(svg);
+  IplRing.update(svg, state.auction.stillIn || []);
+  updateAuctionTimer();
+  lastNomineeId = state.auction.nominee && state.auction.nominee.id;
+  lastBidShown = state.auction.currentBidLakhs;
+}
+
+function updateAuctionTimer() {
+  const a = state && state.auction;
+  const svg = document.getElementById("auction-ring");
+  if (!a || !svg || !window.IplRing) return;
+  const left = remainingMs(a.endsAt);
+  IplRing.setTimer(svg, left, a.timerMs || 15000, Boolean(state.paused));
+  const t = document.getElementById("timer");
+  if (t) {
+    const secs = Math.ceil(left / 1000);
+    t.textContent = state.paused ? "Paused" : `${secs}s`;
+    t.classList.toggle("low", secs <= 3 && !state.paused);
+  }
+}
+
+function animateBid(from, to) {
+  const el = document.getElementById("hub-bid");
+  if (!el) return;
+  const start = Number(from) || 0;
+  const end = Number(to) || 0;
+  const t0 = performance.now();
+  const dur = 280;
+  el.classList.remove("pop");
+  void el.offsetWidth;
+  el.classList.add("pop");
+  function frame(now) {
+    const t = Math.min(1, (now - t0) / dur);
+    const val = Math.round(start + (end - start) * t);
+    el.textContent = money(val);
+    if (t < 1) requestAnimationFrame(frame);
+    else el.textContent = money(end);
+  }
+  requestAnimationFrame(frame);
+}
+
+function patchAuction() {
+  const a = state && state.auction;
+  if (!a) return;
+  const svg = document.getElementById("auction-ring");
+  if (svg && window.IplRing) IplRing.update(svg, a.stillIn || []);
+  const leader = document.getElementById("hub-leader");
+  if (leader) leader.innerHTML = leaderLine(a);
+  if (lastBidShown != null && lastBidShown !== a.currentBidLakhs) animateBid(lastBidShown, a.currentBidLakhs);
+  else {
+    const bid = document.getElementById("hub-bid");
+    if (bid) bid.textContent = money(a.currentBidLakhs);
+  }
+  lastBidShown = a.currentBidLakhs;
+  const actions = document.getElementById("bid-actions");
+  if (actions) actions.innerHTML = bidButtonsHtml(a);
+  const why = document.getElementById("bid-why");
+  if (why) {
+    why.hidden = !a.youReason;
+    why.textContent = a.youReason || "";
+  }
+  const err = document.querySelector(".bid-box .error");
+  if (err) err.textContent = lastError || "";
+  updateAuctionTimer();
 }
 
 function captainView() {
@@ -434,6 +570,7 @@ function teamReportCard(team) {
   return `
     <article class="team-report" style="--c:${esc(team.color)}">
       <header>
+        ${teamMark({ id: team.identityId, name: team.franchiseName, short: team.short, color: team.color, color2: team.color2, emoji: team.emoji }, "lg")}
         <div>
           <h3 style="color:${esc(team.color)}">${esc(team.short)} · ${esc(team.franchiseName)}</h3>
           <p class="lede">${esc(team.name)}${team.title ? " · " + esc(team.title) : ""}${team.eliminated ? " · eliminated" : ""}</p>
@@ -465,6 +602,7 @@ function resultsView() {
         champ
           ? `<div class="panel champion">
               <h2>Champion</h2>
+              ${teamMark({ id: champ.identityId || (state.franchises || []).find((f) => f.name === champ.name)?.franchise?.id, name: champ.franchiseName, short: champ.short, color: champ.color, color2: champ.color2, emoji: champ.emoji }, "lg")}
               <p class="name" style="color:${esc(champ.color)}">${esc(champ.short)}</p>
               <p class="lede">${esc(champ.franchiseName)} · owned by ${esc(champ.name)}</p>
             </div>`
@@ -514,11 +652,81 @@ function resultsView() {
   `;
 }
 
+
+async function emitOrToast(event, payload, fallback) {
+  lastError = "";
+  const res = await emit(event, payload || {});
+  if (!res || !res.ok) {
+    lastError = (res && res.error) || fallback || "That did not work.";
+    toast(lastError);
+    if (state && state.phase === "auction" && main.querySelector("#auction-ring")) patchAuction();
+    else if (state) render();
+  }
+  return res;
+}
+
+function wireGlobal() {
+  if (wireGlobal.done) return;
+  wireGlobal.done = true;
+  document.addEventListener("click", async (e) => {
+    const ident = e.target.closest("[data-identity]");
+    if (ident) {
+      await emitOrToast("selectIdentity", { identityId: ident.getAttribute("data-identity") }, "Could not pick that logo.");
+      return;
+    }
+    if (e.target.closest("#pause")) {
+      await emitOrToast("pause", {}, "Could not pause.");
+      return;
+    }
+    if (e.target.closest("#resume")) {
+      await emitOrToast("resume", {}, "Could not resume.");
+      return;
+    }
+    if (e.target.closest("#end-game")) {
+      const ok = await confirmAction("This ends the game for everyone and returns you to the start page. The room will be closed.");
+      if (!ok) return;
+      const res = await emit("endGame");
+      if (!res.ok) toast(res.error || "Could not end the game.");
+      else goHome();
+      return;
+    }
+    if (e.target.closest("#leave")) {
+      const res = await emit("leaveRoom");
+      if (!res.ok) toast(res.error || "Could not leave.");
+      goHome();
+      return;
+    }
+    const stepBtn = e.target.closest("[data-step]");
+    if (stepBtn && state && state.phase === "auction") {
+      const step = Number(stepBtn.getAttribute("data-step"));
+      const current = state.auction && state.auction.currentBidLakhs;
+      await emitOrToast("bid", { amountLakhs: current + step }, "Bid rejected.");
+      return;
+    }
+    if (e.target.closest("#optout") && state && state.phase === "auction") {
+      await emitOrToast("optOut", {}, "Could not opt out.");
+    }
+  });
+}
+
 function render() {
+  syncOverlays();
   renderTop();
-  if (!state || !state.phase || !state.code) {
+  if (!state || !state.phase || !state.code || state.phase === "ended") {
+    lastNomineeId = null;
+    lastBidShown = null;
     main.innerHTML = homeView();
     wireHome();
+    return;
+  }
+  if (
+    state.phase === "auction" &&
+    state.auction &&
+    state.auction.nominee &&
+    lastNomineeId === state.auction.nominee.id &&
+    main.querySelector("#auction-ring")
+  ) {
+    patchAuction();
     return;
   }
   if (state.phase === "lobby") main.innerHTML = lobbyView();
@@ -527,6 +735,7 @@ function render() {
   else if (state.phase === "simulating" || state.phase === "results") main.innerHTML = resultsView();
   else main.innerHTML = homeView();
   wireCurrent();
+  if (state.phase === "auction") mountAuctionRing();
 }
 
 function wireHome() {
@@ -575,28 +784,7 @@ function wireCurrent() {
       }
     });
   }
-  if (state.phase === "auction") {
-    document.querySelectorAll("[data-step]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        lastError = "";
-        const step = Number(btn.getAttribute("data-step"));
-        const current = state.auction?.currentBidLakhs;
-        const res = await emit("bid", { amountLakhs: current + step });
-        if (!res.ok) {
-          lastError = res.error || "Bid rejected.";
-          render();
-        }
-      });
-    });
-    document.getElementById("optout")?.addEventListener("click", async () => {
-      lastError = "";
-      const res = await emit("optOut");
-      if (!res.ok) {
-        lastError = res.error || "Could not opt out.";
-        render();
-      }
-    });
-  }
+  // Auction bid / opt-out / pause / leave are handled by wireGlobal.
   if (state.phase === "captains") {
     document.querySelectorAll("[data-captain]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -625,12 +813,7 @@ function startTicks() {
   tickTimer = setInterval(() => {
     if (!state) return;
     if (state.phase === "auction" && state.auction) {
-      const el = document.getElementById("timer");
-      if (el) {
-        const secs = Math.ceil(remainingMs(state.auction.endsAt) / 1000);
-        el.textContent = String(secs);
-        el.classList.toggle("low", secs <= 3);
-      }
+      updateAuctionTimer();
     } else if (state.phase === "captains" || state.phase === "results" || state.phase === "simulating") {
       if (state.phase === "results" && reveal && !reveal.skipped && !visibleTournament().showAwards) {
         render();
@@ -702,9 +885,16 @@ socket.on("delta", (evt) => {
   render();
 });
 
+socket.on("gameEnded", (info) => {
+  toast(info && info.abandoned ? "The room was closed." : "The host ended the game.");
+  goHome();
+});
+
 socket.on("connect_error", () => toast("Connection issue — retrying…"));
 
+wireGlobal();
 startTicks();
 render();
+
 
 window.IplApp = { get state() { return state; }, emit, socket };

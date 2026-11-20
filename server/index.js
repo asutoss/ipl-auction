@@ -85,6 +85,15 @@ function bindRoom(room) {
       }
     }
   });
+  room.on("ended", (info) => {
+    for (const [, sock] of io.of("/").sockets) {
+      if (sock.data && sock.data.code === room.code) {
+        sock.emit("gameEnded", { ok: true, ...(info || {}) });
+        sock.data.code = null;
+      }
+    }
+    manager.evict(room.code, "ended");
+  });
 }
 
 function attach(socket, room, name) {
@@ -219,6 +228,44 @@ io.on("connection", (socket) => {
     const matches = room.getMatches();
     if (!matches) return cb && cb({ ok: false, error: "Tournament results are not ready yet." });
     cb && cb({ ok: true, ...matches });
+  });
+
+
+  socket.on("selectIdentity", (payload = {}, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.selectIdentity(socket.data.name, payload.identityId);
+    cb && cb(result);
+  });
+
+  socket.on("pause", (_payload, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.pause(socket.data.name);
+    cb && cb(result);
+  });
+
+  socket.on("resume", (_payload, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.resume(socket.data.name);
+    cb && cb(result);
+  });
+
+  socket.on("endGame", (_payload, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.endGame(socket.data.name);
+    cb && cb(result);
+  });
+
+  socket.on("leaveRoom", (_payload, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.leave(socket.data.name);
+    socket.leave(room.code);
+    socket.data.code = null;
+    cb && cb(result);
   });
 
   socket.on("disconnect", () => {

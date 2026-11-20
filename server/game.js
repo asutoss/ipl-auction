@@ -20,8 +20,11 @@ const {
   availablePlayers,
   BID_STEPS,
   BASE_PRICE_POINTS,
+  MIN_START_BID,
+  MAX_START_BID,
 } = require("./rules");
 const { getBooster, canAffordAny, publicCatalog } = require("./boosters");
+const { IDENTITIES, getIdentity, nextIdentity, publicIdentity } = require("../public/identities");
 
 function normalizeName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
@@ -73,6 +76,58 @@ class GameRoom extends EventEmitter {
     this.tournament = null;
     this.lastEvent = null;
     this.createdAt = Date.now();
+    this.paused = false;
+    this.pausedBy = null;
+    this.pauseRemainingMs = null;
+    this.pauseTimerKind = null;
+    this.ended = false;
+    this.forcedStartBid = null;
+    this.startBidFn = null;
+  }
+
+  rollStartBid() {
+    if (typeof this.startBidFn === "function") return this.startBidFn();
+    if (this.forcedStartBid != null) {
+      const n = Number(this.forcedStartBid);
+      if (Number.isInteger(n) && n >= MIN_START_BID && n <= MAX_START_BID) return n;
+    }
+    return MIN_START_BID + Math.floor(Math.random() * (MAX_START_BID - MIN_START_BID + 1));
+  }
+
+  takenIdentityIds(exceptKey) {
+    return new Set(
+      this.franchises
+        .filter((f) => f.key !== exceptKey && f.franchise && f.franchise.id)
+        .map((f) => f.franchise.id)
+    );
+  }
+
+  assignIdentity(team, id) {
+    const pack = publicIdentity(id);
+    if (!pack) return false;
+    team.franchise = pack;
+    return true;
+  }
+
+  autoAssignIdentities() {
+    const taken = new Set();
+    for (const f of this.franchises) {
+      if (f.franchise && getIdentity(f.franchise.id) && !taken.has(f.franchise.id)) {
+        taken.add(f.franchise.id);
+        continue;
+      }
+      const next = nextIdentity(taken);
+      if (next) {
+        this.assignIdentity(f, next.id);
+        taken.add(next.id);
+      }
+    }
+  }
+
+  requireUnpaused() {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    if (this.paused) return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
+    return { ok: true };
   }
 
   destroy() {
@@ -107,6 +162,9 @@ class GameRoom extends EventEmitter {
       short: f.franchise.short,
       color: f.franchise.color,
       franchiseName: f.franchise.name,
+      identityId: f.franchise.id,
+      color2: f.franchise.color2 || null,
+      emoji: f.franchise.emoji || null,
       purseLakhs: f.purseLakhs,
       isLeader: this.auction && f.key === this.auction.currentBidderKey,
       isYou: false,
@@ -142,7 +200,9 @@ class GameRoom extends EventEmitter {
       defaultBidderName: def ? def.name : null,
       defaultBidderShort: def ? def.franchise.short : null,
       isDefaultBidLeading: this.auction.currentBidderKey === this.auction.defaultBidderKey
-        && this.auction.currentBidLakhs === this.auction.nominee.basePriceLakhs,
+        && this.auction.currentBidLakhs === this.auction.startBidLakhs,
+      startBidLakhs: this.auction.startBidLakhs,
+      timerMs: this.auction.timerMs || this.timers.lotStartMs,
     };
   }
 
@@ -193,8 +253,8 @@ class GameRoom extends EventEmitter {
       return { ok: false, error: "This room is full (10 franchises)." };
     }
 
-    const taken = new Set(this.franchises.map((f) => f.franchise.id));
-    const pack = FRANCHISES.find((fr) => !taken.has(fr.id));
+    const pack = publicIdentity(nextIdentity(this.takenIdentityIds()));
+    if (!pack) return { ok: false, error: "No team logos left to assign." };
     const franchise = {
       key: nameKey(name),
       name,
@@ -249,13 +309,130 @@ class GameRoom extends EventEmitter {
     return { ok: true };
   }
 
+  selectIdentity(byName, identityId) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    if (this.phase !== "lobby") return { ok: false, error: "Team logos are locked once the auction starts." };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    const pack = publicIdentity(identityId);
+    if (!pack) return { ok: false, error: "Unknown team logo." };
+    const taken = this.takenIdentityIds(team.key);
+    if (taken.has(pack.id)) return { ok: false, error: "That logo is already taken." };
+    this.assignIdentity(team, pack.id);
+    this.bump("lobby");
+    return { ok: true };
+  }
+
+  leave(byName) {
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.phase === "lobby") {
+      this.franchises = this.franchises.filter((f) => f.key !== team.key);
+      if (this.hostKey === team.key) {
+        const next = this.franchises.find((f) => f.connected) || this.franchises[0];
+        this.hostKey = next ? next.key : null;
+      }
+      if (this.franchises.length === 0) {
+        this.endGame(byName, { abandoned: true });
+        return { ok: true, left: true, ended: true };
+      }
+      this.bump("lobby");
+      return { ok: true, left: true };
+    }
+    this.disconnect(team.socketId);
+    return { ok: true, left: true };
+  }
+
+  endGame(byName, opts = {}) {
+    if (this.ended) return { ok: true, ended: true };
+    const team = this.findByName(byName);
+    if (!opts.abandoned) {
+      if (!team || team.key !== this.hostKey) return { ok: false, error: "Only the host can end the game." };
+    }
+    this.ended = true;
+    this.paused = false;
+    this.clearTimer();
+    this.phase = "ended";
+    this.auction = null;
+    const endedBy = team ? team.name : byName;
+    this.emit("ended", { byName: endedBy, abandoned: Boolean(opts.abandoned) });
+    return { ok: true, ended: true };
+  }
+
+  pause(byName) {
+    const gate = this.requireUnpaused();
+    if (!gate.ok && this.ended) return gate;
+    if (this.paused) return { ok: false, error: `Game is already paused by ${this.pausedBy}.` };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.phase !== "auction" && this.phase !== "captains") {
+      return { ok: false, error: "Nothing to pause right now." };
+    }
+    if (this.phase === "auction" && this.auction) {
+      this.pauseRemainingMs = Math.max(0, (this.auction.endsAt || Date.now()) - Date.now());
+      this.pauseTimerKind = "lot";
+    } else if (this.phase === "captains" && this.captainEndsAt) {
+      this.pauseRemainingMs = Math.max(0, this.captainEndsAt - Date.now());
+      this.pauseTimerKind = "captain";
+    } else {
+      this.pauseRemainingMs = null;
+      this.pauseTimerKind = null;
+    }
+    this.clearTimer();
+    this.paused = true;
+    this.pausedBy = team.name;
+    this.emitDelta({
+      type: "paused",
+      byName: team.name,
+      remainingMs: this.pauseRemainingMs,
+      phase: this.phase,
+    });
+    return { ok: true };
+  }
+
+  resume(byName) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    if (!this.paused) return { ok: false, error: "The game is not paused." };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    const allowed = team.key === this.hostKey || team.name === this.pausedBy;
+    if (!allowed) return { ok: false, error: "Only the pauser or the host can resume." };
+    const remaining = this.pauseRemainingMs;
+    const kind = this.pauseTimerKind;
+    this.paused = false;
+    this.pausedBy = null;
+    this.pauseRemainingMs = null;
+    this.pauseTimerKind = null;
+    let endsAt = null;
+    if (kind === "lot" && this.phase === "auction" && this.auction && remaining != null) {
+      const lotId = this.lotId;
+      this.auction.endsAt = Date.now() + remaining;
+      endsAt = this.auction.endsAt;
+      this.armTimer(() => this.onLotTimeout(lotId), remaining);
+    } else if (kind === "captain" && this.phase === "captains" && remaining != null) {
+      this.captainEndsAt = Date.now() + remaining;
+      endsAt = this.captainEndsAt;
+      this.armTimer(() => this.finishCaptains(), remaining);
+    }
+    this.emitDelta({
+      type: "resumed",
+      endsAt,
+      captainEndsAt: this.captainEndsAt,
+      auctionEndsAt: this.auction ? this.auction.endsAt : null,
+    });
+    return { ok: true };
+  }
+
   startAuction(byName) {
+    const gate = this.requireUnpaused();
+    if (!gate.ok) return gate;
     const f = this.findByName(byName);
     if (!f || f.key !== this.hostKey) return { ok: false, error: "Only the host can start the auction." };
     if (this.phase !== "lobby") return { ok: false, error: "The auction has already started." };
     if (this.franchises.length < MIN_PLAYERS) {
       return { ok: false, error: "Need at least 2 franchises to start." };
     }
+    this.autoAssignIdentities();
     this.phase = "auction";
     this.queue = shuffle(this.allPlayers);
     this.unsold = [];
@@ -312,7 +489,8 @@ class GameRoom extends EventEmitter {
    * Skip only eliminated teams. Quota-full or already-11+ teams still get the default bid.
    * If the chosen team cannot afford the base price, eliminate them and continue.
    */
-  pickDefaultTeam(player) {
+  pickDefaultTeam(player, startBid) {
+    const cost = startBid != null ? startBid : MIN_START_BID;
     const n = this.franchises.length;
     if (n === 0) return null;
     const start = ((this.rrIndex % n) + n) % n;
@@ -320,7 +498,7 @@ class GameRoom extends EventEmitter {
       const idx = (start + i) % n;
       const team = this.franchises[idx];
       if (team.eliminated) continue;
-      if (team.purseLakhs < player.basePriceLakhs) {
+      if (team.purseLakhs < cost) {
         this.eliminate(team);
         continue;
       }
@@ -365,13 +543,15 @@ class GameRoom extends EventEmitter {
   startLotTimer(reset = false) {
     const lotId = this.lotId;
     const ms = reset ? this.timers.bidMs : this.timers.lotStartMs;
+    this.auction.timerMs = ms;
     this.auction.endsAt = Date.now() + ms;
     this.armTimer(() => this.onLotTimeout(lotId), ms);
   }
 
   onLotTimeout(lotId) {
+    if (this.paused || this.ended) return;
     if (this.phase !== "auction" || !this.auction || this.lotId !== lotId) return;
-    if (this.auction.currentBidderKey) this.sellCurrent();
+    if (this.auction.currentBidderKey || this.auction.defaultBidderKey) this.sellCurrent();
     else this.unsoldCurrent();
   }
 
@@ -400,7 +580,8 @@ class GameRoom extends EventEmitter {
       return;
     }
 
-    const defaultTeam = this.pickDefaultTeam(player);
+    const startBid = this.rollStartBid();
+    const defaultTeam = this.pickDefaultTeam(player, startBid);
     if (!defaultTeam) {
       this.lastEvent = {
         type: "skipped",
@@ -415,11 +596,13 @@ class GameRoom extends EventEmitter {
     this.lotId += 1;
     this.auction = {
       nominee: player,
-      currentBidLakhs: player.basePriceLakhs,
+      startBidLakhs: startBid,
+      currentBidLakhs: startBid,
       currentBidderKey: defaultTeam.key,
       defaultBidderKey: defaultTeam.key,
       optedOut: new Set(),
       endsAt: Date.now() + this.timers.lotStartMs,
+      timerMs: this.timers.lotStartMs,
     };
     this.startLotTimer(false);
     if (!this.maybeResolveLot()) {
@@ -428,13 +611,18 @@ class GameRoom extends EventEmitter {
   }
 
   sellCurrent() {
-    if (!this.auction || !this.auction.currentBidderKey) {
+    if (!this.auction) {
+      this.nominateNext();
+      return;
+    }
+    const key = this.auction.currentBidderKey || this.auction.defaultBidderKey;
+    if (!key) {
       this.unsoldCurrent();
       return;
     }
     const player = this.auction.nominee;
-    const winner = this.findByKey(this.auction.currentBidderKey);
-    const price = this.auction.currentBidLakhs;
+    const winner = this.findByKey(key);
+    const price = this.auction.currentBidLakhs != null ? this.auction.currentBidLakhs : this.auction.startBidLakhs;
     if (!winner) {
       this.unsoldCurrent();
       return;
@@ -476,6 +664,11 @@ class GameRoom extends EventEmitter {
       this.nominateNext();
       return;
     }
+    // Default bid guarantee: if a default (or leading) bidder exists, lock the player there.
+    if (this.auction.currentBidderKey || this.auction.defaultBidderKey) {
+      this.sellCurrent();
+      return;
+    }
     const player = this.auction.nominee;
     if (!this.unsold.some((p) => p.id === player.id)) this.unsold.push(player);
     this.lastEvent = { type: "unsold", player, reason: "No bids — went unsold." };
@@ -485,6 +678,8 @@ class GameRoom extends EventEmitter {
   }
 
   bid(byName, amountLakhs) {
+    const gate = this.requireUnpaused();
+    if (!gate.ok) return gate;
     if (this.phase !== "auction" || !this.auction) {
       return { ok: false, error: "No player is on the block." };
     }
@@ -540,6 +735,8 @@ class GameRoom extends EventEmitter {
   }
 
   optOut(byName) {
+    const gate = this.requireUnpaused();
+    if (!gate.ok) return gate;
     if (this.phase !== "auction" || !this.auction) {
       return { ok: false, error: "No player is on the block." };
     }
@@ -576,7 +773,8 @@ class GameRoom extends EventEmitter {
       seen.add(p.id);
       leftover.push(p);
     }
-    leftover.sort((a, b) => a.basePriceLakhs - b.basePriceLakhs || overallRating(b) - overallRating(a));
+    leftover.sort((a, b) => overallRating(b) - overallRating(a));
+    const fillPrice = MIN_START_BID;
 
     let progress = true;
     while (progress) {
@@ -584,14 +782,14 @@ class GameRoom extends EventEmitter {
       const needy = this.activeFranchises().filter((f) => !hasMinSquad(f.squad));
       if (needy.length === 0) break;
       for (const team of needy) {
-        const pick = leftover.find((p) => team.purseLakhs >= p.basePriceLakhs);
+        const pick = leftover.find((p) => team.purseLakhs >= fillPrice);
         if (!pick) continue;
-        team.squad.push({ player: pick, priceLakhs: pick.basePriceLakhs });
-        team.purseLakhs -= pick.basePriceLakhs;
+        team.squad.push({ player: pick, priceLakhs: fillPrice });
+        team.purseLakhs -= fillPrice;
         this.soldIds.add(pick.id);
         this.soldLog.push({
           player: pick,
-          priceLakhs: pick.basePriceLakhs,
+          priceLakhs: fillPrice,
           buyerName: team.name,
           short: team.franchise.short,
           color: team.franchise.color,
@@ -637,6 +835,8 @@ class GameRoom extends EventEmitter {
   }
 
   buyBooster(byName, boosterId) {
+    const gate = this.requireUnpaused();
+    if (!gate.ok) return gate;
     if (this.phase !== "captains") return { ok: false, error: "The booster shop is closed." };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
@@ -665,6 +865,8 @@ class GameRoom extends EventEmitter {
   }
 
   selectCaptain(byName, playerId) {
+    const gate = this.requireUnpaused();
+    if (!gate.ok) return gate;
     if (this.phase !== "captains") return { ok: false, error: "Captain selection is not open." };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
@@ -705,6 +907,9 @@ class GameRoom extends EventEmitter {
         name: f.name,
         short: f.franchise.short,
         color: f.franchise.color,
+        color2: f.franchise.color2 || null,
+        emoji: f.franchise.emoji || null,
+        identityId: f.franchise.id,
         franchiseName: f.franchise.name,
         title: "Eliminated - insufficient purse",
         eliminated: true,
@@ -785,6 +990,9 @@ class GameRoom extends EventEmitter {
         name: f.name,
         short: f.franchise.short,
         color: f.franchise.color,
+        color2: f.franchise.color2 || null,
+        emoji: f.franchise.emoji || null,
+        identityId: f.franchise.id,
         franchiseName: f.franchise.name,
         captainId: f.captainId,
         purseLakhs: f.purseLakhs,
@@ -858,6 +1066,10 @@ class GameRoom extends EventEmitter {
       code: this.code,
       phase: this.phase,
       purseLakhs: this.purseLakhs,
+      paused: Boolean(this.paused),
+      pausedBy: this.pausedBy,
+      pauseRemainingMs: this.paused ? this.pauseRemainingMs : null,
+      identities: IDENTITIES.map((t) => publicIdentity(t.id)),
       ratingsNote: this.meta.ratingsNote || null,
       hostName: this.host ? this.host.name : null,
       you: you ? this.publicFranchise(you, forKey) : null,
