@@ -4,232 +4,392 @@
  * uses the embedded copy below (tests check the two stay in sync).
  *
  * Each character has id, name, image, colour theme, and placeholders for
- * future per-character emotes (array) and power (null for now). The image
+ * future per-character emotes (array) and a power (each character has one). The image
  * is used as the team's logo on the ring, strip, sold modal, and results.
  */
 (function (root, factory) {
   const embedded = [
-  {
-    "id": "mickey-mouse",
-    "name": "Mickey Mouse",
-    "image": "/logos/mickey-mouse.webp",
-    "color": "#DC143C",
-    "color2": "#F9D5DC",
-    "ink": "#30040D",
-    "text": "#E65673",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "spongebob",
-    "name": "SpongeBob",
-    "image": "/logos/spongebob.webp",
-    "color": "#F5D000",
-    "color2": "#FDF7D1",
-    "ink": "#362E00",
-    "text": "#F5D000",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "bugs-bunny",
-    "name": "Bugs Bunny",
-    "image": "/logos/bugs-bunny.webp",
-    "color": "#B0B7C3",
-    "color2": "#F1F2F4",
-    "ink": "#27282B",
-    "text": "#B0B7C3",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "pikachu",
-    "name": "Pikachu",
-    "image": "/logos/pikachu.webp",
-    "color": "#E8A100",
-    "color2": "#FBEED1",
-    "ink": "#332300",
-    "text": "#E8A100",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "doraemon",
-    "name": "Doraemon",
-    "image": "/logos/doraemon.webp",
-    "color": "#2A6DFF",
-    "color2": "#D9E5FF",
-    "ink": "#091838",
-    "text": "#6696FF",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "shin-chan",
-    "name": "Shin-chan",
-    "image": "/logos/shin-chan.webp",
-    "color": "#FF451A",
-    "color2": "#FFDED6",
-    "ink": "#380F06",
-    "text": "#FF795A",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "shrek",
-    "name": "Shrek",
-    "image": "/logos/shrek.webp",
-    "color": "#4A8A1E",
-    "color2": "#DEEAD6",
-    "ink": "#101E07",
-    "text": "#8ED44A",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "minion",
-    "name": "Minion",
-    "image": "/logos/minion.webp",
-    "color": "#163A7A",
-    "color2": "#FFE45C",
-    "ink": "#0A1E5C",
-    "text": "#6B8CFF",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "chhota-bheem",
-    "name": "Chhota Bheem",
-    "image": "/logos/chhota-bheem.webp",
-    "color": "#E85D00",
-    "color2": "#FBE2D1",
-    "ink": "#331400",
-    "text": "#FF8A33",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "narendra-modi",
-    "name": "Narendra Modi",
-    "image": "/logos/narendra-modi.webp",
-    "color": "#FF9933",
-    "color2": "#FFEDDA",
-    "ink": "#38220B",
-    "text": "#FF9933",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "prabhas",
-    "name": "Prabhas",
-    "image": "/logos/prabhas.webp",
-    "color": "#A32112",
-    "color2": "#EED7D4",
-    "ink": "#240704",
-    "text": "#BD5F54",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "orry",
-    "name": "Orry",
-    "image": "/logos/orry.webp",
-    "color": "#8BCF17",
-    "color2": "#EAF6D5",
-    "ink": "#1F2E05",
-    "text": "#8BCF17",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "dolly-chaiwala",
-    "name": "Dolly Chaiwala",
-    "image": "/logos/dolly-chaiwala.webp",
-    "color": "#6B3F14",
-    "color2": "#F0E0C8",
-    "ink": "#2A1608",
-    "text": "#D4A574",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "amitabh-bachchan",
-    "name": "Amitabh Bachchan",
-    "image": "/logos/amitabh-bachchan.webp",
-    "color": "#4A0D1C",
-    "color2": "#1C0A10",
-    "ink": "#F3D38A",
-    "text": "#E8C547",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "jay-shah",
-    "name": "Jay Shah",
-    "image": "/logos/jay-shah.webp",
-    "color": "#0E7490",
-    "color2": "#D4E6EB",
-    "ink": "#031A20",
-    "text": "#519BAF",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "samay-raina",
-    "name": "Samay Raina",
-    "image": "/logos/samay-raina.webp",
-    "color": "#C026D3",
-    "color2": "#F4D8F7",
-    "ink": "#2A082E",
-    "text": "#D263DF",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "elvish-yadav",
-    "name": "Elvish Yadav",
-    "image": "/logos/elvish-yadav.webp",
-    "color": "#047857",
-    "color2": "#D2E7E1",
-    "ink": "#011A13",
-    "text": "#4A9E86",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "puneet-superstar",
-    "name": "Puneet Superstar",
-    "image": "/logos/puneet-superstar.webp",
-    "color": "#DB2777",
-    "color2": "#F9D8E7",
-    "ink": "#30091A",
-    "text": "#E5639D",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "ranveer-allahbadia",
-    "name": "Ranveer Allahbadia",
-    "image": "/logos/ranveer-allahbadia.webp",
-    "color": "#6D28D9",
-    "color2": "#E5D8F8",
-    "ink": "#180930",
-    "text": "#9664E4",
-    "emotes": [],
-    "power": null
-  },
-  {
-    "id": "salman-khan",
-    "name": "Salman Khan",
-    "image": "/logos/salman-khan.webp",
-    "color": "#2C3E50",
-    "color2": "#1A2530",
-    "ink": "#0B1220",
-    "text": "#8FA4B8",
-    "emotes": [],
-    "power": null
-  }
-];
+    {
+      "id": "mickey-mouse",
+      "name": "Mickey Mouse",
+      "image": "/logos/mickey-mouse.webp",
+      "color": "#DC143C",
+      "color2": "#F9D5DC",
+      "ink": "#30040D",
+      "text": "#E65673",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Clubhouse Cash",
+        "description": "A clubhouse treat adds 10 points to the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "spongebob",
+      "name": "SpongeBob",
+      "image": "/logos/spongebob.webp",
+      "color": "#F5D000",
+      "color2": "#FDF7D1",
+      "ink": "#362E00",
+      "text": "#F5D000",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Krabby Payday",
+        "description": "Payday at the Krusty Krab: 10 points hit the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "bugs-bunny",
+      "name": "Bugs Bunny",
+      "image": "/logos/bugs-bunny.webp",
+      "color": "#B0B7C3",
+      "color2": "#F1F2F4",
+      "ink": "#27282B",
+      "text": "#B0B7C3",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "What's Up, Stash",
+        "description": "What's up, Doc? 10 points land in the stash.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "pikachu",
+      "name": "Pikachu",
+      "image": "/logos/pikachu.webp",
+      "color": "#E8A100",
+      "color2": "#FBEED1",
+      "ink": "#332300",
+      "text": "#E8A100",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Thunder Jolt",
+        "description": "A thunder jolt zaps 10 points into the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "doraemon",
+      "name": "Doraemon",
+      "image": "/logos/doraemon.webp",
+      "color": "#2A6DFF",
+      "color2": "#D9E5FF",
+      "ink": "#091838",
+      "text": "#6696FF",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Anywhere Pocket",
+        "description": "The anywhere pocket produces 10 extra points.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "shin-chan",
+      "name": "Shin-chan",
+      "image": "/logos/shin-chan.webp",
+      "color": "#FF451A",
+      "color2": "#FFDED6",
+      "ink": "#380F06",
+      "text": "#FF795A",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Action Kamen Boost",
+        "description": "Action Kamen swoops in with 10 bonus points.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "shrek",
+      "name": "Shrek",
+      "image": "/logos/shrek.webp",
+      "color": "#4A8A1E",
+      "color2": "#DEEAD6",
+      "ink": "#101E07",
+      "text": "#8ED44A",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Swamp Stash",
+        "description": "A layer of the swamp stash adds 10 points.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "minion",
+      "name": "Minion",
+      "image": "/logos/minion.webp",
+      "color": "#163A7A",
+      "color2": "#FFE45C",
+      "ink": "#0A1E5C",
+      "text": "#6B8CFF",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Banana Bonus",
+        "description": "Bello! A banana bonus adds 10 points.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "chhota-bheem",
+      "name": "Chhota Bheem",
+      "image": "/logos/chhota-bheem.webp",
+      "color": "#E85D00",
+      "color2": "#FBE2D1",
+      "ink": "#331400",
+      "text": "#FF8A33",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Ladoo Power",
+        "description": "A ladoo-powered lift adds 10 points to the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "narendra-modi",
+      "name": "Narendra Modi",
+      "image": "/logos/narendra-modi.webp",
+      "color": "#FF9933",
+      "color2": "#FFEDDA",
+      "ink": "#38220B",
+      "text": "#FF9933",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Masterstroke",
+        "description": "A signature masterstroke adds 10 points to the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "prabhas",
+      "name": "Prabhas",
+      "image": "/logos/prabhas.webp",
+      "color": "#A32112",
+      "color2": "#EED7D4",
+      "ink": "#240704",
+      "text": "#BD5F54",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Salaar Surge",
+        "description": "A Salaar surge pours 10 points into the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "orry",
+      "name": "Orry",
+      "image": "/logos/orry.webp",
+      "color": "#8BCF17",
+      "color2": "#EAF6D5",
+      "ink": "#1F2E05",
+      "text": "#8BCF17",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Spotlight Stash",
+        "description": "The spotlight finds 10 extra points for the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "dolly-chaiwala",
+      "name": "Dolly Chaiwala",
+      "image": "/logos/dolly-chaiwala.webp",
+      "color": "#6B3F14",
+      "color2": "#F0E0C8",
+      "ink": "#2A1608",
+      "text": "#D4A574",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Cutting Chai",
+        "description": "A cutting chai comes with 10 extra points.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "amitabh-bachchan",
+      "name": "Amitabh Bachchan",
+      "image": "/logos/amitabh-bachchan.webp",
+      "color": "#4A0D1C",
+      "color2": "#1C0A10",
+      "ink": "#F3D38A",
+      "text": "#E8C547",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "KBC Jackpot",
+        "description": "A KBC jackpot locks in 10 bonus points.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "jay-shah",
+      "name": "Jay Shah",
+      "image": "/logos/jay-shah.webp",
+      "color": "#0E7490",
+      "color2": "#D4E6EB",
+      "ink": "#031A20",
+      "text": "#519BAF",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Boardroom Bonus",
+        "description": "A boardroom bonus credits 10 points to the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "samay-raina",
+      "name": "Samay Raina",
+      "image": "/logos/samay-raina.webp",
+      "color": "#C026D3",
+      "color2": "#F4D8F7",
+      "ink": "#2A082E",
+      "text": "#D263DF",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Checkmate Cash",
+        "description": "Checkmate: 10 points appear on the board.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "elvish-yadav",
+      "name": "Elvish Yadav",
+      "image": "/logos/elvish-yadav.webp",
+      "color": "#047857",
+      "color2": "#D2E7E1",
+      "ink": "#011A13",
+      "text": "#4A9E86",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Elvishhh Boost",
+        "description": "Elvishhh! A boost drops 10 points into the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "puneet-superstar",
+      "name": "Puneet Superstar",
+      "image": "/logos/puneet-superstar.webp",
+      "color": "#DB2777",
+      "color2": "#F9D8E7",
+      "ink": "#30091A",
+      "text": "#E5639D",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Thik Hai Boost",
+        "description": "Thik hai — 10 points, no discussion.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "ranveer-allahbadia",
+      "name": "Ranveer Allahbadia",
+      "image": "/logos/ranveer-allahbadia.webp",
+      "color": "#6D28D9",
+      "color2": "#E5D8F8",
+      "ink": "#180930",
+      "text": "#9664E4",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Do Epic Cash",
+        "description": "Do it epic: 10 points land in the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "salman-khan",
+      "name": "Salman Khan",
+      "image": "/logos/salman-khan.webp",
+      "color": "#2C3E50",
+      "color2": "#1A2530",
+      "ink": "#0B1220",
+      "text": "#8FA4B8",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Being Human Bonus",
+        "description": "A Being Human bonus adds 10 points to the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    }
+  ];
   function loadCatalog() {
     if (typeof require === "function" && typeof module === "object") {
       try {

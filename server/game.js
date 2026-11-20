@@ -38,6 +38,7 @@ function characterIdOf(pack) {
 
 const { isValidEmoteId, EMOTE_COOLDOWN_MS } = require("../public/emotes");
 const { resolveRng, shuffle } = require("./random");
+const { POWER_REVEAL_MS, publicPower, applyPower } = require("./powers");
 const { buildAuctionList, extraPlayersForNeeds } = require("./auction-pool");
 
 function normalizeName(name) {
@@ -60,6 +61,7 @@ function defaultTimers() {
     bidMs: Number(process.env.BID_TIMER_MS) || 15000,
     captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 45000,
     soldRevealMs: envMs("SOLD_REVEAL_MS", 5000),
+    powerRevealMs: envMs("POWER_REVEAL_MS", POWER_REVEAL_MS),
   };
 }
 
@@ -103,6 +105,8 @@ class GameRoom extends EventEmitter {
     this.startBidFn = null;
     this.revealUntil = null;
     this.unaffordableIds = new Set();
+    this.powerReveal = null;
+    this.powerFreeze = null;
   }
 
   rollStartBid() {
@@ -130,7 +134,32 @@ class GameRoom extends EventEmitter {
     const pack = publicCharacter(id);
     if (!pack) return false;
     team.franchise = pack;
+    this.armTeamPower(team);
     return true;
+  }
+
+  armTeamPower(team) {
+    if (!team) return;
+    const def = publicPower(team.franchise && team.franchise.power);
+    team.powerUsesTotal = def ? def.uses : 0;
+    team.powerUsesLeft = def ? def.uses : 0;
+    team.powerUsedCount = 0;
+  }
+
+  packTeamPower(team) {
+    const def = publicPower(team && team.franchise && team.franchise.power);
+    if (!def) {
+      return { id: null, name: null, description: null, uses: 0, usesLeft: 0, used: false };
+    }
+    const usesLeft = team.powerUsesLeft != null ? team.powerUsesLeft : def.uses;
+    return {
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      uses: def.uses,
+      usesLeft,
+      used: usesLeft <= 0 || (team.powerUsedCount || 0) > 0,
+    };
   }
 
   assignIdentity(team, id) {
@@ -159,6 +188,7 @@ class GameRoom extends EventEmitter {
 
   requireUnpaused() {
     if (this.ended) return { ok: false, error: "This game has ended." };
+    if (this.powerReveal) return { ok: false, error: "A power is being revealed." };
     if (this.paused) return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
     return { ok: true };
   }
@@ -218,6 +248,7 @@ class GameRoom extends EventEmitter {
       squadSize: (f.squad || []).length,
       complete: isSquadComplete(f.squad, this.mode),
       eliminated: Boolean(f.eliminated),
+      powerUsed: Boolean(f.powerUsedCount) || (f.powerUsesLeft != null && f.powerUsesLeft <= 0),
     }));
   }
 
@@ -322,6 +353,7 @@ class GameRoom extends EventEmitter {
       eliminatedReason: null,
       eliminatedAt: null,
     };
+    this.armTeamPower(franchise);
     this.franchises.push(franchise);
     if (!this.hostKey) this.hostKey = franchise.key;
     this.bump("lobby");
@@ -408,6 +440,8 @@ class GameRoom extends EventEmitter {
     }
     this.ended = true;
     this.paused = false;
+    this.powerReveal = null;
+    this.powerFreeze = null;
     this.clearTimer();
     this.phase = "ended";
     this.auction = null;
@@ -418,7 +452,12 @@ class GameRoom extends EventEmitter {
 
   pause(byName) {
     const gate = this.requireUnpaused();
-    if (!gate.ok && this.ended) return gate;
+    if (!gate.ok) {
+      if (this.paused && !this.ended) {
+        return { ok: false, error: `Game is already paused by ${this.pausedBy}.` };
+      }
+      return gate;
+    }
     if (this.paused) return { ok: false, error: `Game is already paused by ${this.pausedBy}.` };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
@@ -498,6 +537,9 @@ class GameRoom extends EventEmitter {
       return { ok: false, error: "Need at least 2 franchises to start." };
     }
     this.autoAssignCharacters();
+    for (const f of this.franchises) this.armTeamPower(f);
+    this.powerReveal = null;
+    this.powerFreeze = null;
     this.phase = "auction";
     this.queue = buildAuctionList(this.allPlayers, this.mode, this.franchises.length, this.rng);
     this.lotTotal = this.queue.length;
@@ -1150,6 +1192,7 @@ class GameRoom extends EventEmitter {
   }
 
   publicFranchise(f, forKey) {
+    const power = this.packTeamPower(f);
     return {
       name: f.name,
       connected: f.connected,
@@ -1170,6 +1213,9 @@ class GameRoom extends EventEmitter {
       boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
       eliminated: Boolean(f.eliminated),
       eliminatedReason: f.eliminated ? "Eliminated - insufficient purse" : null,
+      power,
+      powerUsesLeft: power.usesLeft,
+      powerUsed: power.used,
     };
   }
 
@@ -1242,6 +1288,180 @@ class GameRoom extends EventEmitter {
     });
   }
 
+
+  packPowerReveal() {
+    const r = this.powerReveal;
+    if (!r) return null;
+    return {
+      teamId: r.teamId,
+      name: r.name,
+      characterId: r.characterId,
+      powerId: r.powerId,
+      powerName: r.powerName,
+      description: r.description,
+      color: r.color,
+      image: r.image,
+      endsAt: r.endsAt,
+      revealMs: r.revealMs,
+    };
+  }
+
+  captureAuctionTimer() {
+    if (this.phase === "auction" && this.auction) {
+      return { kind: "lot", remainingMs: Math.max(0, (this.auction.endsAt || Date.now()) - Date.now()) };
+    }
+    if (this.phase === "auction" && this.revealUntil) {
+      return { kind: "reveal", remainingMs: Math.max(0, this.revealUntil - Date.now()) };
+    }
+    if (this.phase === "captains" && this.captainEndsAt) {
+      return { kind: "captain", remainingMs: Math.max(0, this.captainEndsAt - Date.now()) };
+    }
+    return { kind: null, remainingMs: null };
+  }
+
+  freezeForPower() {
+    this.powerFreeze = this.captureAuctionTimer();
+    this.clearTimer();
+  }
+
+  thawPowerFreeze() {
+    const frozen = this.powerFreeze;
+    this.powerFreeze = null;
+    if (!frozen || frozen.remainingMs == null) return null;
+    const remaining = frozen.remainingMs;
+    const kind = frozen.kind;
+    let endsAt = null;
+    if (kind === "lot" && this.phase === "auction" && this.auction) {
+      const lotId = this.lotId;
+      this.auction.endsAt = Date.now() + remaining;
+      endsAt = this.auction.endsAt;
+      this.armTimer(() => this.onLotTimeout(lotId), remaining);
+    } else if (kind === "reveal" && this.phase === "auction") {
+      this.revealUntil = Date.now() + remaining;
+      endsAt = this.revealUntil;
+      this.armTimer(() => this.finishReveal(), remaining);
+    } else if (kind === "captain" && this.phase === "captains") {
+      this.captainEndsAt = Date.now() + remaining;
+      endsAt = this.captainEndsAt;
+      this.armTimer(() => this.finishCaptains(), remaining);
+    }
+    return endsAt;
+  }
+
+  /**
+   * Use the team's character power once (uses is configurable on the power
+   * definition; default 1). Auction phase only, including during a live lot.
+   * Rejected during a sold reveal or a manual pause, and while another power
+   * reveal is on screen. Eliminated teams cannot use a power; use it before
+   * you are out. On use the auction timers freeze, a 2s reveal is broadcast,
+   * then the effect is applied and timers resume with the remaining time.
+   */
+  usePower(byName) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.phase !== "auction") {
+      return { ok: false, error: "Powers can only be used during the auction." };
+    }
+    if (this.powerReveal) {
+      return { ok: false, error: "A power is already being revealed." };
+    }
+    if (this.paused) {
+      return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
+    }
+    if (this.revealUntil && !this.auction) {
+      return { ok: false, error: "Wait until the next player is on the block." };
+    }
+    if (team.eliminated) {
+      return { ok: false, error: "Eliminated teams cannot use a power." };
+    }
+    const def = publicPower(team.franchise && team.franchise.power);
+    if (!def) return { ok: false, error: "This character has no power." };
+    const left = team.powerUsesLeft != null ? team.powerUsesLeft : def.uses;
+    if (left <= 0) return { ok: false, error: "You have already used your power." };
+
+    team.powerUsesLeft = left - 1;
+    team.powerUsedCount = (team.powerUsedCount || 0) + 1;
+
+    const revealMs = Math.max(0, Number(this.timers.powerRevealMs) || 0);
+    const payload = {
+      teamKey: team.key,
+      teamId: team.key,
+      name: team.name,
+      characterId: characterIdOf(team.franchise),
+      powerId: def.id,
+      powerName: def.name,
+      description: def.description,
+      params: def.params,
+      color: team.franchise && (team.franchise.color || null),
+      image: team.franchise && (team.franchise.image || team.franchise.logo || null),
+      revealMs,
+      endsAt: Date.now() + revealMs,
+      applied: false,
+    };
+    this.freezeForPower();
+    this.powerReveal = payload;
+    this.lastEvent = { type: "powerReveal", ...this.packPowerReveal() };
+    this.emitDelta({
+      type: "powerReveal",
+      ...this.packPowerReveal(),
+      powerUsesLeft: team.powerUsesLeft,
+      powerUsed: true,
+    });
+    if (revealMs <= 0) {
+      this.finishPowerReveal();
+    } else {
+      this.armTimer(() => this.finishPowerReveal(), revealMs);
+    }
+    return { ok: true };
+  }
+
+  finishPowerReveal() {
+    if (this.ended) return;
+    const reveal = this.powerReveal;
+    if (!reveal || reveal.applied) return;
+    reveal.applied = true;
+    const team = this.findByKey(reveal.teamKey);
+    let applied = { ok: false };
+    if (team) {
+      applied = applyPower(this, team, {
+        id: reveal.powerId,
+        name: reveal.powerName,
+        description: reveal.description,
+        params: reveal.params,
+        uses: 1,
+      });
+      if (applied.ok && this.auction && this.auction.lotSnapshot) {
+        const row = this.auction.lotSnapshot.find((r) => r.name === team.name);
+        if (row) {
+          row.purseLakhs = team.purseLakhs;
+          row.powerUsed = true;
+        }
+      }
+    }
+    this.powerReveal = null;
+    const endsAt = this.thawPowerFreeze();
+    const packed = {
+      type: "powerApplied",
+      teamId: reveal.teamId,
+      name: reveal.name,
+      characterId: reveal.characterId,
+      powerId: reveal.powerId,
+      powerName: reveal.powerName,
+      description: reveal.description,
+      points: applied.points != null ? applied.points : 0,
+      purseLakhs: team ? team.purseLakhs : null,
+      powerUsesLeft: team ? team.powerUsesLeft : 0,
+      powerUsed: true,
+      endsAt,
+      auctionEndsAt: this.auction ? this.auction.endsAt : null,
+      soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
+      captainEndsAt: this.captainEndsAt,
+    };
+    this.lastEvent = packed;
+    this.emitDelta(packed);
+  }
+
   emote(byName, emoteId) {
     if (this.ended) return { ok: false, error: "This game has ended." };
     const team = this.findByName(byName);
@@ -1284,7 +1504,9 @@ class GameRoom extends EventEmitter {
       let youCanBid = false;
       let youCanOptOut = false;
       let youReason = null;
-      if (you) {
+      if (you && this.powerReveal) {
+        youReason = "A power is being revealed.";
+      } else if (you) {
         if (this.auction.optedOut.has(you.key)) {
           youReason = "You opted out of this player.";
         } else if (you.key === this.auction.currentBidderKey) {
@@ -1314,6 +1536,7 @@ class GameRoom extends EventEmitter {
       paused: Boolean(this.paused),
       pausedBy: this.pausedBy,
       pauseRemainingMs: this.paused ? this.pauseRemainingMs : null,
+      powerReveal: this.packPowerReveal(),
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
       characters: CHARACTERS.map((t) => publicCharacter(t.id)),
       identities: CHARACTERS.map((t) => publicCharacter(t.id)),

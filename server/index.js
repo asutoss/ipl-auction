@@ -165,6 +165,9 @@ io.on("connection", (socket) => {
       if (payload.testTimers.soldRevealMs != null && Number.isFinite(Number(payload.testTimers.soldRevealMs))) {
         timers.soldRevealMs = Math.max(0, Number(payload.testTimers.soldRevealMs));
       }
+      if (payload.testTimers.powerRevealMs != null && Number.isFinite(Number(payload.testTimers.powerRevealMs))) {
+        timers.powerRevealMs = Math.max(0, Number(payload.testTimers.powerRevealMs));
+      }
     }
     const room = new GameRoom({
       code,
@@ -276,6 +279,13 @@ io.on("connection", (socket) => {
     const room = getRoom(socket.data.code);
     if (!room) return cb && cb({ ok: false, error: "Join a room first." });
     const result = room.continueReveal(socket.data.name);
+    cb && cb(result);
+  });
+
+  socket.on("usePower", (_payload, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.usePower(socket.data.name);
     cb && cb(result);
   });
 

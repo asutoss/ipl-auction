@@ -705,7 +705,7 @@ describe("nomination order and timers", () => {
   });
 
   test("default timers are 15s for lots and bids, and 5s for the sold reveal", () => {
-    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS"];
+    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS"];
     const prev = {};
     for (const k of keys) {
       prev[k] = process.env[k];
@@ -717,6 +717,7 @@ describe("nomination order and timers", () => {
       assert.equal(room.timers.bidMs, 15000);
       assert.equal(room.timers.soldRevealMs, 5000);
       assert.equal(room.timers.captainMs, 45000);
+      assert.equal(room.timers.powerRevealMs, 2000);
     } finally {
       for (const k of keys) {
         if (prev[k] == null) delete process.env[k];
@@ -975,7 +976,7 @@ describe("end game and leave", () => {
 
 
 describe("team names and character catalog", () => {
-  test("catalog has 20 characters with unique colours, images, and placeholder emotes/power", () => {
+  test("catalog has 20 characters with unique colours, images, placeholder emotes, and a power", () => {
     const fs = require("fs");
     const path = require("path");
     const { CHARACTERS, IDENTITIES, imageUrl, logoUrl, characterImg, logoImg } = require("../public/characters");
@@ -1002,7 +1003,13 @@ describe("team names and character catalog", () => {
       assert.equal(t.image, `/logos/${t.id}.webp`);
       assert.equal(t.logo, t.image);
       assert.ok(Array.isArray(t.emotes) && t.emotes.length === 0, t.id);
-      assert.equal(t.power, null);
+      assert.ok(t.power && t.power.id === "bonus_points", t.id);
+      assert.ok(t.power.name && t.power.name.length > 1, t.id);
+      assert.ok(t.power.description && /10/.test(t.power.description), t.id);
+      assert.equal(t.power.uses, 1);
+      assert.equal(t.power.params.points, 10);
+      const filePower = fromFile.find((row) => row.id === t.id).power;
+      assert.deepEqual(t.power, filePower);
       assert.equal(imageUrl(t.id), `/logos/${t.id}.webp`);
       assert.equal(logoUrl(t.id), imageUrl(t.id));
       const img = characterImg(t.id);
@@ -1015,6 +1022,13 @@ describe("team names and character catalog", () => {
       assert.doesNotMatch(t.character, /chargers|sloths|punchers|rockets|smashers|mavericks|blasters|jaguars|jammers|dynamos|lions|vikings/i);
     }
     assert.ok(total < 600 * 1024, `character image payload ${total} bytes`);
+    const powerNames = CHARACTERS.map((t) => t.power.name);
+    assert.equal(new Set(powerNames).size, 20);
+    const src = fs.readFileSync(path.join(__dirname, "../public/characters.js"), "utf8");
+    const embeddedMatch = src.match(/const embedded = (\[[\s\S]*?\n  \];)/);
+    assert.ok(embeddedMatch, "embedded catalogue missing");
+    const embedded = Function(`"use strict"; return ${embeddedMatch[1].replace(/;\s*$/, "")}`)();
+    assert.deepEqual(embedded, fromFile);
     // Colours should be visually spread (ignore near-neutrals).
     function hexRgb(hex) {
       const n = parseInt(hex.slice(1), 16);
@@ -1368,5 +1382,117 @@ describe("auction list", () => {
         assert.equal(isSquadComplete(team.squad, mode), true, `${mode} ${name} incomplete`);
       }
     }
+  });
+});
+
+describe("character powers", () => {
+  const { publicPower, applyPower, POWERS } = require("../server/powers");
+
+  test("bonus_points applies +10 to the purse", () => {
+    const team = { purseLakhs: 50 };
+    const result = applyPower({}, team, { id: "bonus_points", params: { points: 10 }, uses: 1, name: "Test" });
+    assert.equal(result.ok, true);
+    assert.equal(result.points, 10);
+    assert.equal(team.purseLakhs, 60);
+    assert.ok(POWERS.bonus_points);
+    const def = publicPower({ id: "bonus_points", name: "Masterstroke", description: "Adds 10.", uses: 1, params: { points: 10 } });
+    assert.equal(def.uses, 1);
+    assert.equal(def.params.points, 10);
+  });
+
+  test("usePower adds 10 once, then rejects a second use", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { powerRevealMs: 0, soldRevealMs: 0 });
+    assert.equal(room.startAuction("Ashutosh").ok, true);
+    const priya = room.findByName("Priya");
+    const startPurse = priya.purseLakhs;
+    const first = room.usePower("Priya");
+    assert.equal(first.ok, true, first.error);
+    assert.equal(priya.purseLakhs, startPurse + 10);
+    assert.equal(priya.powerUsesLeft, 0);
+    assert.equal(room.powerReveal, null);
+    const snap = room.getState("Priya");
+    assert.equal(snap.you.purseLakhs, startPurse + 10);
+    assert.equal(snap.you.powerUsed, true);
+    assert.equal(snap.you.power.uses, 1);
+    assert.ok(snap.you.power.name);
+    const second = room.usePower("Priya");
+    assert.equal(second.ok, false);
+    assert.match(second.error, /already used/i);
+    assert.equal(priya.purseLakhs, startPurse + 10);
+  });
+
+  test("usePower freezes the lot timer and resumes with the remaining time after the reveal", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { lotStartMs: 400, bidMs: 400, powerRevealMs: 80, soldRevealMs: 0 });
+    assert.equal(room.startAuction("Ashutosh").ok, true);
+    const before = Math.max(0, room.auction.endsAt - Date.now());
+    const events = [];
+    room.on("delta", (e) => events.push(e.type));
+    const used = room.usePower("Ashutosh");
+    assert.equal(used.ok, true, used.error);
+    assert.ok(room.powerReveal);
+    assert.equal(room.paused, false);
+    const held = room.powerFreeze && room.powerFreeze.remainingMs;
+    assert.ok(held <= before && held >= before - 80, `held=${held} before=${before}`);
+    assert.equal(room.bid("Priya", room.auction.currentBidLakhs + 1).ok, false);
+    assert.equal(room.pause("Priya").ok, false);
+    const purseDuring = room.findByName("Ashutosh").purseLakhs;
+    await new Promise((r) => setTimeout(r, 30));
+    assert.ok(room.powerReveal, "reveal should still be in progress");
+    assert.equal(room.findByName("Ashutosh").purseLakhs, purseDuring);
+    await new Promise((r) => setTimeout(r, 80));
+    assert.equal(room.powerReveal, null);
+    assert.equal(room.findByName("Ashutosh").purseLakhs, purseDuring + 10);
+    const left = room.auction.endsAt - Date.now();
+    assert.ok(left <= held + 40, `left=${left} held=${held}`);
+    assert.ok(left >= held - 90, `left=${left} held=${held}`);
+    assert.ok(events.includes("powerReveal"));
+    assert.ok(events.includes("powerApplied"));
+  });
+
+  test("usePower is rejected when invalid", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { powerRevealMs: 200, soldRevealMs: 400 });
+    const lobby = room.usePower("Ashutosh");
+    assert.equal(lobby.ok, false);
+    assert.match(lobby.error, /during the auction/i);
+
+    assert.equal(room.startAuction("Ashutosh").ok, true);
+    assert.equal(room.usePower("Nobody").ok, false);
+
+    room.findByName("Priya").eliminated = true;
+    const dead = room.usePower("Priya");
+    assert.equal(dead.ok, false);
+    assert.match(dead.error, /eliminated/i);
+    room.findByName("Priya").eliminated = false;
+
+    assert.equal(room.pause("Ashutosh").ok, true);
+    const paused = room.usePower("Priya");
+    assert.equal(paused.ok, false);
+    assert.match(paused.error, /paused/i);
+    assert.equal(room.resume("Ashutosh").ok, true);
+
+    // During a sold reveal there is no live lot.
+    const player = room.auction.nominee;
+    room.auction = null;
+    room.revealUntil = Date.now() + 400;
+    const duringSold = room.usePower("Ashutosh");
+    assert.equal(duringSold.ok, false);
+    assert.match(duringSold.error, /next player/i);
+    room.revealUntil = null;
+    room.auction = {
+      nominee: player,
+      startBidLakhs: 2,
+      currentBidLakhs: 2,
+      currentBidderKey: "ashutosh",
+      defaultBidderKey: "ashutosh",
+      optedOut: new Set(),
+      endsAt: Date.now() + 15000,
+      timerMs: 15000,
+      lotSnapshot: room.packLotSnapshot(),
+    };
+
+    assert.equal(room.usePower("Ashutosh").ok, true);
+    const overlapping = room.usePower("Priya");
+    assert.equal(overlapping.ok, false);
+    assert.match(overlapping.error, /already being revealed/i);
   });
 });

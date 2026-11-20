@@ -60,7 +60,15 @@ function esc(s) {
 
 function remainingMs(endsAt) {
   if (state && state.paused) return Math.max(0, state.pauseRemainingMs || 0);
+  if (state && state.powerReveal && endsAt) {
+    const frozenAt = (state.powerReveal.endsAt || Date.now()) - (Number(state.powerReveal.revealMs) || 0);
+    return Math.max(0, endsAt - frozenAt);
+  }
   return Math.max(0, (endsAt || 0) - Date.now());
+}
+
+function isTimerFrozen() {
+  return Boolean(state && (state.paused || state.powerReveal));
 }
 
 function characterIdOf(obj) {
@@ -263,7 +271,7 @@ function syncSoldModal() {
 function syncOverlays() {
   const modal = document.getElementById("pause-modal");
   if (modal) {
-    const paused = Boolean(state && state.paused && state.phase && state.phase !== "ended");
+    const paused = Boolean(state && state.paused && !state.powerReveal && state.phase && state.phase !== "ended");
     modal.hidden = !paused;
     const msg = document.getElementById("pause-msg");
     if (msg) msg.textContent = paused ? `Game paused by ${state.pausedBy || "a team"}.` : "";
@@ -276,6 +284,7 @@ function syncOverlays() {
     }
   }
   syncSoldModal();
+  syncPowerModal();
 }
 
 function meter(value) {
@@ -338,7 +347,7 @@ function renderTop() {
     ${you ? `<span class="pill" style="display:inline-flex;gap:8px;align-items:center">${teamMark(you.franchise, "sm", you.name)}<span style="color:${esc(accentColor(you.franchise))}">${esc(you.name)}</span></span>` : ""}
     ${you ? `<span class="pill">Purse <strong>${money(you.purseLakhs)}</strong></span>` : ""}
     <span class="top-actions">
-      ${canPause ? `<button class="btn secondary" id="pause" type="button" ${state.paused ? "disabled" : ""}>${pauseLabel}</button>` : ""}
+      ${canPause ? `<button class="btn secondary" id="pause" type="button" ${state.paused || state.powerReveal ? "disabled" : ""}>${pauseLabel}</button>` : ""}
       ${hostEnd}
     </span>
   `;
@@ -406,8 +415,11 @@ function lobbyView() {
       const owner = used ? (ownerById.get(pack.id) || "") : "";
       const aria = used && owner ? `Taken by ${owner}` : label;
       const img = imgFn ? imgFn(pack, { alt: label, className: "team-mark-img" }) : "";
+      const power = pack.power && pack.power.name ? pack.power : null;
+      const powerLine = selected && power ? `<span class="character-power" title="${esc(power.description || "")}">${esc(power.name)}</span>` : "";
       return `<button type="button" class="character-choice logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-character="${esc(pack.id)}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""} aria-label="${esc(aria)}">
         ${img}
+        ${powerLine}
         ${used && owner ? `<span class="character-owner">${esc(owner)}</span>` : ""}
       </button>`;
     })
@@ -505,18 +517,94 @@ function teamStripHtml(a) {
         out ? "is-out" : "",
         leader && row.name === leader ? "is-leader" : "",
       ].filter(Boolean).join(" ");
+      const live = (state.franchises || []).find((f) => f.name === row.name);
+      const powerUsed = Boolean((live && live.powerUsed) || row.powerUsed);
       const need = row.eliminated ? "out" : done ? "done" : `need ${pending}`;
       const tip = `${row.name} · ${row.purseLakhs} pts at start of this lot · ${
         row.eliminated ? "eliminated" : done ? "squad complete" : out ? "opted out of this player" : `${pending} slot${pending === 1 ? "" : "s"} left`
-      }`;
+      }${powerUsed ? " · power used" : ""}`;
       const fr = { id: characterIdOf(row), characterId: characterIdOf(row), color: row.color, color2: row.color2, text: row.text };
       return `<button type="button" class="${cls}" data-team-id="${esc((row.name || "").toLowerCase())}" data-team-name="${esc(row.name)}" title="${esc(tip)}" style="--c:${esc(row.color)};--c2:${esc(row.color2 || "")};--ct:${esc(row.text || row.color)}">
         ${teamMark(fr, "sm", row.name)}
-        <span class="chip-name">${esc(row.name)}</span>
+        <span class="chip-name">${esc(row.name)}${powerUsed ? `<span class="chip-power-used" title="Power used">⚡</span>` : ""}</span>
         <span class="chip-meta"><b>${row.purseLakhs}</b><small>${esc(need)}</small></span>
       </button>`;
     })
     .join("");
+}
+
+
+function yourPower() {
+  const you = state && state.you;
+  if (!you) return null;
+  if (you.power && you.power.name) return you.power;
+  const pack = you.franchise && you.franchise.power;
+  return pack && pack.name ? pack : null;
+}
+
+function powerButtonHtml() {
+  const you = state && state.you;
+  const power = yourPower();
+  if (!you || !power || (state && state.phase !== "auction")) return "";
+  const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || (power.used);
+  const busy = Boolean(state.paused || state.powerReveal || (typeof isSoldRevealActive === "function" && isSoldRevealActive()));
+  const disabled = used || busy || you.eliminated;
+  const title = power.description || power.name;
+  const label = used ? `${power.name} used` : power.name;
+  return `<button type="button" class="power-btn ${used ? "is-used" : ""}" id="use-power" ${disabled ? "disabled" : ""} title="${esc(title)}" aria-label="${esc(used ? label : `Use power: ${power.name}. ${title}`)}">
+    ${teamMark(you.franchise, "sm", you.name)}
+    <span class="power-btn-copy"><small>Power${used ? " used" : " · once"}</small><strong>${esc(power.name)}</strong></span>
+  </button>`;
+}
+
+function fillPowerModal(evt) {
+  const modal = document.getElementById("power-modal");
+  if (!modal || !evt) return modal;
+  const card = document.getElementById("power-card");
+  const color = evt.color || "var(--gold)";
+  if (card) card.style.setProperty("--c", color);
+  const kicker = document.getElementById("power-kicker");
+  if (kicker) kicker.textContent = "Power";
+  const face = document.getElementById("power-face");
+  if (face) {
+    const fr = { id: evt.characterId, characterId: evt.characterId, color: evt.color, image: evt.image };
+    face.innerHTML = teamMark(fr, "lg", evt.powerName || "");
+  }
+  const nameEl = document.getElementById("power-name");
+  if (nameEl) nameEl.textContent = evt.powerName || "Power";
+  const teamEl = document.getElementById("power-team");
+  if (teamEl) teamEl.textContent = evt.name ? `${evt.name} used their power` : "";
+  const desc = document.getElementById("power-desc");
+  if (desc) desc.textContent = evt.description || "";
+  return modal;
+}
+
+function hidePowerModal() {
+  const modal = document.getElementById("power-modal");
+  if (modal) {
+    modal.hidden = true;
+    modal.classList.remove("is-in");
+  }
+}
+
+function showPowerModal(evt) {
+  const modal = fillPowerModal(evt);
+  if (!modal) return;
+  modal.hidden = false;
+  modal.classList.remove("is-in");
+  void modal.offsetWidth;
+  modal.classList.add("is-in");
+}
+
+function syncPowerModal() {
+  const modal = document.getElementById("power-modal");
+  if (!modal) return;
+  const ev = state && state.powerReveal;
+  if (state && state.phase === "auction" && ev) {
+    showPowerModal(ev);
+    return;
+  }
+  hidePowerModal();
 }
 
 function leaderFranchise(a) {
@@ -634,13 +722,14 @@ function auctionView() {
                   ${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
                   <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>
                 </div>
-                <p class="hub-timer ${secs <= 3 ? "low" : ""}" id="timer">${state.paused ? "Paused" : secs + "s"}</p>
+                <p class="hub-timer ${secs <= 3 && !isTimerFrozen() ? "low" : ""} ${isTimerFrozen() ? "paused" : ""}" id="timer">${isTimerFrozen() ? "Paused" : secs + "s"}</p>
               </div>
             </div>
           </div>
           <div class="team-strip" id="team-strip">${teamStripHtml(a)}</div>
         </div>
         <div class="bid-box" id="bid-box">
+          <div id="power-btn-wrap">${powerButtonHtml()}</div>
           <p class="bid-label">Your bid</p>
           <div class="bid-bar" id="bid-actions">${bidButtonsHtml(a)}</div>
           ${a.youReason ? `<p class="why" id="bid-why">${esc(a.youReason)}</p>` : `<p class="why" id="bid-why" hidden></p>`}
@@ -673,13 +762,14 @@ function updateAuctionTimer() {
   const svg = document.getElementById("auction-ring");
   if (!a || !svg || !window.IplRing) return;
   const left = remainingMs(a.endsAt);
-  IplRing.setTimer(svg, left, a.timerMs || 15000, Boolean(state.paused));
+  const frozen = isTimerFrozen();
+  IplRing.setTimer(svg, left, a.timerMs || 15000, frozen);
   const t = document.getElementById("timer");
   if (t) {
     const secs = Math.ceil(left / 1000);
-    t.textContent = state.paused ? "Paused" : `${secs}s`;
-    t.classList.toggle("low", secs <= 3 && !state.paused);
-    t.classList.toggle("paused", Boolean(state.paused));
+    t.textContent = frozen ? "Paused" : `${secs}s`;
+    t.classList.toggle("low", secs <= 3 && !frozen);
+    t.classList.toggle("paused", frozen);
   }
 }
 
@@ -740,6 +830,10 @@ function patchAuction() {
   if (err) err.textContent = lastError || "";
   const strip = document.getElementById("team-strip");
   if (strip) strip.innerHTML = teamStripHtml(a);
+  const powerWrap = document.getElementById("power-btn-wrap");
+  if (powerWrap) powerWrap.innerHTML = powerButtonHtml();
+  const purse = document.querySelector(".side .purse");
+  if (purse && state.you) purse.textContent = money(state.you.purseLakhs);
   updateAuctionTimer();
 }
 
@@ -1234,6 +1328,16 @@ function wireGlobal() {
     if (ident) {
       const characterId = ident.getAttribute("data-character") || ident.getAttribute("data-identity");
       await emitOrToast("selectCharacter", { characterId, identityId: characterId }, "Could not pick that character.");
+      return;
+    }
+    if (e.target.closest("#use-power")) {
+      lastError = "";
+      const res = await emit("usePower", {});
+      if (!res || !res.ok) {
+        lastError = (res && res.error) || "Could not use your power.";
+        toast(lastError);
+        render();
+      }
       return;
     }
     if (e.target.closest("#pause")) {

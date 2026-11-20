@@ -84,7 +84,7 @@
   function bidChoices(state) {
     const a = state && state.auction;
     const you = state && state.you;
-    const paused = Boolean(state && state.paused);
+    const paused = Boolean(state && (state.paused || state.powerReveal));
     const steps = (a && a.bidSteps && a.bidSteps.length) ? a.bidSteps : BID_STEPS;
     const current = a ? Number(a.currentBidLakhs) || 0 : 0;
     const canBid = Boolean(a && you && a.youCanBid && canVoluntaryBid(you, a));
@@ -235,6 +235,60 @@
         } else if (!state.auction && evt.endsAt) {
           state.soldRevealUntil = evt.endsAt;
         }
+        break;
+      }
+      case "powerReveal": {
+        state.powerReveal = {
+          teamId: evt.teamId,
+          name: evt.name,
+          characterId: evt.characterId,
+          powerId: evt.powerId,
+          powerName: evt.powerName,
+          description: evt.description,
+          color: evt.color,
+          image: evt.image,
+          endsAt: evt.endsAt,
+          revealMs: evt.revealMs,
+        };
+        const revealTeam = findTeam(state, evt.name) || findTeam(state, evt.teamId);
+        if (revealTeam) {
+          if (evt.powerUsesLeft != null) revealTeam.powerUsesLeft = evt.powerUsesLeft;
+          revealTeam.powerUsed = true;
+          if (revealTeam.power) {
+            revealTeam.power.usesLeft = revealTeam.powerUsesLeft;
+            revealTeam.power.used = true;
+          }
+        }
+        syncYou(state);
+        break;
+      }
+      case "powerApplied": {
+        state.powerReveal = null;
+        const appliedTeam = findTeam(state, evt.name) || findTeam(state, evt.teamId);
+        if (appliedTeam) {
+          if (evt.purseLakhs != null) appliedTeam.purseLakhs = evt.purseLakhs;
+          if (evt.powerUsesLeft != null) appliedTeam.powerUsesLeft = evt.powerUsesLeft;
+          appliedTeam.powerUsed = Boolean(evt.powerUsed) || appliedTeam.powerUsesLeft === 0;
+          if (appliedTeam.power) {
+            appliedTeam.power.usesLeft = appliedTeam.powerUsesLeft;
+            appliedTeam.power.used = appliedTeam.powerUsed;
+          }
+        }
+        if (state.auction && state.auction.lotSnapshot && appliedTeam) {
+          const row = state.auction.lotSnapshot.find((r) => r.name === appliedTeam.name);
+          if (row) {
+            if (evt.purseLakhs != null) row.purseLakhs = evt.purseLakhs;
+            row.powerUsed = true;
+          }
+        }
+        if (state.auction && (evt.auctionEndsAt || evt.endsAt)) {
+          state.auction.endsAt = evt.auctionEndsAt || evt.endsAt;
+        }
+        if (evt.captainEndsAt) state.captainEndsAt = evt.captainEndsAt;
+        if (Object.prototype.hasOwnProperty.call(evt, "soldRevealUntil")) {
+          state.soldRevealUntil = evt.soldRevealUntil || null;
+        }
+        syncYou(state);
         break;
       }
       default:

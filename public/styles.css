@@ -285,6 +285,10 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   opacity: 0.45; filter: grayscale(0.28);
 }
 .character-choice.taken .character-owner { color: var(--muted); }
+.character-power {
+  font-size: 11px; font-weight: 700; line-height: 1.2; color: var(--gold-2, var(--gold));
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .franchise-card { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center; }
 .franchise-card .short { font-family: var(--display); font-size: 22px; margin: 0; }
@@ -924,11 +928,102 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   html.is-auction .toast { bottom: 210px; }
 }
 
+.chip-name { display: inline-flex; align-items: center; gap: 4px; }
+.chip-power-used { font-size: 11px; line-height: 1; filter: drop-shadow(0 0 4px rgba(245, 197, 24, 0.7)); }
+
+.power-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; max-width: 100%;
+  margin: 0 0 12px;
+  background: #0c1324; color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--c, var(--gold)) 55%, #334169);
+  border-radius: 14px; padding: 8px 12px 8px 8px;
+  text-align: left; cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.03);
+  transition: border-color 160ms ease, transform 160ms ease, opacity 160ms ease;
+}
+.power-btn:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-1px); }
+.power-btn:disabled { cursor: default; opacity: 0.72; }
+.power-btn.is-used { opacity: 0.62; }
+.power-btn .team-mark-wrap, .power-btn .team-mark { width: 36px; height: 36px; }
+.power-btn-copy { display: grid; gap: 1px; min-width: 0; }
+.power-btn-copy small {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+}
+.power-btn-copy strong {
+  font-family: var(--display); font-size: 22px; line-height: 1; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.power-modal {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(4, 8, 16, 0.86); backdrop-filter: blur(10px);
+  display: grid; place-items: center; padding: 20px;
+}
+.power-modal[hidden] { display: none !important; }
+.power-card {
+  position: relative;
+  background: var(--card);
+  border: 2px solid var(--c, var(--gold));
+  border-radius: 28px;
+  padding: 28px 24px 32px;
+  max-width: 420px; width: min(420px, 100%);
+  text-align: center;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 18px 50px rgba(0,0,0,0.45), 0 0 48px color-mix(in srgb, var(--c, var(--gold)) 40%, transparent);
+  overflow: hidden;
+}
+.power-modal.is-in .power-card { animation: power-pop 520ms cubic-bezier(0.18, 1.4, 0.32, 1) both; }
+.power-card .kicker {
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold); font-size: 13px; font-weight: 700; margin: 0 0 10px;
+}
+.power-face { display: grid; place-items: center; margin: 6px auto 12px; position: relative; }
+.power-face::before {
+  content: ""; position: absolute; inset: -18px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--c, var(--gold)) 55%, transparent) 0%, transparent 70%);
+  opacity: 0.85; z-index: 0; pointer-events: none;
+}
+.power-modal.is-in .power-face::before { animation: power-glow 900ms ease-out both; }
+.power-face .team-mark-wrap, .power-face .team-mark, .power-face .team-mark-img {
+  width: 112px; height: 112px; position: relative; z-index: 1;
+}
+.power-modal.is-in .power-face .team-mark-wrap,
+.power-modal.is-in .power-face .team-mark {
+  animation: power-face-pop 560ms cubic-bezier(0.18, 1.4, 0.32, 1) both;
+}
+.power-card h2 {
+  margin: 0 0 8px; font-size: clamp(28px, 8vw, 42px); line-height: 1;
+  color: var(--c, var(--gold));
+}
+.power-card #power-team { margin: 0 0 6px; font-weight: 700; color: var(--text); }
+.power-card #power-desc { margin: 0; }
+
+@keyframes power-pop {
+  0% { transform: scale(0.84) translateY(12px); opacity: 0; }
+  70% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes power-face-pop {
+  0% { transform: scale(0.7) rotate(-8deg); opacity: 0.4; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes power-glow {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 0.75; transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ring-item.is-leader,
   .ring-seg.is-leader,
   .ring-logo-pin.is-leader .ring-logo-bob { animation: none; }
   .ring-item-lift, .ring-logo-pin { transition: none; }
   .ring-sheen-path { transition: none; }
+  .power-modal.is-in .power-card,
+  .power-modal.is-in .power-face::before,
+  .power-modal.is-in .power-face .team-mark-wrap,
+  .power-modal.is-in .power-face .team-mark { animation: none; }
+  .power-btn { transition: none; }
 }
 
