@@ -88,8 +88,56 @@ class GameRoom extends EventEmitter {
     if (typeof this.timer.unref === "function") this.timer.unref();
   }
 
-  bump() {
-    this.emit("update");
+  bump(reason = "update") {
+    this.emit("snapshot", reason);
+  }
+
+  emitDelta(evt) {
+    this.emit("delta", evt);
+  }
+
+  packStillIn() {
+    return this.stillInTeams().map((f) => ({
+      name: f.name,
+      short: f.franchise.short,
+      color: f.franchise.color,
+      franchiseName: f.franchise.name,
+      purseLakhs: f.purseLakhs,
+      isLeader: this.auction && f.key === this.auction.currentBidderKey,
+      isYou: false,
+    }));
+  }
+
+  packAuctionPublic() {
+    if (!this.auction) return null;
+    const hasBidder = Boolean(this.auction.currentBidderKey);
+    const minBidLakhs = nextBidAmount(this.auction.currentBidLakhs, hasBidder);
+    const incrementLakhs = bidIncrement(this.auction.currentBidLakhs);
+    const leader = this.auction.currentBidderKey
+      ? this.findByKey(this.auction.currentBidderKey)
+      : null;
+    const def = this.auction.defaultBidderKey
+      ? this.findByKey(this.auction.defaultBidderKey)
+      : null;
+    return {
+      nominee: this.auction.nominee,
+      currentBidLakhs: this.auction.currentBidLakhs,
+      currentBidderName: leader ? leader.name : null,
+      currentBidderShort: leader ? leader.franchise.short : null,
+      currentBidderColor: leader ? leader.franchise.color : null,
+      hasBidder,
+      minBidLakhs,
+      incrementLakhs,
+      endsAt: this.auction.endsAt,
+      stillIn: this.packStillIn(),
+      pass: this.pass,
+      soldCount: this.soldLog.length,
+      remainingLots: this.queue.length + (this.pass === 1 ? this.unsold.length : 0),
+      defaultBidderName: def ? def.name : null,
+      defaultBidderShort: def ? def.franchise.short : null,
+      isDefaultBidLeading: this.auction.currentBidderKey === this.auction.defaultBidderKey
+        && this.auction.currentBidLakhs === this.auction.nominee.basePriceLakhs,
+    };
   }
 
   findByKey(key) {
@@ -120,7 +168,15 @@ class GameRoom extends EventEmitter {
       }
       existing.socketId = socketId;
       existing.connected = true;
-      this.bump();
+      if (this.phase === "lobby") this.bump("lobby");
+      else {
+        this.emitDelta({
+          type: "presence",
+          name: existing.name,
+          connected: true,
+          hostName: this.host ? this.host.name : null,
+        });
+      }
       return { ok: true, rejoined: true, name: existing.name };
     }
 
@@ -148,7 +204,7 @@ class GameRoom extends EventEmitter {
     };
     this.franchises.push(franchise);
     if (!this.hostKey) this.hostKey = franchise.key;
-    this.bump();
+    this.bump("lobby");
     return { ok: true, rejoined: false, name };
   }
 
@@ -161,7 +217,15 @@ class GameRoom extends EventEmitter {
       const next = this.franchises.find((x) => x.connected);
       if (next) this.hostKey = next.key;
     }
-    this.bump();
+    if (this.phase === "lobby") this.bump("lobby");
+    else {
+      this.emitDelta({
+        type: "presence",
+        name: f.name,
+        connected: false,
+        hostName: this.host ? this.host.name : null,
+      });
+    }
   }
 
   setPurse(byName, purseCrore) {
@@ -174,7 +238,7 @@ class GameRoom extends EventEmitter {
     }
     this.purseLakhs = Math.round(cr * 100);
     for (const team of this.franchises) team.purseLakhs = this.purseLakhs;
-    this.bump();
+    this.bump("lobby");
     return { ok: true };
   }
 
@@ -241,6 +305,7 @@ class GameRoom extends EventEmitter {
     };
     this.eliminationLog.push(entry);
     this.lastEvent = { type: "eliminated", ...entry };
+    this.emitDelta({ type: "eliminated", ...entry });
   }
 
   /**
@@ -342,6 +407,7 @@ class GameRoom extends EventEmitter {
         player,
         reason: "No remaining team can afford this player.",
       };
+      this.emitDelta({ type: "skipped", player, reason: this.lastEvent.reason });
       this.nominateNext();
       return;
     }
@@ -356,7 +422,9 @@ class GameRoom extends EventEmitter {
       endsAt: Date.now() + this.timers.bidMs,
     };
     this.startLotTimer();
-    if (!this.maybeResolveLot()) this.bump();
+    if (!this.maybeResolveLot()) {
+      this.emitDelta({ type: "lotStart", ...this.packAuctionPublic() });
+    }
   }
 
   sellCurrent() {
@@ -390,6 +458,16 @@ class GameRoom extends EventEmitter {
       color: winner.franchise.color,
     };
     this.auction = null;
+    this.emitDelta({
+      type: "sold",
+      player,
+      priceLakhs: price,
+      buyerName: winner.name,
+      short: winner.franchise.short,
+      color: winner.franchise.color,
+      purseLakhs: winner.purseLakhs,
+      squadSize: winner.squad.length,
+    });
     this.nominateNext();
   }
 
@@ -402,6 +480,7 @@ class GameRoom extends EventEmitter {
     if (!this.unsold.some((p) => p.id === player.id)) this.unsold.push(player);
     this.lastEvent = { type: "unsold", player, reason: "No bids — went unsold." };
     this.auction = null;
+    this.emitDelta({ type: "unsold", player, reason: this.lastEvent.reason });
     this.nominateNext();
   }
 
@@ -438,7 +517,25 @@ class GameRoom extends EventEmitter {
     this.auction.currentBidLakhs = amount;
     this.auction.currentBidderKey = team.key;
     this.startLotTimer();
-    if (!this.maybeResolveLot()) this.bump();
+    if (!this.maybeResolveLot()) {
+      this.emitDelta({
+        type: "bid",
+        amountLakhs: amount,
+        bidderName: team.name,
+        bidderShort: team.franchise.short,
+        bidderColor: team.franchise.color,
+        endsAt: this.auction.endsAt,
+        stillIn: this.packStillIn(),
+        minBidLakhs: nextBidAmount(this.auction.currentBidLakhs, true),
+        incrementLakhs: bidIncrement(this.auction.currentBidLakhs),
+        isDefaultBidLeading: false,
+        currentBidLakhs: this.auction.currentBidLakhs,
+        currentBidderName: team.name,
+        currentBidderShort: team.franchise.short,
+        currentBidderColor: team.franchise.color,
+        hasBidder: true,
+      });
+    }
     return { ok: true };
   }
 
@@ -459,7 +556,15 @@ class GameRoom extends EventEmitter {
       return { ok: false, error: "You are not in the running for this player." };
     }
     this.auction.optedOut.add(team.key);
-    if (!this.maybeResolveLot()) this.bump();
+    if (!this.maybeResolveLot()) {
+      this.emitDelta({
+        type: "optOut",
+        name: team.name,
+        short: team.franchise.short,
+        color: team.franchise.color,
+        stillIn: this.packStillIn(),
+      });
+    }
     return { ok: true };
   }
 
@@ -516,7 +621,7 @@ class GameRoom extends EventEmitter {
     }
     this.captainEndsAt = Date.now() + this.timers.captainMs;
     this.armTimer(() => this.finishCaptains(), this.timers.captainMs);
-    this.bump();
+    this.bump("captains");
   }
 
   selectCaptain(byName, playerId) {
@@ -531,7 +636,12 @@ class GameRoom extends EventEmitter {
     if (still.length === 0) {
       this.finishCaptains();
     } else {
-      this.bump();
+      this.emitDelta({
+        type: "captain",
+        name: team.name,
+        short: team.franchise.short,
+        captainId: playerId,
+      });
     }
     return { ok: true };
   }
@@ -548,7 +658,6 @@ class GameRoom extends EventEmitter {
   runSimulation() {
     this.phase = "simulating";
     this.captainEndsAt = null;
-    this.bump();
     const seed = (Date.now() ^ (Math.floor(Math.random() * 0xffffffff) >>> 0)) >>> 0;
     const active = this.activeFranchises();
     const result = simulateTournament(active, seed);
@@ -570,7 +679,8 @@ class GameRoom extends EventEmitter {
     }
     this.tournament = result;
     this.phase = "results";
-    this.bump();
+    this.finishedAt = Date.now();
+    this.bump("results");
   }
 
   publicFranchise(f, forKey) {
@@ -596,28 +706,50 @@ class GameRoom extends EventEmitter {
     };
   }
 
-  getState(forName) {
+  summarizeTournament(includeMatches) {
+    const t = this.tournament;
+    if (!t) return null;
+    const summary = {
+      seed: t.seed,
+      table: t.table,
+      positions: t.positions,
+      awards: t.awards,
+      champion: t.champion,
+      playoffs: {
+        format: t.playoffs.format,
+        championName: t.playoffs.championName,
+        runnerUpName: t.playoffs.runnerUpName,
+        thirdName: t.playoffs.thirdName,
+        fourthName: t.playoffs.fourthName,
+        matches: includeMatches ? t.playoffs.matches : undefined,
+        matchCount: (t.playoffs.matches || []).length,
+      },
+      leagueMatchCount: (t.leagueMatches || []).length,
+    };
+    if (includeMatches) {
+      summary.leagueMatches = t.leagueMatches;
+    }
+    return summary;
+  }
+
+  getMatches() {
+    if (!this.tournament) return null;
+    return {
+      leagueMatches: this.tournament.leagueMatches || [],
+      playoffMatches: this.tournament.playoffs.matches || [],
+    };
+  }
+
+  getState(forName, opts = {}) {
+    const includeMatches = Boolean(opts.includeMatches);
     const you = forName ? this.findByName(forName) : null;
     const forKey = you ? you.key : null;
     const franchises = this.franchises.map((f) => this.publicFranchise(f, forKey));
 
     let auction = null;
     if (this.phase === "auction" && this.auction) {
-      const hasBidder = Boolean(this.auction.currentBidderKey);
-      const minBidLakhs = nextBidAmount(this.auction.currentBidLakhs, hasBidder);
-      const incrementLakhs = bidIncrement(this.auction.currentBidLakhs);
-      const leader = this.auction.currentBidderKey
-        ? this.findByKey(this.auction.currentBidderKey)
-        : null;
-      const stillIn = this.stillInTeams().map((f) => ({
-        name: f.name,
-        short: f.franchise.short,
-        color: f.franchise.color,
-        franchiseName: f.franchise.name,
-        purseLakhs: f.purseLakhs,
-        isLeader: f.key === this.auction.currentBidderKey,
-        isYou: f.key === forKey,
-      }));
+      auction = this.packAuctionPublic();
+      auction.stillIn = auction.stillIn.map((row) => ({ ...row, isYou: you && row.name === you.name }));
       let youCanBid = false;
       let youCanOptOut = false;
       let youReason = null;
@@ -626,37 +758,21 @@ class GameRoom extends EventEmitter {
           youReason = "You opted out of this player.";
         } else if (you.key === this.auction.currentBidderKey) {
           youReason = "You have the leading bid.";
-          youCanBid = false;
-          youCanOptOut = false;
         } else {
-          const check = canBidFor(you, this.auction.nominee, minBidLakhs, this.remainingPool(this.auction.nominee.id));
+          const check = canBidFor(
+            you,
+            this.auction.nominee,
+            auction.minBidLakhs,
+            this.remainingPool(this.auction.nominee.id)
+          );
           youCanBid = check.ok;
-          youCanOptOut = stillIn.some((s) => s.isYou);
+          youCanOptOut = auction.stillIn.some((s) => s.isYou);
           youReason = check.ok ? null : check.reason;
         }
       }
-      auction = {
-        nominee: this.auction.nominee,
-        currentBidLakhs: this.auction.currentBidLakhs,
-        currentBidderName: leader ? leader.name : null,
-        currentBidderShort: leader ? leader.franchise.short : null,
-        currentBidderColor: leader ? leader.franchise.color : null,
-        hasBidder,
-        minBidLakhs,
-        incrementLakhs,
-        endsAt: this.auction.endsAt,
-        stillIn,
-        youCanBid,
-        youCanOptOut,
-        youReason,
-        pass: this.pass,
-        soldCount: this.soldLog.length,
-        remainingLots: this.queue.length + (this.pass === 1 ? this.unsold.length : 0),
-        defaultBidderName: this.findByKey(this.auction.defaultBidderKey)?.name || null,
-        defaultBidderShort: this.findByKey(this.auction.defaultBidderKey)?.franchise.short || null,
-        isDefaultBidLeading: this.auction.currentBidderKey === this.auction.defaultBidderKey
-          && this.auction.currentBidLakhs === this.auction.nominee.basePriceLakhs,
-      };
+      auction.youCanBid = youCanBid;
+      auction.youCanOptOut = youCanOptOut;
+      auction.youReason = youReason;
     }
 
     return {
@@ -679,7 +795,7 @@ class GameRoom extends EventEmitter {
           }))
         : [],
       eliminationLog: this.eliminationLog,
-      tournament: this.tournament,
+      tournament: this.summarizeTournament(includeMatches),
       quotas: QUOTA,
       squadSize: SQUAD_SIZE,
       maxOverseas: null,
@@ -689,14 +805,7 @@ class GameRoom extends EventEmitter {
   }
 }
 
-function makeRoomCode(existing) {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  for (let attempt = 0; attempt < 50; attempt++) {
-    let code = "";
-    for (let i = 0; i < 4; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
-    if (!existing.has(code)) return code;
-  }
-  return `X${Date.now().toString(36).slice(-3).toUpperCase()}`;
-}
 
-module.exports = { GameRoom, makeRoomCode, normalizeName, nameKey };
+const { makeRoomCode, ROOM_CODE_LENGTH } = require("./manager");
+
+module.exports = { GameRoom, makeRoomCode, normalizeName, nameKey, ROOM_CODE_LENGTH };

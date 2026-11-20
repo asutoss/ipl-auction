@@ -110,7 +110,7 @@ function homeView() {
         <div class="row">
           <div>
             <label for="code">Room code</label>
-            <input id="code" maxlength="6" placeholder="e.g. K7MQ" style="text-transform:uppercase" />
+            <input id="code" maxlength="6" placeholder="e.g. K7MQ2P" style="text-transform:uppercase" />
           </div>
         </div>
         <div class="actions">
@@ -363,8 +363,13 @@ function tableHtml(rows) {
 function visibleTournament() {
   const t = state.tournament;
   if (!t) return { league: [], playoffs: [], showTable: false, showFinal: false, showAwards: false };
+  const leagueAll = t.leagueMatches || [];
+  const poAll = (t.playoffs && t.playoffs.matches) || [];
+  if (!t.leagueMatches) {
+    return { league: [], playoffs: [], showTable: true, showFinal: true, showAwards: true };
+  }
   if (!reveal || reveal.skipped) {
-    return { league: t.leagueMatches, playoffs: t.playoffs.matches, showTable: true, showFinal: true, showAwards: true };
+    return { league: leagueAll, playoffs: poAll, showTable: true, showFinal: true, showAwards: true };
   }
   const elapsed = Date.now() - reveal.startedAt;
   const leagueN = t.leagueMatches.length;
@@ -582,6 +587,25 @@ socket.on("connect", async () => {
   }
 });
 
+let matchesLoading = false;
+
+function loadMatches() {
+  if (!state || state.phase !== "results" || !state.tournament) return;
+  if (state.tournament.leagueMatches || matchesLoading) return;
+  matchesLoading = true;
+  emit("getMatches").then((res) => {
+    matchesLoading = false;
+    if (res && res.ok && state && state.tournament) {
+      state.tournament.leagueMatches = res.leagueMatches || [];
+      if (!state.tournament.playoffs) state.tournament.playoffs = {};
+      state.tournament.playoffs.matches = res.playoffMatches || [];
+      if (!reveal) reveal = { startedAt: Date.now(), skipped: false };
+      else reveal.startedAt = Date.now();
+      render();
+    }
+  });
+}
+
 socket.on("state", (next) => {
   const prevPhase = state?.phase;
   const prevNominee = state?.auction?.nominee?.id;
@@ -592,8 +616,22 @@ socket.on("state", (next) => {
   }
   if (state?.phase === "results" && prevPhase !== "results") {
     reveal = { startedAt: Date.now(), skipped: false };
+    loadMatches();
   }
   if (state?.you && state?.code) saveSession(state.code, state.you.name);
+  render();
+});
+
+socket.on("delta", (evt) => {
+  if (!state) return;
+  const prevNominee = state.auction?.nominee?.id;
+  const prevPhase = state.phase;
+  IplState.applyDelta(state, evt);
+  if (state.auction?.nominee?.id !== prevNominee) {
+    bidDraft = state.auction?.minBidLakhs ?? null;
+    lastError = "";
+  }
+  if (state.phase === "results" && prevPhase !== "results") loadMatches();
   render();
 });
 

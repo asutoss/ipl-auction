@@ -6,7 +6,7 @@ This is a local MVP. Nothing is deployed, and no accounts are required.
 
 ## Rules
 
-- **Room:** 2–10 players. Create or join with a 4-character code. Rejoin later with the same name and code.
+- **Room:** 2–10 players. Create or join with a 6-character code. Rejoin later with the same name and code.
 - **Purse:** ₹100 crore each (host can change this in the lobby).
 - **Squad:** the auction runs until every remaining franchise has **at least 11** players, or the pool is exhausted (then leftover teams under 11 are auto-filled at base price if they can afford it). The **whole squad counts** in the tournament — there is no trimming back to an XI. Default bids can push a team past 11 or past a role quota (for example 6 bowlers and 2 batters).
 - **Role quotas (voluntary bids only):** 4 batters (BAT), 1 wicket-keeper (WK), 2 all-rounders (AR), 4 bowlers (BOWL). You cannot *choose* to bid on a role that is already full. Default-bid assignments can exceed those quotas. There is **no overseas cap**.
@@ -22,9 +22,14 @@ This is a local MVP. Nothing is deployed, and no accounts are required.
 
 Player ratings in `data/players.json` are **informal estimates** for game balance, not official stats. Swap that file to use your own pool.
 
-The bundled pool has 82 current IPL names, which comfortably gets about 7 franchises to 11+ players. 8–10 rooms may exhaust the pool; teams still under 11 are auto-filled at base price when possible.
+The bundled pool has 192 current / recent IPL names (at least 60 batters, 15 keepers, 30 all-rounders and 55 bowlers), enough for 10 franchises to fill a 4-1-2-4 split with margin. Ratings are informal estimates.
+
+The server pushes compact auction **deltas** (bid, opt-out, lot start, sale, elimination, phase changes). A full state snapshot is sent only on join/reconnect and phase transitions. Match scorecards are fetched on demand (`getMatches` or `GET /api/rooms/:code/matches`) rather than pushed to every client. WebSocket payloads use `perMessageDeflate` compression above 256 bytes.
+
+Finished rooms are evicted 30 minutes after results. Any room where every player has been disconnected for 10 minutes is evicted too. Live rooms are capped (default 20). Room creation is rate-limited to 3 per 10 minutes per IP/socket.
 
 ## How to run
+
 
 You need Node.js 18 or newer.
 
@@ -48,7 +53,9 @@ npm test
 data/players.json     Player pool (roles, overseas flag, base price, estimated ratings)
 server/index.js       HTTP + Socket.IO server (serves public/)
 server/game.js        Room state machine, auction, opt-out, reconnect
+server/manager.js     Room cap, rate limit, eviction
 server/rules.js       Quotas, increments, purse-reserve checks
+public/state.js       Shared client delta-apply helper
 server/simulate.js    League + playoffs + awards
 server/players.js     Load the player pool
 public/               Simple HTML/CSS/JS client
@@ -60,6 +67,12 @@ test/                 Logic tests + Socket.IO e2e
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
-| `BID_TIMER_MS` | `10000` | Seconds are 10s unless you change this |
+| `BID_TIMER_MS` | `10000` | Auction lot timer |
 | `CAPTAIN_TIMER_MS` | `30000` | Captain-pick timeout |
-| `ALLOW_TEST_TIMERS` | unset | If `1`, `createRoom` may pass short `testTimers` (used by the e2e test) |
+| `ALLOW_TEST_TIMERS` | unset | If `1`, `createRoom` may pass short `testTimers` (used by tests) |
+| `MAX_ROOMS` | `20` | Cap on concurrent live rooms |
+| `FINISHED_TTL_MS` | `1800000` | Evict a finished room after this long (30 min) |
+| `IDLE_TTL_MS` | `600000` | Evict a room after all players have been gone this long (10 min) |
+| `CREATE_LIMIT` | `3` | Max room creates per IP/socket in the window (`0` disables) |
+| `CREATE_WINDOW_MS` | `600000` | Window for the create-room rate limit |
+| `DEFLATE_THRESHOLD` | `256` | Compress WebSocket messages larger than this (bytes) |

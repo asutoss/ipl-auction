@@ -7,6 +7,7 @@ process.env.CAPTAIN_TIMER_MS = process.env.CAPTAIN_TIMER_MS || "250";
 
 const { io: ioc } = require("socket.io-client");
 const { start } = require("../server/index");
+const { applyDelta } = require("../public/state");
 const { SQUAD_SIZE } = require("../server/rules");
 
 function waitState(socket, pred, timeoutMs = 15000) {
@@ -16,7 +17,7 @@ function waitState(socket, pred, timeoutMs = 15000) {
       return;
     }
     const t = setTimeout(() => {
-      socket.off("state", onState);
+      cleanup();
       const s = socket.state;
       reject(
         new Error(
@@ -24,20 +25,24 @@ function waitState(socket, pred, timeoutMs = 15000) {
         )
       );
     }, timeoutMs);
-    function onState(state) {
+    function onChange() {
       try {
-        if (pred(state)) {
-          clearTimeout(t);
-          socket.off("state", onState);
-          resolve(state);
+        if (socket.state && pred(socket.state)) {
+          cleanup();
+          resolve(socket.state);
         }
       } catch (err) {
-        clearTimeout(t);
-        socket.off("state", onState);
+        cleanup();
         reject(err);
       }
     }
-    socket.on("state", onState);
+    function cleanup() {
+      clearTimeout(t);
+      socket.off("state", onChange);
+      socket.off("delta", onChange);
+    }
+    socket.on("state", onChange);
+    socket.on("delta", onChange);
   });
 }
 
@@ -57,6 +62,10 @@ function connect(url, name) {
   socket.state = null;
   socket.on("state", (s) => {
     socket.state = s;
+  });
+  socket.on("delta", (evt) => {
+    if (!socket.state) return;
+    applyDelta(socket.state, evt);
   });
   return new Promise((resolve, reject) => {
     socket.once("connect", () => resolve(socket));
@@ -140,7 +149,7 @@ describe("e2e: 3 clients through a full game", () => {
       testTimers: { bidMs: 200, captainMs: 300 },
     });
     assert.equal(created.ok, true);
-    assert.match(created.code, /^[A-Z0-9]{4}$/);
+    assert.match(created.code, /^[A-Z0-9]{6}$/);
     const code = created.code;
 
     const priya = await connect(url, "Priya");
@@ -190,16 +199,21 @@ describe("e2e: 3 clients through a full game", () => {
     }
 
     const t = results.tournament;
-    assert.equal(t.leagueMatches.length, 3);
+    assert.equal(t.leagueMatches, undefined);
+    assert.equal(t.playoffs.matches, undefined);
     assert.equal(t.table.length, 3);
     assert.equal(t.playoffs.format, "top2-final");
-    assert.equal(t.playoffs.matches.length, 1);
     assert.ok(t.champion);
     assert.ok(t.awards.bestBuy?.playerName);
     assert.ok(t.awards.costliestFlop?.playerName);
     assert.equal(t.positions.length, 3);
     assert.equal(t.positions[0].name, t.champion.name);
-    for (const m of [...t.leagueMatches, ...t.playoffs.matches]) {
+
+    const details = await ack(ash, "getMatches");
+    assert.equal(details.ok, true);
+    assert.equal(details.leagueMatches.length, 3);
+    assert.equal(details.playoffMatches.length, 1);
+    for (const m of [...details.leagueMatches, ...details.playoffMatches]) {
       assert.ok(m.firstInnings.score >= 80);
       assert.ok(m.resultText);
     }

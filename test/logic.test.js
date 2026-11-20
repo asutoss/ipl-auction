@@ -28,7 +28,12 @@ function roomWith(names, timers) {
 
 describe("player pool", () => {
   test("loads ~60-80+ current players with required fields", () => {
-    assert.ok(players.length >= 60 && players.length <= 100, `got ${players.length}`);
+    assert.ok(players.length >= 160, `got ${players.length}`);
+    const byRole = players.reduce((acc, p) => { acc[p.role] = (acc[p.role] || 0) + 1; return acc; }, {});
+    assert.ok(byRole.BAT >= 60, `BAT ${byRole.BAT}`);
+    assert.ok(byRole.WK >= 15, `WK ${byRole.WK}`);
+    assert.ok(byRole.AR >= 30, `AR ${byRole.AR}`);
+    assert.ok(byRole.BOWL >= 55, `BOWL ${byRole.BOWL}`);
     for (const p of players) {
       assert.ok(p.id && p.name);
       assert.ok(["BAT", "WK", "AR", "BOWL"].includes(p.role), p.name);
