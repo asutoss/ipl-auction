@@ -8,9 +8,10 @@
   const NS = "http://www.w3.org/2000/svg";
   const CX = 200;
   const CY = 200;
-  const R_INNER = 116;
-  const R_OUTER = 184;
+  const R_INNER = 136;
+  const R_OUTER = 188;
   const R_TIMER = 196;
+  const R_LOGO = 170;
   const GAP = 2.2;
   const DURATION = 320;
 
@@ -92,6 +93,11 @@
     defs.appendChild(sheen);
     const segs = el("g", { class: "ring-segs" });
     const sheenPath = el("path", { class: "ring-sheen-path", fill: "url(#ring-sheen)", "pointer-events": "none" });
+    const hubDisc = el("circle", {
+      cx: CX, cy: CY, r: R_INNER - 1.5,
+      fill: "#070b14",
+      class: "ring-hub-disc",
+    });
     const marks = el("g", { class: "ring-marks" });
     const pointer = el("g", { class: "ring-pointer", "aria-hidden": "true" });
     const tipR = R_OUTER - 2;
@@ -105,7 +111,7 @@
       "stroke-linejoin": "round",
     });
     pointer.appendChild(head);
-    svg.append(defs, bg, timerTrack, timer, segs, sheenPath, marks, pointer);
+    svg.append(defs, bg, timerTrack, timer, segs, sheenPath, hubDisc, marks, pointer);
     svg._ring = { segs, marks, timer, timerC, items: [], pointer, sheenPath, pointerAngle: 0 };
     return svg._ring;
   }
@@ -132,7 +138,7 @@
     const d = donutPath(a0, a1);
     item.path.setAttribute("d", d);
     const mid = midAngle(a0, a1);
-    const [lx, ly] = polar(CX, CY, (R_INNER + R_OUTER) / 2, mid);
+    const [lx, ly] = polar(CX, CY, R_LOGO, mid);
     item.mark.setAttribute("transform", `translate(${lx.toFixed(1)} ${ly.toFixed(1)})`);
   }
 
@@ -197,9 +203,9 @@
 
   function logoNode(team) {
     const g = el("g", { class: "ring-logo" });
-    const disc = el("circle", { r: 20, fill: team.color2 || "#0b1220", stroke: team.color, "stroke-width": 2 });
+    const disc = el("circle", { r: 16, fill: team.color2 || "#0b1220", stroke: team.color, "stroke-width": 1.8 });
     g.appendChild(disc);
-    const fo = el("foreignObject", { x: -15, y: -15, width: 30, height: 30 });
+    const fo = el("foreignObject", { x: -13, y: -13, width: 26, height: 26 });
     const wrap = document.createElement("div");
     wrap.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
     wrap.className = "ring-logo-inner";

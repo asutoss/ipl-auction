@@ -456,15 +456,57 @@ function teamStripHtml(a) {
     .join("");
 }
 
+function leaderFranchise(a) {
+  if (!a) return null;
+  const name = a.currentBidderName || a.currentBidderShort;
+  if (!name) return null;
+  const row = (a.stillIn || []).find((t) => t.name === name || t.isLeader)
+    || (a.lotSnapshot || []).find((t) => t.name === name)
+    || (state.franchises || []).find((f) => f.name === name);
+  if (!row) {
+    return { color: a.currentBidderColor, text: a.currentBidderColor, character: name };
+  }
+  if (row.franchise) return { ...row.franchise, character: name };
+  return {
+    id: row.identityId,
+    color: row.color || a.currentBidderColor,
+    color2: row.color2,
+    text: row.text || row.color || a.currentBidderColor,
+    character: name,
+  };
+}
+
 function leaderLine(a) {
   if (!a) return "";
-  if (a.isDefaultBidLeading) {
-    return `Default bid: <strong style="color:${esc(a.currentBidderColor)}">${esc(a.currentBidderName || a.currentBidderShort)}</strong>`;
+  const name = a.currentBidderName || a.currentBidderShort;
+  if (!name && !a.hasBidder) {
+    return `<span class="hub-leader-label">Waiting for a bid</span>`;
   }
-  if (a.hasBidder) {
-    return `Leading: <strong style="color:${esc(a.currentBidderColor)}">${esc(a.currentBidderName || a.currentBidderShort)}</strong>`;
+  const label = a.isDefaultBidLeading ? "Default" : "Highest";
+  const fr = leaderFranchise(a);
+  const color = (fr && (fr.text || fr.color)) || a.currentBidderColor || "var(--gold)";
+  return `<span class="hub-leader-label">${esc(label)}</span>${fr ? teamMark(fr, "sm", name) : ""}<strong style="color:${esc(color)}">${esc(name || "")}</strong>`;
+}
+
+function bidParts(points) {
+  const n = Number(points) || 0;
+  return { n, unit: n === 1 ? "pt" : "pts" };
+}
+
+function fitHubName() {
+  const el = document.getElementById("hub-name");
+  if (!el) return;
+  el.style.fontSize = "";
+  let size = parseFloat(getComputedStyle(el).fontSize);
+  if (!Number.isFinite(size) || size <= 0) return;
+  const min = 16;
+  // Only shrink when a word is wider than the name box. Height is handled in CSS
+  // so the 2-line name stays a hero size and is not clipped by the circle.
+  for (let i = 0; i < 20 && size > min; i++) {
+    if (el.scrollWidth <= el.clientWidth + 1) break;
+    size -= 0.5;
+    el.style.fontSize = `${size}px`;
   }
-  return "Waiting for a bid";
 }
 
 function bidButtonsHtml(a) {
@@ -512,11 +554,19 @@ function auctionView() {
           <div class="ring-wrap">
             <svg id="auction-ring" role="img" aria-label="Teams still bidding"></svg>
             <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
-              <p class="hub-name">${esc(p.name)}</p>
-              <div class="hub-meta">${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}<span class="tag">Bat ${p.batting}</span><span class="tag">Bowl ${p.bowling}</span></div>
-              <p class="hub-bid" id="hub-bid">${money(a.currentBidLakhs)}</p>
-              <p class="hub-leader" id="hub-leader">${leaderLine(a)}</p>
-              <p class="hub-timer ${secs <= 3 ? "low" : ""}" id="timer">${state.paused ? "Paused" : secs + "s"}</p>
+              <div class="hub-inner">
+                <p class="hub-name" id="hub-name">${esc(p.name)}</p>
+                <p class="hub-bid" id="hub-bid">
+                  <span class="hub-bid-num" id="hub-bid-num">${bidParts(a.currentBidLakhs).n}</span>
+                  <span class="hub-bid-unit" id="hub-bid-unit">${bidParts(a.currentBidLakhs).unit}</span>
+                </p>
+                <div class="hub-leader" id="hub-leader">${leaderLine(a)}</div>
+                <div class="hub-meta">
+                  ${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
+                  <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>
+                </div>
+                <p class="hub-timer ${secs <= 3 ? "low" : ""}" id="timer">${state.paused ? "Paused" : secs + "s"}</p>
+              </div>
             </div>
           </div>
           <div class="team-strip" id="team-strip">${teamStripHtml(a)}</div>
@@ -546,6 +596,7 @@ function mountAuctionRing() {
   updateAuctionTimer();
   lastNomineeId = state.auction.nominee && state.auction.nominee.id;
   lastBidShown = state.auction.currentBidLakhs;
+  requestAnimationFrame(fitHubName);
 }
 
 function updateAuctionTimer() {
@@ -559,25 +610,40 @@ function updateAuctionTimer() {
     const secs = Math.ceil(left / 1000);
     t.textContent = state.paused ? "Paused" : `${secs}s`;
     t.classList.toggle("low", secs <= 3 && !state.paused);
+    t.classList.toggle("paused", Boolean(state.paused));
   }
 }
 
+function setHubBid(points) {
+  const parts = bidParts(points);
+  const num = document.getElementById("hub-bid-num");
+  const unit = document.getElementById("hub-bid-unit");
+  if (num) num.textContent = String(parts.n);
+  if (unit) unit.textContent = parts.unit;
+}
+
 function animateBid(from, to) {
-  const el = document.getElementById("hub-bid");
-  if (!el) return;
+  const wrap = document.getElementById("hub-bid");
+  const num = document.getElementById("hub-bid-num");
+  if (!num) {
+    setHubBid(to);
+    return;
+  }
   const start = Number(from) || 0;
   const end = Number(to) || 0;
   const t0 = performance.now();
   const dur = 280;
-  el.classList.remove("pop");
-  void el.offsetWidth;
-  el.classList.add("pop");
+  if (wrap) {
+    wrap.classList.remove("pop");
+    void wrap.offsetWidth;
+    wrap.classList.add("pop");
+  }
   function frame(now) {
     const t = Math.min(1, (now - t0) / dur);
     const val = Math.round(start + (end - start) * t);
-    el.textContent = money(val);
+    setHubBid(val);
     if (t < 1) requestAnimationFrame(frame);
-    else el.textContent = money(end);
+    else setHubBid(end);
   }
   requestAnimationFrame(frame);
 }
@@ -589,11 +655,10 @@ function patchAuction() {
   if (svg && window.IplRing) IplRing.update(svg, a.stillIn || []);
   const leader = document.getElementById("hub-leader");
   if (leader) leader.innerHTML = leaderLine(a);
+  const hub = document.getElementById("auction-hub");
+  if (hub) hub.style.setProperty("--c", a.currentBidderColor || "var(--gold)");
   if (lastBidShown != null && lastBidShown !== a.currentBidLakhs) animateBid(lastBidShown, a.currentBidLakhs);
-  else {
-    const bid = document.getElementById("hub-bid");
-    if (bid) bid.textContent = money(a.currentBidLakhs);
-  }
+  else setHubBid(a.currentBidLakhs);
   lastBidShown = a.currentBidLakhs;
   const actions = document.getElementById("bid-actions");
   if (actions) actions.innerHTML = bidButtonsHtml(a);
@@ -1085,6 +1150,9 @@ socket.on("connect_error", () => toast("Connection issue — retrying…"));
 
 wireGlobal();
 startTicks();
+window.addEventListener("resize", () => {
+  if (state && state.phase === "auction") fitHubName();
+});
 render();
 
 
