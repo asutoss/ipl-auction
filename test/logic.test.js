@@ -735,7 +735,9 @@ describe("end game and leave", () => {
 
 describe("team names and logo catalog", () => {
   test("catalog has 20 cartoon logos with unique colours and no food-theme team names", () => {
-    const { IDENTITIES, logoSvg } = require("../public/identities");
+    const fs = require("fs");
+    const path = require("path");
+    const { IDENTITIES, logoUrl, logoImg } = require("../public/identities");
     assert.equal(IDENTITIES.length, 20);
     const ids = IDENTITIES.map((t) => t.id);
     const characters = IDENTITIES.map((t) => t.character);
@@ -743,15 +745,23 @@ describe("team names and logo catalog", () => {
     assert.equal(new Set(ids).size, 20);
     assert.equal(new Set(characters).size, 20);
     assert.equal(new Set(colors).size, 20);
+    const logoDir = path.join(__dirname, "../public/logos");
+    let total = 0;
     for (const t of IDENTITIES) {
       assert.ok(t.character && t.character.length > 1, t.id);
       assert.match(t.color, /^#[0-9A-Fa-f]{6}$/);
       assert.match(t.color2, /^#[0-9A-Fa-f]{6}$/);
       assert.match(t.text, /^#[0-9A-Fa-f]{6}$/);
-      const svg = logoSvg(t.id);
-      assert.match(svg, /<svg /);
+      assert.equal(logoUrl(t.id), `/logos/${t.id}.webp`);
+      const img = logoImg(t.id);
+      assert.match(img, /<img /);
+      assert.match(img, new RegExp(`alt="${t.character}"`));
+      const file = path.join(logoDir, `${t.id}.webp`);
+      assert.ok(fs.existsSync(file), file);
+      total += fs.statSync(file).size;
       assert.doesNotMatch(t.character, /chargers|sloths|punchers|rockets|smashers|mavericks|blasters|jaguars|jammers|dynamos|lions|vikings/i);
     }
+    assert.ok(total < 600 * 1024, `logo payload ${total} bytes`);
     // Colours should be visually spread (ignore near-neutrals).
     function hexRgb(hex) {
       const n = parseInt(hex.slice(1), 16);
@@ -790,5 +800,46 @@ describe("team names and logo catalog", () => {
     assert.equal(room.findByName("Night Owls").connected, true);
     assert.equal(room.findByName("Night Owls").franchise.id, logo);
     assert.equal(room.franchises.length, 2);
+  });
+});
+
+
+describe("lot snapshot strip", () => {
+  test("lotStart snapshot freezes purse and pending slots for the lot", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.startAuction("Ashutosh");
+    const start = room.auction.lotSnapshot;
+    assert.ok(Array.isArray(start) && start.length === 2);
+    const ash = start.find((r) => r.name === "Ashutosh");
+    const priya = start.find((r) => r.name === "Priya");
+    assert.equal(ash.purseLakhs, 100);
+    assert.equal(priya.purseLakhs, 100);
+    assert.equal(ash.pending, 11);
+    const publicSnap = room.getState("Ashutosh").auction.lotSnapshot;
+    assert.equal(publicSnap.length, 2);
+
+    const def = room.franchises.find((f) => f.key === room.auction.defaultBidderKey).name;
+    const other = def === "Ashutosh" ? "Priya" : "Ashutosh";
+    const amount = room.auction.currentBidLakhs + 1;
+    assert.equal(room.bid(other, amount).ok, true);
+    // A bid must not rewrite the start-of-lot purse snapshot.
+    const after = room.auction.lotSnapshot;
+    assert.equal(after.find((r) => r.name === "Ashutosh").purseLakhs, 100);
+    assert.equal(after.find((r) => r.name === "Priya").purseLakhs, 100);
+    assert.equal(room.findByName(other).purseLakhs, 100, "purse only changes when the lot sells");
+    assert.equal(room.getState("Ashutosh").auction.lotSnapshot[0].purseLakhs, 100);
+  });
+
+  test("pending count reflects squad size at the start of the lot, not after a sale", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const leftover = players.find((p) => p.role === "BAT");
+    room.findByName("Priya").squad.push({ player: leftover, priceLakhs: 2 });
+    room.soldIds.add(leftover.id);
+    room.queue = players.filter((p) => p.id !== leftover.id).slice(0, 3);
+    room.phase = "auction";
+    room.nominateNext();
+    const row = room.auction.lotSnapshot.find((r) => r.name === "Priya");
+    assert.equal(row.pending, 10);
+    assert.equal(row.squadSize, 1);
   });
 });

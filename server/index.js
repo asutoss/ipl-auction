@@ -13,6 +13,7 @@ const { meta, players } = loadPlayers();
 
 const app = express();
 const publicDir = path.join(__dirname, "..", "public");
+app.use("/logos", express.static(path.join(publicDir, "logos"), { maxAge: "7d", etag: true }));
 app.use(express.static(publicDir));
 
 const server = http.createServer(app);

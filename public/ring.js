@@ -76,10 +76,37 @@
       transform: `rotate(-90 ${CX} ${CY})`,
       class: "ring-timer",
     });
+    const defs = el("defs", {});
+    const sheen = el("linearGradient", {
+      id: "ring-sheen", x1: "0", y1: "0", x2: "1", y2: "1",
+      gradientUnits: "objectBoundingBox",
+    });
+    sheen.innerHTML = `
+      <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="35%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#fff" stop-opacity="0.7"/>
+      <stop offset="65%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+      <animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="1.6s" repeatCount="indefinite"/>
+    `;
+    defs.appendChild(sheen);
     const segs = el("g", { class: "ring-segs" });
+    const sheenPath = el("path", { class: "ring-sheen-path", fill: "url(#ring-sheen)", "pointer-events": "none" });
     const marks = el("g", { class: "ring-marks" });
-    svg.append(bg, timerTrack, timer, segs, marks);
-    svg._ring = { segs, marks, timer, timerC, items: [] };
+    const pointer = el("g", { class: "ring-pointer", "aria-hidden": "true" });
+    const tipR = R_OUTER - 2;
+    const baseR = R_TIMER + 1;
+    const head = el("path", {
+      class: "ring-pointer-head",
+      d: `M${CX} ${CY - tipR} L${CX - 12} ${CY - baseR} L${CX} ${CY - baseR + 5} L${CX + 12} ${CY - baseR} Z`,
+      fill: "#ffe08a",
+      stroke: "#1a1408",
+      "stroke-width": "1.4",
+      "stroke-linejoin": "round",
+    });
+    pointer.appendChild(head);
+    svg.append(defs, bg, timerTrack, timer, segs, sheenPath, marks, pointer);
+    svg._ring = { segs, marks, timer, timerC, items: [], pointer, sheenPath, pointerAngle: 0 };
     return svg._ring;
   }
 
@@ -112,8 +139,60 @@
   function paintLeader(item) {
     const on = Boolean(item.team && item.team.isLeader && !item.leaving);
     item.path.classList.toggle("is-leader", on);
+    item.path.classList.toggle("is-dim", !on);
     if (item.scale) item.scale.classList.toggle("is-leader", on);
     item.mark.classList.toggle("is-leader", on);
+    item.mark.classList.toggle("is-dim", !on);
+  }
+
+  function shortestTurn(from, to) {
+    let d = to - from;
+    while (d > 180) d -= 360;
+    while (d < -180) d += 360;
+    return from + d;
+  }
+
+  function applyPointerAngle(ring, ang) {
+    ring.pointer.setAttribute("transform", `rotate(${ang} ${CX} ${CY})`);
+    ring.pointerAngle = ang;
+  }
+
+  function pointToLeader(svg, animateMotion) {
+    const ring = ensure(svg);
+    if (!ring.pointer) return;
+    const leader = (ring.items || []).find((it) => it.team && it.team.isLeader && !it.leaving);
+    const mid = leader ? midAngle(leader.a0, leader.a1) : 0;
+    const from = ring.pointerAngle || 0;
+    const next = shortestTurn(from, mid);
+    if (ring._pointerAnim) {
+      cancelAnimationFrame(ring._pointerAnim);
+      ring._pointerAnim = null;
+    }
+    const paintSheen = () => {
+      if (!ring.sheenPath) return;
+      if (leader) {
+        ring.sheenPath.setAttribute("d", donutPath(leader.a0, leader.a1));
+        ring.sheenPath.style.opacity = "1";
+      } else {
+        ring.sheenPath.setAttribute("d", "");
+        ring.sheenPath.style.opacity = "0";
+      }
+    };
+    ring.pointer.style.opacity = leader ? "1" : "0";
+    paintSheen();
+    if (animateMotion === false || Math.abs(next - from) < 0.2) {
+      applyPointerAngle(ring, next);
+      return;
+    }
+    const t0 = performance.now();
+    function frame(now) {
+      const t = Math.min(1, (now - t0) / DURATION);
+      const e = 1 - Math.pow(1 - t, 3);
+      applyPointerAngle(ring, from + (next - from) * e);
+      if (t < 1) ring._pointerAnim = requestAnimationFrame(frame);
+      else ring._pointerAnim = null;
+    }
+    ring._pointerAnim = requestAnimationFrame(frame);
   }
 
   function logoNode(team) {
@@ -124,10 +203,10 @@
     const wrap = document.createElement("div");
     wrap.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
     wrap.className = "ring-logo-inner";
-    const svg = (typeof IplIdentities !== "undefined" && team.identityId)
-      ? IplIdentities.logoSvg(team.identityId)
+    const img = (typeof IplIdentities !== "undefined" && team.identityId)
+      ? IplIdentities.logoImg(team.identityId, { alt: "", className: "ring-logo-img" })
       : "";
-    wrap.innerHTML = svg || `<span class="ring-emoji">${team.emoji || team.short || ""}</span>`;
+    wrap.innerHTML = img || `<span class="ring-emoji">${team.short || ""}</span>`;
     fo.appendChild(wrap);
     g.appendChild(fo);
     return g;
@@ -202,6 +281,7 @@
           item.mark.style.opacity = String(1 - e);
         }
       }
+      pointToLeader(svg, false);
       if (t < 1) requestAnimationFrame(frame);
       else {
         for (const item of leaving) {
@@ -209,6 +289,7 @@
           item.mark.remove();
         }
         ring.items = nextItems;
+        pointToLeader(svg, true);
       }
     }
     requestAnimationFrame(frame);
@@ -225,6 +306,7 @@
         ring.marks.appendChild(item.mark);
         ring.items.push(item);
       }
+      pointToLeader(svg, false);
       return;
     }
     const same =
@@ -235,6 +317,7 @@
         it.team = spec[i].team;
         paintLeader(it);
       });
+      pointToLeader(svg, true);
       return;
     }
     animate(svg, ring.items, spec);

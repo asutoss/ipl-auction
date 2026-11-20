@@ -171,6 +171,20 @@ class GameRoom extends EventEmitter {
     }));
   }
 
+  packLotSnapshot() {
+    return this.franchises.map((f) => ({
+      name: f.name,
+      identityId: f.franchise && f.franchise.id,
+      color: f.franchise && f.franchise.color,
+      color2: (f.franchise && f.franchise.color2) || null,
+      text: (f.franchise && (f.franchise.text || f.franchise.color)) || null,
+      purseLakhs: f.purseLakhs,
+      pending: Math.max(0, 11 - ((f.squad || []).length)),
+      squadSize: (f.squad || []).length,
+      eliminated: Boolean(f.eliminated),
+    }));
+  }
+
   packAuctionPublic() {
     if (!this.auction) return null;
     const hasBidder = Boolean(this.auction.currentBidderKey);
@@ -203,6 +217,7 @@ class GameRoom extends EventEmitter {
         && this.auction.currentBidLakhs === this.auction.startBidLakhs,
       startBidLakhs: this.auction.startBidLakhs,
       timerMs: this.auction.timerMs || this.timers.lotStartMs,
+      lotSnapshot: this.auction.lotSnapshot || this.packLotSnapshot(),
     };
   }
 
@@ -603,6 +618,7 @@ class GameRoom extends EventEmitter {
       optedOut: new Set(),
       endsAt: Date.now() + this.timers.lotStartMs,
       timerMs: this.timers.lotStartMs,
+      lotSnapshot: this.packLotSnapshot(),
     };
     this.startLotTimer(false);
     if (!this.maybeResolveLot()) {

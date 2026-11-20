@@ -62,8 +62,10 @@ function remainingMs(endsAt) {
 
 function teamMark(franchise, size = "", title = "") {
   if (!franchise) return "";
-  const svg = (window.IplIdentities && franchise.id) ? IplIdentities.logoSvg(franchise.id) : "";
-  const inner = svg || esc(franchise.character || "");
+  const img = (window.IplIdentities && franchise.id)
+    ? IplIdentities.logoImg(franchise, { alt: title || franchise.character || "", className: "team-mark-img" })
+    : "";
+  const inner = img || esc(franchise.character || "");
   const label = title || franchise.character || "";
   return `<span class="team-mark-wrap ${esc(size)}" style="--c:${esc(franchise.color)};--c2:${esc(franchise.color2 || "")}" title="${esc(label)}">${inner}</span>`;
 }
@@ -202,9 +204,9 @@ function lobbyView() {
       const pack = id.id ? id : (IplIdentities.getIdentity(id) || {});
       const selected = mine && pack.id === mine;
       const used = taken.has(pack.id) && !selected;
-      return `<button type="button" class="logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""}>
-        ${IplIdentities.logoSvg(pack.id)}
-        <span>${esc(characterName(pack))}</span>
+      const label = characterName(pack);
+      return `<button type="button" class="logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""} aria-label="${esc(label)}" title="${esc(label)}">
+        ${IplIdentities.logoImg(pack, { alt: label, className: "team-mark-img" })}
       </button>`;
     })
     .join("");
@@ -281,6 +283,36 @@ function squadSlots(franchise) {
   return `<div class="slots">${rows.join("")}</div>`;
 }
 
+
+function teamStripHtml(a) {
+  const snap = (a && a.lotSnapshot) || [];
+  if (!snap.length) return "";
+  const still = new Set(((a && a.stillIn) || []).map((t) => t.name));
+  const leader = a.currentBidderName;
+  return snap
+    .map((row) => {
+      const pending = row.pending != null ? row.pending : Math.max(0, 11 - (row.squadSize || 0));
+      const out = !row.eliminated && !still.has(row.name);
+      const cls = [
+        "team-chip",
+        row.eliminated ? "is-eliminated" : "",
+        out ? "is-out" : "",
+        leader && row.name === leader ? "is-leader" : "",
+      ].filter(Boolean).join(" ");
+      const need = row.eliminated ? "out" : pending === 0 ? "full" : `need ${pending}`;
+      const tip = `${row.name} · ${row.purseLakhs} pts at start of this lot · ${
+        row.eliminated ? "eliminated" : out ? "opted out of this player" : pending === 0 ? "minimum 11 reached" : `${pending} slot${pending === 1 ? "" : "s"} left to 11`
+      }`;
+      const fr = { id: row.identityId, color: row.color, color2: row.color2, text: row.text };
+      return `<button type="button" class="${cls}" title="${esc(tip)}" style="--c:${esc(row.color)};--c2:${esc(row.color2 || "")};--ct:${esc(row.text || row.color)}">
+        ${teamMark(fr, "sm", row.name)}
+        <span class="chip-name">${esc(row.name)}</span>
+        <span class="chip-meta"><b>${row.purseLakhs}</b><small>${esc(need)}</small></span>
+      </button>`;
+    })
+    .join("");
+}
+
 function canPayStep(step) {
   const a = state && state.auction;
   const you = state && state.you;
@@ -349,6 +381,7 @@ function auctionView() {
               <p class="hub-timer ${secs <= 3 ? "low" : ""}" id="timer">${state.paused ? "Paused" : secs + "s"}</p>
             </div>
           </div>
+          <div class="team-strip" id="team-strip">${teamStripHtml(a)}</div>
         </div>
         <div class="bid-box">
           <p class="label">Raise the bid</p>
@@ -433,6 +466,8 @@ function patchAuction() {
   }
   const err = document.querySelector(".bid-box .error");
   if (err) err.textContent = lastError || "";
+  const strip = document.getElementById("team-strip");
+  if (strip) strip.innerHTML = teamStripHtml(a);
   updateAuctionTimer();
 }
 

@@ -308,6 +308,12 @@ describe("identities, pause, start bid and end game over sockets", () => {
     const startBid = lot.auction.startBidLakhs;
     assert.ok(Number.isInteger(startBid) && startBid >= 1 && startBid <= 5, String(startBid));
     assert.equal(lot.auction.currentBidLakhs, startBid);
+    assert.ok(Array.isArray(lot.auction.lotSnapshot) && lot.auction.lotSnapshot.length === 3);
+    for (const row of lot.auction.lotSnapshot) {
+      assert.equal(typeof row.purseLakhs, "number");
+      assert.equal(typeof row.pending, "number");
+      assert.ok(row.identityId);
+    }
     const nomineeId = lot.auction.nominee.id;
     const defaultName = lot.auction.currentBidderName;
 
