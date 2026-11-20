@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { BASE_PRICE_POINTS } = require("./rules");
 
 const DATA_PATH = path.join(__dirname, "..", "data", "players.json");
 
@@ -11,7 +12,7 @@ function loadPlayers() {
     role: p.role,
     overseas: Boolean(p.overseas),
     country: p.country || (p.overseas ? "OS" : "IND"),
-    basePriceLakhs: Number(p.basePriceLakhs),
+    basePriceLakhs: BASE_PRICE_POINTS,
     batting: Number(p.batting),
     bowling: Number(p.bowling),
   }));

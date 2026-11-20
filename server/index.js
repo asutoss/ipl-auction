@@ -5,7 +5,7 @@ const { Server } = require("socket.io");
 const { loadPlayers } = require("./players");
 const { GameRoom, normalizeName } = require("./game");
 const { RoomManager, makeRoomCode, ROOM_CODE_LENGTH } = require("./manager");
-const { DEFAULT_PURSE_LAKHS, MIN_PLAYERS, MAX_PLAYERS } = require("./rules");
+const { DEFAULT_PURSE_LAKHS, DEFAULT_PURSE_POINTS, MIN_PLAYERS, MAX_PLAYERS } = require("./rules");
 
 const PORT = Number(process.env.PORT) || 3000;
 const DEFLATE_THRESHOLD = Number(process.env.DEFLATE_THRESHOLD) || 256;
@@ -105,6 +105,7 @@ app.get("/api/health", (_req, res) => {
     rooms: manager.count(),
     maxRooms: manager.maxRooms,
     defaultPurseLakhs: DEFAULT_PURSE_LAKHS,
+    defaultPursePoints: DEFAULT_PURSE_POINTS,
     roomCodeLength: ROOM_CODE_LENGTH,
   });
 });
@@ -132,10 +133,11 @@ io.on("connection", (socket) => {
     if (!manager.canAcceptRoom()) return cb && cb(manager.roomCapError());
 
     const code = makeRoomCode(rooms);
-    const purseCrore = payload.purseCrore != null ? Number(payload.purseCrore) : 100;
-    const purseLakhs = Number.isFinite(purseCrore) ? Math.round(purseCrore * 100) : DEFAULT_PURSE_LAKHS;
+    const rawPurse = payload.pursePoints != null ? payload.pursePoints : payload.purseCrore;
+    const purseLakhs = Number.isFinite(Number(rawPurse)) ? Math.round(Number(rawPurse)) : DEFAULT_PURSE_POINTS;
     const timers = {};
     if (process.env.ALLOW_TEST_TIMERS === "1" && payload.testTimers) {
+      if (payload.testTimers.lotStartMs) timers.lotStartMs = Number(payload.testTimers.lotStartMs);
       if (payload.testTimers.bidMs) timers.bidMs = Number(payload.testTimers.bidMs);
       if (payload.testTimers.captainMs) timers.captainMs = Number(payload.testTimers.captainMs);
     }
@@ -172,7 +174,7 @@ io.on("connection", (socket) => {
   socket.on("setPurse", (payload = {}, cb) => {
     const room = getRoom(socket.data.code);
     if (!room) return cb && cb({ ok: false, error: "Join a room first." });
-    const result = room.setPurse(socket.data.name, payload.purseCrore);
+    const result = room.setPurse(socket.data.name, payload.pursePoints != null ? payload.pursePoints : payload.purseCrore);
     cb && cb(result);
   });
 
@@ -201,6 +203,13 @@ io.on("connection", (socket) => {
     const room = getRoom(socket.data.code);
     if (!room) return cb && cb({ ok: false, error: "Join a room first." });
     const result = room.selectCaptain(socket.data.name, payload.playerId);
+    cb && cb(result);
+  });
+
+  socket.on("buyBooster", (payload = {}, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.buyBooster(socket.data.name, payload.boosterId);
     cb && cb(result);
   });
 

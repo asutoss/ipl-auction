@@ -1,5 +1,6 @@
 const { overallRating } = require("./players");
-const { ROLES, QUOTA } = require("./rules");
+const { ROLES, QUOTA, formatPoints } = require("./rules");
+const { hasBooster } = require("./boosters");
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -31,15 +32,16 @@ function ballsToOvers(balls) {
   return full + rem / 10;
 }
 
+function formatOvers(balls) {
+  return ballsToOvers(balls).toFixed(1);
+}
+
 function playerRatings(slot, isCaptain) {
   const p = slot.player;
   const boost = isCaptain ? 1.05 : 1;
   return { batting: p.batting * boost, bowling: p.bowling * boost };
 }
 
-// Expected batting unit: 4 BAT + 1 WK + 2 AR. Bowling unit: 2 AR + 4 BOWL.
-// Missing players count as 0, so lopsided squads are weaker. Extra players
-// are averaged in (whole squad counts; no XI trimming).
 const EXPECTED_BATTERS = 7;
 const EXPECTED_BOWLERS = 6;
 
@@ -54,7 +56,6 @@ function teamStrength(franchise) {
     const isCap = slot.player.id === captainId;
     const r = playerRatings(slot, isCap);
     const role = slot.player.role;
-    // Only BAT, WK and AR bat; only AR and BOWL bowl.
     if (role === "BAT" || role === "WK") {
       batSum += r.batting;
       batN += 1;
@@ -72,6 +73,35 @@ function teamStrength(franchise) {
   const bowling = bowlSum / Math.max(bowlN, EXPECTED_BOWLERS);
   const strength = 0.52 * batting + 0.48 * bowling;
   return { batting, bowling, strength, batN, bowlN };
+}
+
+function battersOf(team) {
+  return (team.squad || []).filter((s) => ["BAT", "WK", "AR"].includes(s.player.role));
+}
+
+function bowlersOf(team) {
+  return (team.squad || []).filter((s) => ["AR", "BOWL"].includes(s.player.role));
+}
+
+function matchStrength(team, { chasing = false, nerfed = false } = {}) {
+  const s = teamStrength(team);
+  let batting = s.batting;
+  let bowling = s.bowling;
+  if (hasBooster(team, "cheerleaders")) {
+    batting *= 1.04;
+    bowling *= 1.04;
+  }
+  if (hasBooster(team, "home-curator")) bowling += 8;
+  if (hasBooster(team, "dew-factor") && chasing) batting += 10;
+  if (hasBooster(team, "friendly-umpire")) {
+    batting *= 1.03;
+    bowling *= 1.03;
+  }
+  if (nerfed) {
+    batting = Math.max(0, batting - 8);
+    bowling = Math.max(0, bowling - 8);
+  }
+  return { batting, bowling, strength: 0.52 * batting + 0.48 * bowling, batN: s.batN, bowlN: s.bowlN };
 }
 
 function inningsBallsAndWickets(rng, bowling, allOutLikely) {
@@ -114,14 +144,270 @@ function playInnings({ rng, batting, bowling, target }) {
   return { score, wickets: allOut ? 10 : Math.min(wickets, 9), balls: allOut ? Math.min(balls, 119) : 120, chased: false };
 }
 
-function playMatch(teamA, teamB, rng, label) {
-  const a = teamStrength(teamA);
-  const b = teamStrength(teamB);
-  const aBatsFirst = rng() < 0.5;
-  const first = aBatsFirst ? teamA : teamB;
-  const second = aBatsFirst ? teamB : teamA;
-  const firstS = aBatsFirst ? a : b;
-  const secondS = aBatsFirst ? b : a;
+function splitByWeights(total, weights, rng, { minEach = 0 } = {}) {
+  const n = weights.length;
+  if (n === 0) return [];
+  const safe = weights.map((w) => Math.max(0.01, w));
+  const sum = safe.reduce((a, b) => a + b, 0);
+  const raw = safe.map((w) => (total * w) / sum + gauss(rng, 0, Math.max(1, total * 0.03)));
+  for (let i = 0; i < n; i++) raw[i] = Math.max(minEach, raw[i]);
+  const out = raw.map((v) => Math.round(v));
+  let diff = total - out.reduce((a, b) => a + b, 0);
+  let guard = 0;
+  while (diff !== 0 && guard++ < 1000) {
+    const i = Math.floor(rng() * n);
+    if (diff > 0) {
+      out[i] += 1;
+      diff -= 1;
+    } else if (out[i] > minEach) {
+      out[i] -= 1;
+      diff += 1;
+    }
+  }
+  return out;
+}
+
+function allocateBatting(team, inn, rng) {
+  const ordered = battersOf(team)
+    .map((s) => ({ slot: s, rating: playerRatings(s, s.player.id === team.captainId).batting }))
+    .sort((a, b) => b.rating - a.rating);
+  if (!ordered.length) return [];
+  const nOut = clamp(inn.wickets, 0, ordered.length);
+  const nBatted = Math.min(ordered.length, Math.max(nOut + (nOut < ordered.length ? 1 : 0), Math.min(ordered.length, nOut + 2 || 1)));
+  const used = ordered.slice(0, Math.max(1, nBatted));
+  const weights = used.map((u, i) => u.rating * Math.pow(0.84, i));
+  const runs = splitByWeights(inn.score, weights, rng, { minEach: 0 });
+  const minBalls = runs.map((r) => (r === 0 ? 1 : Math.max(1, Math.ceil(r / 8))));
+  let balls = splitByWeights(Math.max(inn.balls, minBalls.reduce((a, b) => a + b, 0)), weights, rng, { minEach: 1 });
+  // If we inflated balls to satisfy strike-rate caps, scale back toward inn.balls while keeping mins.
+  let ballSum = balls.reduce((a, b) => a + b, 0);
+  if (ballSum !== inn.balls) {
+    const target = Math.max(inn.balls, minBalls.reduce((a, b) => a + b, 0));
+    let diff = target - ballSum;
+    let guard = 0;
+    while (diff !== 0 && guard++ < 1000) {
+      const i = Math.floor(rng() * balls.length);
+      if (diff > 0) {
+        balls[i] += 1;
+        diff -= 1;
+      } else if (balls[i] > minBalls[i]) {
+        balls[i] -= 1;
+        diff += 1;
+      }
+    }
+    // Final adjust to exact inn.balls if possible.
+    ballSum = balls.reduce((a, b) => a + b, 0);
+    diff = inn.balls - ballSum;
+    guard = 0;
+    while (diff !== 0 && guard++ < 1000) {
+      const i = Math.floor(rng() * balls.length);
+      if (diff > 0) {
+        balls[i] += 1;
+        diff -= 1;
+      } else if (balls[i] > 1) {
+        balls[i] -= 1;
+        diff += 1;
+      } else break;
+    }
+  }
+  return used.map((u, i) => ({
+    playerId: u.slot.player.id,
+    name: u.slot.player.name,
+    role: u.slot.player.role,
+    runs: runs[i],
+    balls: Math.max(1, balls[i] || 1),
+    out: i < nOut,
+  }));
+}
+
+function allocateBowling(team, inn, rng) {
+  const ordered = bowlersOf(team)
+    .map((s) => ({ slot: s, rating: playerRatings(s, s.player.id === team.captainId).bowling }))
+    .sort((a, b) => b.rating - a.rating);
+  if (!ordered.length || inn.balls <= 0) return [];
+  const maxBalls = 24;
+  const nBowlers = clamp(Math.round(gauss(rng, 5, 0.6)), 3, Math.min(7, ordered.length));
+  const used = ordered.slice(0, Math.max(1, nBowlers));
+  const weights = used.map((u) => u.rating);
+  let balls = splitByWeights(inn.balls, weights, rng, { minEach: 6 });
+  // Cap at 4 overs and redistribute.
+  let overflow = 0;
+  for (let i = 0; i < balls.length; i++) {
+    if (balls[i] > maxBalls) {
+      overflow += balls[i] - maxBalls;
+      balls[i] = maxBalls;
+    }
+  }
+  let guard = 0;
+  while (overflow > 0 && guard++ < 500) {
+    const i = used.findIndex((_, j) => balls[j] < maxBalls);
+    if (i < 0) break;
+    const add = Math.min(overflow, maxBalls - balls[i]);
+    balls[i] += add;
+    overflow -= add;
+  }
+  const wicketWeights = used.map((u, i) => u.rating * (0.6 + balls[i] / Math.max(1, inn.balls)));
+  const wickets = splitByWeights(inn.wickets, wicketWeights, rng, { minEach: 0 });
+  // Better bowlers concede fewer runs: invert rating slightly.
+  const runWeights = used.map((u, i) => (110 - u.rating) * (balls[i] / Math.max(1, inn.balls)));
+  const conceded = splitByWeights(inn.score, runWeights, rng, { minEach: 0 });
+  return used.map((u, i) => ({
+    playerId: u.slot.player.id,
+    name: u.slot.player.name,
+    role: u.slot.player.role,
+    balls: balls[i],
+    wickets: wickets[i],
+    runsConceded: conceded[i],
+  }));
+}
+
+function isCloseMatch(match) {
+  if (!match || match.noResult) return false;
+  const first = match.firstInnings;
+  const second = match.secondInnings;
+  if (!first || !second) return false;
+  if (match.chased) return 10 - second.wickets <= 2;
+  return first.score - second.score <= 8;
+}
+
+function addMoment(ctx, team, boosterId, text, match) {
+  if (!ctx || !ctx.moments) return;
+  const booster = (team.boosters || []).find((b) => b.id === boosterId);
+  ctx.moments.push({
+    teamName: team.name,
+    short: team.franchise.short,
+    color: team.franchise.color,
+    boosterId,
+    boosterName: booster ? booster.name : boosterId,
+    text,
+    matchId: match ? match.id : null,
+    label: match ? match.label : null,
+  });
+}
+
+function decideToss(teamA, teamB, rng, ctx, label) {
+  const aLucky = hasBooster(teamA, "lucky-toss");
+  const bLucky = hasBooster(teamB, "lucky-toss");
+  let winner;
+  if (aLucky && !bLucky) winner = teamA;
+  else if (bLucky && !aLucky) winner = teamB;
+  else winner = rng() < 0.5 ? teamA : teamB;
+  const loser = winner === teamA ? teamB : teamA;
+  if ((aLucky || bLucky) && aLucky !== bLucky) {
+    addMoment(ctx, winner, "lucky-toss", `Lucky Toss Coin landed for ${winner.franchise.short} vs ${loser.franchise.short}`, { id: `${label}-${teamA.franchise.short}-${teamB.franchise.short}`, label });
+  }
+  const wS = teamStrength(winner);
+  const lS = teamStrength(loser);
+  const batFirstScore = wS.batting - lS.bowling;
+  const chaseScore = wS.batting + (hasBooster(winner, "dew-factor") ? 10 : 0) - lS.bowling;
+  // Prefer the option with the better expected batting edge; default to batting first on a tie.
+  const winnerBatsFirst = batFirstScore >= chaseScore - 2;
+  return { winner, winnerBatsFirst };
+}
+
+function emptyStat(player) {
+  return {
+    playerId: player.id,
+    name: player.name,
+    role: player.role,
+    runs: 0,
+    balls: 0,
+    innings: 0,
+    notOuts: 0,
+    highest: 0,
+    wickets: 0,
+    ballsBowled: 0,
+    runsConceded: 0,
+  };
+}
+
+function applyBattingStats(book, team, cards) {
+  const stats = book[team.name];
+  for (const c of cards) {
+    let row = stats.get(c.playerId);
+    if (!row) {
+      row = { playerId: c.playerId, name: c.name, role: c.role, runs: 0, balls: 0, innings: 0, notOuts: 0, highest: 0, wickets: 0, ballsBowled: 0, runsConceded: 0 };
+      stats.set(c.playerId, row);
+    }
+    row.runs += c.runs;
+    row.balls += c.balls;
+    row.innings += 1;
+    if (!c.out) row.notOuts += 1;
+    if (c.runs > row.highest) row.highest = c.runs;
+  }
+}
+
+function applyBowlingStats(book, team, cards) {
+  const stats = book[team.name];
+  for (const c of cards) {
+    let row = stats.get(c.playerId);
+    if (!row) {
+      row = { playerId: c.playerId, name: c.name, role: c.role, runs: 0, balls: 0, innings: 0, notOuts: 0, highest: 0, wickets: 0, ballsBowled: 0, runsConceded: 0 };
+      stats.set(c.playerId, row);
+    }
+    row.wickets += c.wickets;
+    row.ballsBowled += c.balls;
+    row.runsConceded += c.runsConceded;
+  }
+}
+
+function packBestBowling(row) {
+  if (!row.ballsBowled) return null;
+  return `${row.wickets}/${row.runsConceded}`;
+}
+
+function finalizePlayerStats(book, teams) {
+  const out = {};
+  for (const team of teams) {
+    const map = book[team.name] || new Map();
+    const rows = [];
+    for (const slot of team.squad || []) {
+      const row = map.get(slot.player.id) || emptyStat(slot.player);
+      const dismissals = Math.max(0, row.innings - row.notOuts);
+      rows.push({
+        ...row,
+        average: dismissals > 0 ? Number((row.runs / dismissals).toFixed(2)) : row.runs ? Number(row.runs.toFixed(2)) : 0,
+        strikeRate: row.balls > 0 ? Number(((row.runs / row.balls) * 100).toFixed(1)) : 0,
+        economy: row.ballsBowled > 0 ? Number(((row.runsConceded / row.ballsBowled) * 6).toFixed(2)) : 0,
+        oversBowled: Number(formatOvers(row.ballsBowled)),
+        bestBowling: packBestBowling(row),
+      });
+    }
+    out[team.name] = rows;
+  }
+  return out;
+}
+
+function playMatch(teamA, teamB, rng, label, ctx = {}) {
+  const victims = ctx.busVictims || {};
+  const aNerf = Boolean(victims[teamA.name]);
+  const bNerf = Boolean(victims[teamB.name]);
+  const toss = decideToss(teamA, teamB, rng, ctx, label);
+  const first = toss.winnerBatsFirst ? toss.winner : toss.winner === teamA ? teamB : teamA;
+  const second = first === teamA ? teamB : teamA;
+  const firstS = matchStrength(first, { chasing: false, nerfed: first === teamA ? aNerf : bNerf });
+  const secondS = matchStrength(second, { chasing: true, nerfed: second === teamA ? aNerf : bNerf });
+
+  if (aNerf) {
+    const saboteur = (ctx.busSaboteurs || {})[teamA.name];
+    if (saboteur && !ctx._busNoted) ctx._busNoted = new Set();
+    const key = `${saboteur}-${teamA.name}-${label}`;
+    if (saboteur && ctx._busNoted && !ctx._busNoted.has(key)) {
+      ctx._busNoted.add(key);
+      const t = ctx.teamsByName ? ctx.teamsByName[saboteur] : null;
+      if (t) addMoment(ctx, t, "bus-breakdown", `Team Bus Breakdown delayed ${teamA.franchise.short} vs ${teamB.franchise.short}`, { id: `${label}-${teamA.franchise.short}-${teamB.franchise.short}`, label });
+    }
+  }
+  if (bNerf) {
+    const saboteur = (ctx.busSaboteurs || {})[teamB.name];
+    if (saboteur && !ctx._busNoted) ctx._busNoted = new Set();
+    const key = `${saboteur}-${teamB.name}-${label}`;
+    if (saboteur && ctx._busNoted && !ctx._busNoted.has(key)) {
+      ctx._busNoted.add(key);
+      const t = ctx.teamsByName ? ctx.teamsByName[saboteur] : null;
+      if (t) addMoment(ctx, t, "bus-breakdown", `Team Bus Breakdown delayed ${teamB.franchise.short} vs ${teamA.franchise.short}`, { id: `${label}-${teamA.franchise.short}-${teamB.franchise.short}`, label });
+    }
+  }
 
   const inn1 = playInnings({ rng, batting: firstS.batting, bowling: secondS.bowling, target: null });
   const inn2 = playInnings({
@@ -131,9 +417,53 @@ function playMatch(teamA, teamB, rng, label) {
     target: inn1.score + 1,
   });
 
-  const chased = inn2.score >= inn1.score + 1;
-  const winner = chased ? second : first;
-  const loser = chased ? first : second;
+  let chased = inn2.score >= inn1.score + 1;
+  let winner = chased ? second : first;
+  let loser = chased ? first : second;
+
+  const provisionalId = `${label}-${teamA.franchise.short}-${teamB.franchise.short}`;
+  const close = chased ? 10 - inn2.wickets <= 2 : inn1.score - inn2.score <= 8;
+
+  function tryFlip(boosterId, chance, text) {
+    if (!hasBooster(loser, boosterId)) return false;
+    if (rng() >= chance) return false;
+    addMoment(ctx, loser, boosterId, text, { id: provisionalId, label });
+    const prevWinner = winner;
+    winner = loser;
+    loser = prevWinner;
+    chased = winner === second;
+    if (chased) {
+      inn2.score = inn1.score + 1;
+      inn2.chased = true;
+      inn2.wickets = Math.min(inn2.wickets, 8);
+    } else {
+      if (inn2.score >= inn1.score) inn2.score = Math.max(80, inn1.score - 4);
+      inn2.chased = false;
+    }
+    return true;
+  }
+
+  if (close) {
+    tryFlip(
+      "friendly-umpire",
+      0.35,
+      `Friendly Umpire turned the match vs ${winner.franchise.short}`
+    );
+  }
+  const stillClose = chased ? 10 - inn2.wickets <= 2 : inn1.score - inn2.score <= 8;
+  if (stillClose && winner !== loser) {
+    tryFlip(
+      "drs-wizard",
+      0.15,
+      `DRS Wizard overturned a narrow loss vs ${winner.franchise.short}`
+    );
+  }
+
+  let noResult = false;
+  if (label === "League" && hasBooster(loser, "rain-dance") && rng() < 0.22) {
+    noResult = true;
+    addMoment(ctx, loser, "rain-dance", `Rain Dance washed out a loss vs ${winner.franchise.short}`, { id: provisionalId, label });
+  }
 
   function card(team, inn, battingFirst) {
     return {
@@ -142,7 +472,7 @@ function playMatch(teamA, teamB, rng, label) {
       score: inn.score,
       wickets: inn.wickets,
       balls: inn.balls,
-      overs: ballsToOvers(inn.balls).toFixed(1),
+      overs: formatOvers(inn.balls),
       battingFirst,
     };
   }
@@ -151,7 +481,9 @@ function playMatch(teamA, teamB, rng, label) {
   const secondCard = card(second, inn2, false);
 
   let resultText;
-  if (chased) {
+  if (noResult) {
+    resultText = "No result — rain stopped play";
+  } else if (chased) {
     const wkts = 10 - inn2.wickets;
     resultText = `${second.franchise.short} won by ${wkts} wicket${wkts === 1 ? "" : "s"}`;
   } else {
@@ -159,8 +491,8 @@ function playMatch(teamA, teamB, rng, label) {
     resultText = `${first.franchise.short} won by ${runs} run${runs === 1 ? "" : "s"}`;
   }
 
-  return {
-    id: `${label}-${teamA.franchise.short}-${teamB.franchise.short}`,
+  const match = {
+    id: provisionalId,
     label,
     teamA: teamA.name,
     teamB: teamB.name,
@@ -168,14 +500,34 @@ function playMatch(teamA, teamB, rng, label) {
     shortB: teamB.franchise.short,
     colorA: teamA.franchise.color,
     colorB: teamB.franchise.color,
-    toss: `${first.franchise.short} elected to bat`,
+    toss: `${toss.winner.franchise.short} elected to ${toss.winnerBatsFirst ? "bat" : "bowl"}`,
     firstInnings: firstCard,
     secondInnings: secondCard,
-    winnerName: winner.name,
-    winnerShort: winner.franchise.short,
-    loserName: loser.name,
+    winnerName: noResult ? null : winner.name,
+    winnerShort: noResult ? null : winner.franchise.short,
+    loserName: noResult ? null : loser.name,
     resultText,
+    noResult,
+    chased: noResult ? false : chased,
   };
+
+  const batting1 = allocateBatting(first, inn1, rng);
+  const batting2 = allocateBatting(second, inn2, rng);
+  const bowling1 = allocateBowling(second, inn1, rng);
+  const bowling2 = allocateBowling(first, inn2, rng);
+  match.performances = {
+    [first.name]: { batting: batting1, bowling: bowling2 },
+    [second.name]: { batting: batting2, bowling: bowling1 },
+  };
+
+  if (!noResult && ctx.statBook) {
+    applyBattingStats(ctx.statBook, first, batting1);
+    applyBattingStats(ctx.statBook, second, batting2);
+    applyBowlingStats(ctx.statBook, second, bowling1);
+    applyBowlingStats(ctx.statBook, first, bowling2);
+  }
+
+  return match;
 }
 
 function emptyRow(team) {
@@ -185,6 +537,7 @@ function emptyRow(team) {
     played: 0,
     won: 0,
     lost: 0,
+    nr: 0,
     points: 0,
     runsFor: 0,
     ballsFaced: 0,
@@ -201,6 +554,13 @@ function applyMatchToTable(tableByName, match) {
   const b = tableByName[second.name];
   a.played += 1;
   b.played += 1;
+  if (match.noResult) {
+    a.nr += 1;
+    b.nr += 1;
+    a.points += 1;
+    b.points += 1;
+    return;
+  }
   a.runsFor += first.score;
   a.ballsFaced += first.balls;
   a.runsAgainst += second.score;
@@ -242,6 +602,7 @@ function snapshotTable(rows) {
     played: r.played,
     won: r.won,
     lost: r.lost,
+    nr: r.nr || 0,
     points: r.points,
     nrr: Number(r.nrr.toFixed(3)),
   }));
@@ -282,7 +643,7 @@ function awards(teams) {
   for (const t of teams) {
     for (const slot of t.squad) {
       const overall = overallRating(slot.player);
-      const price = slot.priceLakhs || slot.player.basePriceLakhs || 20;
+      const price = slot.priceLakhs || slot.player.basePriceLakhs || 2;
       bought.push({
         player: slot.player,
         overall,
@@ -290,7 +651,7 @@ function awards(teams) {
         teamName: t.name,
         short: t.franchise.short,
         color: t.franchise.color,
-        value: overall / Math.max(price / 100, 0.2),
+        value: overall / Math.max(price, 1),
         flop: price / Math.max(overall, 1),
       });
     }
@@ -300,7 +661,7 @@ function awards(teams) {
   }
 
   const bestBuy = [...bought].sort((a, b) => b.value - a.value)[0];
-  const expensive = bought.filter((b) => b.priceLakhs >= 500);
+  const expensive = bought.filter((b) => b.priceLakhs >= 12);
   const pool = expensive.length ? expensive : [...bought].sort((a, b) => b.priceLakhs - a.priceLakhs).slice(0, Math.max(3, Math.ceil(bought.length / 3)));
   const below = pool.filter((b) => b.overall < 80);
   const flopPool = below.length ? below : pool;
@@ -324,27 +685,58 @@ function awards(teams) {
   return {
     bestBuy: pack(
       bestBuy,
-      `Rating ${bestBuy.overall.toFixed(0)} for ₹${(bestBuy.priceLakhs / 100).toFixed(2)} Cr`
+      `Rating ${bestBuy.overall.toFixed(0)} for ${formatPoints(bestBuy.priceLakhs)}`
     ),
     costliestFlop: pack(
       costliestFlop,
-      `Paid ₹${(costliestFlop.priceLakhs / 100).toFixed(2)} Cr for a ${costliestFlop.overall.toFixed(0)} rating`
+      `Paid ${formatPoints(costliestFlop.priceLakhs)} for a ${costliestFlop.overall.toFixed(0)} rating`
     ),
   };
+}
+
+function assignBusVictims(teams, rng) {
+  const victims = {}; // victimName -> true
+  const saboteurs = {}; // victimName -> saboteurName (last writer if several)
+  for (const t of teams) {
+    if (!hasBooster(t, "bus-breakdown")) continue;
+    const rivals = teams.filter((x) => x.name !== t.name);
+    if (!rivals.length) continue;
+    const victim = rivals[Math.floor(rng() * rivals.length)];
+    victims[victim.name] = true;
+    saboteurs[victim.name] = t.name;
+  }
+  return { victims, saboteurs };
 }
 
 function simulateTournament(franchises, seed) {
   const teams = franchises.map((f) => ({
     ...f,
     captainId: pickCaptainIfMissing(f),
+    boosters: Array.isArray(f.boosters) ? f.boosters : [],
   }));
   const rng = mulberry32(seed >>> 0);
   const tableByName = {};
-  for (const t of teams) tableByName[t.name] = emptyRow(t);
+  const statBook = {};
+  const teamsByName = {};
+  for (const t of teams) {
+    tableByName[t.name] = emptyRow(t);
+    statBook[t.name] = new Map();
+    teamsByName[t.name] = t;
+  }
+
+  const bus = assignBusVictims(teams, rng);
+  const ctx = {
+    moments: [],
+    busVictims: bus.victims,
+    busSaboteurs: bus.saboteurs,
+    statBook,
+    teamsByName,
+    _busNoted: new Set(),
+  };
 
   const leagueMatches = [];
   for (const [a, b] of leagueFixtures(teams)) {
-    const match = playMatch(a, b, rng, "League");
+    const match = playMatch(a, b, rng, "League", ctx);
     applyMatchToTable(tableByName, match);
     leagueMatches.push(match);
   }
@@ -362,32 +754,32 @@ function simulateTournament(franchises, seed) {
     playoffs.championName = ranked[0].name;
   } else if (n === 2) {
     playoffs.format = "final";
-    const final = playMatch(ranked[0], ranked[1], rng, "Final");
+    const final = playMatch(ranked[0], ranked[1], rng, "Final", ctx);
     playoffs.matches.push(final);
-    playoffs.championName = final.winnerName;
-    playoffs.runnerUpName = final.loserName;
+    playoffs.championName = final.winnerName || ranked[0].name;
+    playoffs.runnerUpName = final.loserName || ranked[1].name;
   } else if (n === 3) {
     playoffs.format = "top2-final";
-    const final = playMatch(ranked[0], ranked[1], rng, "Final");
+    const final = playMatch(ranked[0], ranked[1], rng, "Final", ctx);
     playoffs.matches.push(final);
-    playoffs.championName = final.winnerName;
-    playoffs.runnerUpName = final.loserName;
+    playoffs.championName = final.winnerName || ranked[0].name;
+    playoffs.runnerUpName = final.loserName || ranked[1].name;
     playoffs.thirdName = ranked[2].name;
   } else {
     playoffs.format = "ipl-playoffs";
-    const q1 = playMatch(ranked[0], ranked[1], rng, "Qualifier 1");
-    const elim = playMatch(ranked[2], ranked[3], rng, "Eliminator");
-    const q1Winner = findTeam(teams, q1.winnerName);
-    const q1Loser = findTeam(teams, q1.loserName);
-    const elimWinner = findTeam(teams, elim.winnerName);
-    const elimLoserName = elim.loserName;
-    const q2 = playMatch(q1Loser, elimWinner, rng, "Qualifier 2");
-    const q2Winner = findTeam(teams, q2.winnerName);
-    const final = playMatch(q1Winner, q2Winner, rng, "Final");
+    const q1 = playMatch(ranked[0], ranked[1], rng, "Qualifier 1", ctx);
+    const elim = playMatch(ranked[2], ranked[3], rng, "Eliminator", ctx);
+    const q1Winner = findTeam(teams, q1.winnerName) || ranked[0];
+    const q1Loser = findTeam(teams, q1.loserName) || ranked[1];
+    const elimWinner = findTeam(teams, elim.winnerName) || ranked[2];
+    const elimLoserName = elim.loserName || ranked[3].name;
+    const q2 = playMatch(q1Loser, elimWinner, rng, "Qualifier 2", ctx);
+    const q2Winner = findTeam(teams, q2.winnerName) || q1Loser;
+    const final = playMatch(q1Winner, q2Winner, rng, "Final", ctx);
     playoffs.matches.push(q1, elim, q2, final);
-    playoffs.championName = final.winnerName;
-    playoffs.runnerUpName = final.loserName;
-    playoffs.thirdName = q2.loserName;
+    playoffs.championName = final.winnerName || q1Winner.name;
+    playoffs.runnerUpName = final.loserName || q2Winner.name;
+    playoffs.thirdName = q2.loserName || elimWinner.name;
     playoffs.fourthName = elimLoserName;
   }
 
@@ -408,6 +800,9 @@ function simulateTournament(franchises, seed) {
       leaguePosition: row ? row.position : null,
       points: row ? row.points : 0,
       nrr: row ? row.nrr : 0,
+      won: row ? row.won : 0,
+      lost: row ? row.lost : 0,
+      nr: row ? row.nr : 0,
     });
   }
 
@@ -420,6 +815,7 @@ function simulateTournament(franchises, seed) {
   }
 
   const championTeam = findTeam(teams, playoffs.championName);
+  const playerStats = finalizePlayerStats(statBook, teams);
 
   return {
     seed,
@@ -428,12 +824,14 @@ function simulateTournament(franchises, seed) {
     playoffs,
     positions,
     awards: awards(teams),
+    moments: ctx.moments,
+    playerStats,
     champion: championTeam
       ? {
           name: championTeam.name,
+          franchiseName: championTeam.franchise.name,
           short: championTeam.franchise.short,
           color: championTeam.franchise.color,
-          franchiseName: championTeam.franchise.name,
           captainId: championTeam.captainId,
         }
       : null,

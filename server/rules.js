@@ -2,7 +2,10 @@ const ROLES = ["BAT", "WK", "AR", "BOWL"];
 const QUOTA = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
 const SQUAD_SIZE = 11;
 const MAX_OVERSEAS = 4;
-const DEFAULT_PURSE_LAKHS = 10000; // ₹100 crore
+const BASE_PRICE_POINTS = 2;
+const DEFAULT_PURSE_POINTS = 100;
+const BID_STEPS = [1, 2, 5];
+const DEFAULT_PURSE_LAKHS = DEFAULT_PURSE_POINTS; // amounts are in points
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 10;
 
@@ -53,33 +56,35 @@ function isSquadComplete(squad) {
   return ROLES.every((r) => have[r] === QUOTA[r]);
 }
 
-/** IPL-style increments: ₹20 lakh below 2 crore, ₹25 lakh at/above 2 crore. */
-function bidIncrement(currentLakhs) {
-  return currentLakhs < 200 ? 20 : 25;
+/** Minimum raise is +1 point. Buttons offer +1, +2 or +5. */
+function bidIncrement(_currentPoints) {
+  return BID_STEPS[0];
 }
 
 /**
- * Next legal bid. If nobody has bid yet, the first bid is the base price.
- * `currentLakhs` is the standing bid (or the base price when there is no bidder).
+ * Next legal minimum bid. If nobody has bid yet, the first bid is the base price.
+ * After a standing bid, the cheapest raise is +1.
  */
-function nextBidAmount(currentLakhs, hasBidder) {
-  if (!hasBidder) return currentLakhs;
-  return currentLakhs + bidIncrement(currentLakhs);
+function nextBidAmount(currentPoints, hasBidder) {
+  if (!hasBidder) return currentPoints;
+  return currentPoints + BID_STEPS[0];
 }
 
-function formatLakhs(lakhs) {
-  const n = Number(lakhs) || 0;
-  if (n >= 100) {
-    const cr = n / 100;
-    const text = Number.isInteger(cr) ? String(cr) : cr.toFixed(2).replace(/\.?0+$/, "");
-    return `₹${text} Cr`;
-  }
-  return `₹${n} L`;
+function isLegalRaise(currentPoints, amount, hasBidder) {
+  if (!Number.isInteger(amount)) return false;
+  if (!hasBidder) return amount === currentPoints;
+  return BID_STEPS.includes(amount - currentPoints);
 }
+
+function formatPoints(points) {
+  const n = Number(points) || 0;
+  return `${n} pt${n === 1 ? "" : "s"}`;
+}
+
+const formatLakhs = formatPoints;
 
 /**
- * Minimum purse needed to fill remaining role quotas from `available`
- * (unsold / not-yet-nominated players), respecting the overseas cap.
+ * Minimum purse needed to fill remaining role quotas from `available`.
  * Returns Infinity if the remaining pool cannot fill the quotas.
  */
 function minCostToFill(needed, overseasLeft, available) {
@@ -95,11 +100,10 @@ function minCostToFill(needed, overseasLeft, available) {
     byRole[r].sort((a, b) => a.basePriceLakhs - b.basePriceLakhs);
   }
 
-  // For each role, min cost to pick exactly k with exactly o overseas.
   const roleCosts = {};
   for (const role of ROLES) {
     const k = Math.max(0, need[role] || 0);
-    const costs = {}; // o -> min cost
+    const costs = {};
     if (k === 0) {
       costs[0] = 0;
       roleCosts[role] = costs;
@@ -137,14 +141,10 @@ function minCostToFill(needed, overseasLeft, available) {
   return best;
 }
 
-/**
- * If the pool cannot fully fill a squad, estimate the cheapest partial fill.
- */
 function minCostBestEffort(needed, overseasLeft, available) {
   const full = minCostToFill(needed, overseasLeft, available);
   if (Number.isFinite(full)) return full;
 
-  // Greedy: keep adding the cheapest legal player until we cannot.
   const left = { ...needed };
   let ovLeft = overseasLeft;
   let cost = 0;
@@ -184,17 +184,20 @@ function minCostToReachSize(available, count) {
   return sorted.slice(0, n).reduce((s, p) => s + p.basePriceLakhs, 0);
 }
 
+function reserveToReachSize(squadSizeAfterPurchase) {
+  const slotsAfter = Math.max(0, SQUAD_SIZE - squadSizeAfterPurchase);
+  return slotsAfter * BASE_PRICE_POINTS;
+}
+
 function canTakeRole(squad, player) {
-  // Voluntary-bid helper: role quota remaining (overseas is not enforced).
   if (!player) return false;
   return Boolean(neededAfterPurchase(squad, player));
 }
 
 /**
- * Whether a franchise can legally bid `amountLakhs` for `player`.
- * `available` is the pool of still-unbought players excluding `player`.
- * Voluntary bids keep the remaining-slots purse reserve (`requireReserve`, default true).
- * The automatic default bid only checks role quota and purse >= bid (`requireReserve: false`).
+ * Whether a franchise can legally bid `amountLakhs` (points) for `player`.
+ * Voluntary bids must leave 2 points per remaining slot to reach 11.
+ * The automatic default bid only checks role quota and purse >= bid.
  */
 function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
   if (!player) return { ok: false, reason: "No player on the block." };
@@ -206,16 +209,15 @@ function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
     return { ok: false, reason: `Your ${player.role} quota is full.` };
   }
   if (amountLakhs > franchise.purseLakhs) {
-    return { ok: false, reason: "Not enough purse for this bid." };
+    return { ok: false, reason: "Not enough points for this bid." };
   }
   const requireReserve = opts.requireReserve !== false;
   if (requireReserve) {
-    const slotsAfter = Math.max(0, SQUAD_SIZE - (franchise.squad.length + 1));
-    const reserve = minCostToReachSize(available, slotsAfter);
+    const reserve = reserveToReachSize((franchise.squad || []).length + 1);
     if (franchise.purseLakhs - amountLakhs < reserve) {
       return {
         ok: false,
-        reason: "Bid would leave too little purse to reach 11 players at base prices.",
+        reason: "Bid would leave too little purse to reach 11 players (2 points per remaining slot).",
       };
     }
   }
@@ -232,23 +234,29 @@ module.exports = {
   QUOTA,
   SQUAD_SIZE,
   MAX_OVERSEAS,
+  BASE_PRICE_POINTS,
+  DEFAULT_PURSE_POINTS,
   DEFAULT_PURSE_LAKHS,
+  BID_STEPS,
   MIN_PLAYERS,
   MAX_PLAYERS,
   FRANCHISES,
   roleCounts,
   overseasCount,
   remainingQuota,
+  hasMinSquad,
   slotsLeft,
   isSquadComplete,
-  hasMinSquad,
-  minCostToReachSize,
   bidIncrement,
   nextBidAmount,
+  isLegalRaise,
+  formatPoints,
   formatLakhs,
   minCostToFill,
   minCostBestEffort,
   neededAfterPurchase,
+  minCostToReachSize,
+  reserveToReachSize,
   canTakeRole,
   canBidFor,
   availablePlayers,

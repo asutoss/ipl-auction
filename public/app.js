@@ -13,14 +13,9 @@ let bidDraft = null;
 let reveal = null; // { startedAt, skipped }
 let tickTimer = null;
 
-function money(lakhs) {
-  const n = Number(lakhs) || 0;
-  if (n >= 100) {
-    const cr = n / 100;
-    const text = Number.isInteger(cr) ? String(cr) : cr.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-    return `₹${text} Cr`;
-  }
-  return `₹${n} L`;
+function money(points) {
+  const n = Number(points) || 0;
+  return `${n} pt${n === 1 ? "" : "s"}`;
 }
 
 function saveSession(code, name) {
@@ -89,35 +84,36 @@ function renderTop() {
 
 function homeView() {
   return `
-    <section class="hero">
-      <div class="panel">
-        <h2>Build a franchise. Win the league.</h2>
-        <p class="lede">Join a room with friends, bid for an XI (4 batters, 1 keeper, 2 all-rounders, 4 bowlers), pick a captain, and watch a simulated IPL-style tournament unfold.</p>
-        <div class="row">
-          <div>
-            <label for="name">Your name</label>
-            <input id="name" maxlength="24" placeholder="e.g. Ashutosh" />
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn" id="create">Create room</button>
-        </div>
-        <p class="hint">2–10 franchises. Default purse ₹100 Cr. Ratings in the player pool are informal estimates.</p>
+    <section class="home">
+      <div class="panel name-bar">
+        <label for="name">Your name</label>
+        <input id="name" maxlength="24" placeholder="e.g. Ashutosh" />
+        <p class="hint">This name is used to create or join a room. Rejoin later with the same name and room code.</p>
       </div>
-      <div class="panel">
-        <h2>Join a room</h2>
-        <p class="lede">Ask the host for the 4-character room code. Rejoin later with the same name and code.</p>
-        <div class="row">
-          <div>
-            <label for="code">Room code</label>
-            <input id="code" maxlength="6" placeholder="e.g. K7MQ2P" style="text-transform:uppercase" />
+      <section class="hero">
+        <div class="panel">
+          <h2>Build a franchise. Win the league.</h2>
+          <p class="lede">Join a room with friends, bid for an XI (4 batters, 1 keeper, 2 all-rounders, 4 bowlers), pick a captain, and watch a simulated IPL-style tournament unfold.</p>
+          <div class="actions">
+            <button class="btn" id="create">Create room</button>
           </div>
+          <p class="hint">2–10 franchises. Each team starts with 100 points. Ratings in the player pool are informal estimates.</p>
         </div>
-        <div class="actions">
-          <button class="btn secondary" id="join">Join room</button>
+        <div class="panel">
+          <h2>Join a room</h2>
+          <p class="lede">Ask the host for the 6-character room code, then join with the name above.</p>
+          <div class="row">
+            <div>
+              <label for="code">Room code</label>
+              <input id="code" maxlength="6" placeholder="e.g. K7MQ2P" style="text-transform:uppercase" />
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn secondary" id="join">Join room</button>
+          </div>
+          <p class="error" id="home-error">${esc(lastError)}</p>
         </div>
-        <p class="error" id="home-error">${esc(lastError)}</p>
-      </div>
+      </section>
     </section>
   `;
 }
@@ -144,12 +140,12 @@ function lobbyView() {
         isHost
           ? `<div class="row row-2" style="max-width:420px">
               <div>
-                <label for="purse">Purse (₹ Cr)</label>
+                <label for="purse">Purse (points)</label>
                 <select id="purse">
                   ${[50, 75, 100, 120, 150]
                     .map(
                       (n) =>
-                        `<option value="${n}" ${state.purseLakhs === n * 100 ? "selected" : ""}>${n}</option>`
+                        `<option value="${n}" ${state.purseLakhs === n ? "selected" : ""}>${n}</option>`
                     )
                     .join("")}
                 </select>
@@ -226,14 +222,14 @@ function auctionView() {
     }
   }
 
-  const min = a.minBidLakhs;
-  const draft = bidDraft == null ? min : bidDraft;
-  const chips = [
-    ["Min " + money(min), min],
-    ["+" + money(a.incrementLakhs), min + a.incrementLakhs],
-    ["+₹1 Cr", min + 100],
-    ["+₹2 Cr", min + 200],
-  ];
+  const steps = a.bidSteps || [1, 2, 5];
+  const current = a.currentBidLakhs;
+  const slotsAfter = you ? Math.max(0, 11 - ((you.squad || []).length + 1)) : 0;
+  function canPay(step) {
+    if (!a.youCanBid || !you) return false;
+    const amount = current + step;
+    return you.purseLakhs - amount >= slotsAfter * 2;
+  }
 
   return `
     <div>${banner}</div>
@@ -270,22 +266,19 @@ function auctionView() {
           <div class="still-list">${still || `<p class="lede">No teams left in.</p>`}</div>
         </div>
         <div class="bid-box">
-          <label for="bid-amount">Your bid (₹ lakh)</label>
-          <input id="bid-amount" type="number" min="${min}" step="5" value="${draft}" ${a.youCanBid ? "" : "disabled"} />
-          <div class="chips">
-            ${chips
-              .map(
-                ([label, val]) =>
-                  `<button class="chip" data-bid="${val}" ${a.youCanBid ? "" : "disabled"}>${esc(label)}</button>`
-              )
+          <p class="label">Raise the bid</p>
+          <div class="actions bid-steps">
+            ${steps
+              .map((step) => {
+                const amount = current + step;
+                const on = canPay(step);
+                return `<button class="btn" data-step="${step}" ${on ? "" : "disabled"}>+${step} <span class="lede" style="display:inline;margin:0">(${money(amount)})</span></button>`;
+              })
               .join("")}
-          </div>
-          <div class="actions">
-            <button class="btn" id="bid" ${a.youCanBid ? "" : "disabled"}>Bid ${money(draft)}</button>
             <button class="btn danger" id="optout" ${a.youCanOptOut ? "" : "disabled"}>Opt out</button>
           </div>
           ${a.youReason ? `<p class="why">${esc(a.youReason)}</p>` : ""}
-          <p class="hint">A default bid at base price is assigned round-robin when a player comes up. Opting out is final for this player. The lot ends when everyone else is out or the timer hits zero. Ratings are estimates.</p>
+          <p class="hint">Default bid is 2 points, assigned round-robin when a player comes up. Use +1, +2 or +5 to raise. Opting out is final for this player. New lots get 15 seconds; each bid resets the timer to 10. Ratings are estimates.</p>
           <p class="error">${esc(lastError)}</p>
         </div>
       </div>
@@ -301,7 +294,9 @@ function auctionView() {
 function captainView() {
   const you = state.you;
   const left = Math.ceil(remainingMs(state.captainEndsAt) / 1000);
-  const pending = state.captainsPending.map((p) => esc(p.short)).join(", ") || "none";
+  const pending = (state.captainsPending || []).map((p) => esc(p.short)).join(", ") || "none";
+  const catalog = state.boosterCatalog || [];
+  const owned = new Set((you?.boosters || []).map((b) => b.id));
   const picks = (you?.squad || [])
     .map(
       (s) => `
@@ -311,12 +306,37 @@ function captainView() {
       </button>`
     )
     .join("");
+  const shop = catalog
+    .map((b) => {
+      const have = owned.has(b.id);
+      const can = you && !you.eliminated && !have && you.purseLakhs >= b.pricePoints;
+      return `
+        <div class="booster ${have ? "owned" : ""}">
+          <div>
+            <strong>${esc(b.name)}</strong>
+            <span class="tag">${money(b.pricePoints)}</span>
+            ${have ? `<span class="tag">Bought</span>` : ""}
+          </div>
+          <p class="lede">${esc(b.blurb)}</p>
+          <button class="btn secondary" data-buy="${esc(b.id)}" ${can ? "" : "disabled"}>${have ? "Owned" : "Buy"}</button>
+        </div>`;
+    })
+    .join("");
+  const bought = (you?.boosters || []).map((b) => esc(b.name)).join(", ") || "none yet";
   return `
-    <section class="panel">
-      <h2>Choose your captain</h2>
-      <p class="lede">The captain gets a +5% rating boost. Auto-picks the highest-rated player if time runs out (${left}s). Waiting on: ${pending}.</p>
-      <div class="captain-grid">${picks}</div>
-      <div style="margin-top:18px">${you ? squadSlots(you) : ""}</div>
+    <section class="prep-layout">
+      <div class="panel">
+        <h2>Choose your captain</h2>
+        <p class="lede">The captain gets a +5% rating boost. Auto-picks the highest-rated player if time runs out (${left}s). Waiting on: ${pending}.</p>
+        <div class="captain-grid">${picks}</div>
+        <div style="margin-top:18px">${you ? squadSlots(you) : ""}</div>
+      </div>
+      <div class="panel">
+        <h2>Booster shop</h2>
+        <p class="lede">Spend leftover points on one of each. Effects are modest — squad strength still matters most. Timer is shared with captain pick (${left}s). Your purse: <strong>${you ? money(you.purseLakhs) : "—"}</strong>. Owned: ${bought}.</p>
+        <div class="booster-grid">${shop || `<p class="lede">No boosters available.</p>`}</div>
+        <p class="error">${esc(lastError)}</p>
+      </div>
     </section>
   `;
 }
@@ -346,12 +366,12 @@ function tableHtml(rows) {
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>Pts</th><th>NRR</th></tr></thead>
+        <thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>NR</th><th>Pts</th><th>NRR</th></tr></thead>
         <tbody>
           ${rows
             .map(
               (r) =>
-                `<tr><td>${r.position}</td><td style="color:${esc(r.color)}">${esc(r.short)}</td><td>${r.played}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.points}</td><td>${r.nrr >= 0 ? "+" : ""}${r.nrr.toFixed(3)}</td></tr>`
+                `<tr><td>${r.position}</td><td style="color:${esc(r.color)}">${esc(r.short)}</td><td>${r.played}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.nr || 0}</td><td>${r.points}</td><td>${r.nrr >= 0 ? "+" : ""}${Number(r.nrr).toFixed(3)}</td></tr>`
             )
             .join("")}
         </tbody>
@@ -386,6 +406,49 @@ function visibleTournament() {
     showFinal: nPo >= poN,
     showAwards: nPo >= poN && afterLeague > poWindow,
   };
+}
+
+function nrrText(nrr) {
+  const n = Number(nrr) || 0;
+  return `${n >= 0 ? "+" : ""}${n.toFixed(3)}`;
+}
+
+function teamReportCard(team) {
+  if (!team) return "";
+  const moments = (team.moments || []).map((m) => `<li>${esc(m.text)}</li>`).join("");
+  const boosters = (team.boosters || []).map((b) => `<span class="tag">${esc(b.name)} · ${money(b.pricePoints)}</span>`).join("") || `<span class="lede">No boosters</span>`;
+  const rows = (team.squad || [])
+    .map((s) => {
+      const st = s.stats || {};
+      const bowl = st.ballsBowled ? `${st.wickets} wkts, ${st.oversBowled} ov, econ ${st.economy}` : "—";
+      const bat = st.innings ? `${st.runs} runs (${st.innings} inn${st.notOuts ? `, ${st.notOuts} n.o.` : ""}${st.highest ? `, HS ${st.highest}` : ""})` : "—";
+      return `<tr>
+        <td>${s.isCaptain ? '<span class="cap">CAP</span> ' : ""}${esc(s.player.name)}</td>
+        <td>${roleTag(s.player.role)}</td>
+        <td>${money(s.priceLakhs)}</td>
+        <td>${esc(bat)}</td>
+        <td>${esc(bowl)}</td>
+      </tr>`;
+    })
+    .join("");
+  return `
+    <article class="team-report" style="--c:${esc(team.color)}">
+      <header>
+        <div>
+          <h3 style="color:${esc(team.color)}">${esc(team.short)} · ${esc(team.franchiseName)}</h3>
+          <p class="lede">${esc(team.name)}${team.title ? " · " + esc(team.title) : ""}${team.eliminated ? " · eliminated" : ""}</p>
+        </div>
+        <p class="record">${team.won || 0}W–${team.lost || 0}L–${team.nr || 0}NR · ${team.points || 0} pts · NRR ${nrrText(team.nrr)}</p>
+      </header>
+      <div class="tags">${boosters}</div>
+      ${moments ? `<ul class="moments">${moments}</ul>` : ""}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Player</th><th>Role</th><th>Price</th><th>Batting</th><th>Bowling</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </article>`;
 }
 
 function resultsView() {
@@ -432,6 +495,14 @@ function resultsView() {
           : ""
       }
       ${
+        vis.showFinal && (t.teams || []).length
+          ? `<div class="panel"><h2>Squads &amp; performance</h2>
+              <p class="lede">Every franchise's full squad, boosters, league record and per-player tournament stats.</p>
+              <div class="team-reports">${t.teams.map(teamReportCard).join("")}</div>
+            </div>`
+          : ""
+      }
+      ${
         awards
           ? `<div class="awards">
               <div class="award"><h3>Best buy</h3><p><strong>${esc(awards.bestBuy?.playerName || "—")}</strong> (${esc(awards.bestBuy?.short || "")})</p><p class="lede">${esc(awards.bestBuy?.reason || "")}</p></div>
@@ -466,7 +537,7 @@ function wireHome() {
   if (codeEl && session?.code && !codeEl.value) codeEl.value = session.code;
   document.getElementById("create")?.addEventListener("click", async () => {
     lastError = "";
-    const name = nameEl.value.trim();
+    const name = (nameEl?.value || "").trim();
     const res = await emit("createRoom", { name });
     if (!res.ok) {
       lastError = res.error || "Could not create room.";
@@ -477,14 +548,9 @@ function wireHome() {
   });
   document.getElementById("join")?.addEventListener("click", async () => {
     lastError = "";
-    const name = (nameEl?.value || document.getElementById("name")?.value || "").trim() || loadSession()?.name;
-    const nameBox = nameEl || Object.assign(document.createElement("input"), { value: loadSession()?.name || "" });
-    const n = (document.getElementById("name") || nameBox).value.trim();
-    const code = codeEl.value.trim();
-    if (!document.getElementById("name")) {
-      /* join panel may be used with shared name field */
-    }
-    const res = await emit("joinRoom", { name: n, code });
+    const name = (nameEl?.value || "").trim();
+    const code = (codeEl?.value || "").trim();
+    const res = await emit("joinRoom", { name, code });
     if (!res.ok) {
       lastError = res.error || "Could not join room.";
       render();
@@ -498,7 +564,7 @@ function wireCurrent() {
   if (!state) return;
   if (state.phase === "lobby") {
     document.getElementById("purse")?.addEventListener("change", async (e) => {
-      await emit("setPurse", { purseCrore: Number(e.target.value) });
+      await emit("setPurse", { pursePoints: Number(e.target.value) });
     });
     document.getElementById("start")?.addEventListener("click", async () => {
       lastError = "";
@@ -510,29 +576,17 @@ function wireCurrent() {
     });
   }
   if (state.phase === "auction") {
-    const input = document.getElementById("bid-amount");
-    const bidBtn = document.getElementById("bid");
-    const syncLabel = () => {
-      if (!input || !bidBtn || !state.auction) return;
-      bidDraft = Number(input.value);
-      bidBtn.textContent = `Bid ${money(bidDraft || state.auction.minBidLakhs)}`;
-    };
-    input?.addEventListener("input", syncLabel);
-    document.querySelectorAll(".chip[data-bid]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        if (!input) return;
-        input.value = btn.getAttribute("data-bid");
-        syncLabel();
+    document.querySelectorAll("[data-step]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        lastError = "";
+        const step = Number(btn.getAttribute("data-step"));
+        const current = state.auction?.currentBidLakhs;
+        const res = await emit("bid", { amountLakhs: current + step });
+        if (!res.ok) {
+          lastError = res.error || "Bid rejected.";
+          render();
+        }
       });
-    });
-    bidBtn?.addEventListener("click", async () => {
-      lastError = "";
-      const amountLakhs = Number(input.value);
-      const res = await emit("bid", { amountLakhs });
-      if (!res.ok) {
-        lastError = res.error || "Bid rejected.";
-        render();
-      }
     });
     document.getElementById("optout")?.addEventListener("click", async () => {
       lastError = "";
@@ -547,6 +601,16 @@ function wireCurrent() {
     document.querySelectorAll("[data-captain]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         await emit("selectCaptain", { playerId: btn.getAttribute("data-captain") });
+      });
+    });
+    document.querySelectorAll("[data-buy]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        lastError = "";
+        const res = await emit("buyBooster", { boosterId: btn.getAttribute("data-buy") });
+        if (!res.ok) {
+          lastError = res.error || "Could not buy that booster.";
+          render();
+        }
       });
     });
   }
@@ -599,6 +663,9 @@ function loadMatches() {
       state.tournament.leagueMatches = res.leagueMatches || [];
       if (!state.tournament.playoffs) state.tournament.playoffs = {};
       state.tournament.playoffs.matches = res.playoffMatches || [];
+      state.tournament.moments = res.moments || [];
+      state.tournament.playerStats = res.playerStats || {};
+      state.tournament.teams = res.teams || [];
       if (!reveal) reveal = { startedAt: Date.now(), skipped: false };
       else reveal.startedAt = Date.now();
       render();
@@ -639,3 +706,5 @@ socket.on("connect_error", () => toast("Connection issue — retrying…"));
 
 startTicks();
 render();
+
+window.IplApp = { get state() { return state; }, emit, socket };

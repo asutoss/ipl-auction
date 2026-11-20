@@ -145,8 +145,8 @@ describe("e2e: 3 clients through a full game", () => {
     sockets.push(ash);
     const created = await ack(ash, "createRoom", {
       name: "Ashutosh",
-      purseCrore: 100,
-      testTimers: { bidMs: 200, captainMs: 300 },
+      pursePoints: 100,
+      testTimers: { lotStartMs: 80, bidMs: 80, captainMs: 300 },
     });
     assert.equal(created.ok, true);
     assert.match(created.code, /^[A-Z0-9]{6}$/);
@@ -160,7 +160,7 @@ describe("e2e: 3 clients through a full game", () => {
 
     const lobby = await waitState(ash, (s) => s.phase === "lobby" && s.franchises.length === 3);
     assert.equal(lobby.franchises.length, 3);
-    assert.equal(lobby.purseLakhs, 10000);
+    assert.equal(lobby.purseLakhs, 100);
 
     const started = await ack(ash, "startAuction");
     assert.equal(started.ok, true);
@@ -213,6 +213,13 @@ describe("e2e: 3 clients through a full game", () => {
     assert.equal(details.ok, true);
     assert.equal(details.leagueMatches.length, 3);
     assert.equal(details.playoffMatches.length, 1);
+    assert.ok(details.teams.length >= 3);
+    for (const team of details.teams) {
+      if (team.eliminated) continue;
+      assert.ok(team.squad.length >= SQUAD_SIZE);
+      assert.ok(team.squad.some((slot) => slot.isCaptain));
+      assert.ok(team.squad.some((slot) => slot.stats && (slot.stats.runs > 0 || slot.stats.wickets > 0 || slot.stats.innings > 0)));
+    }
     for (const m of [...details.leagueMatches, ...details.playoffMatches]) {
       assert.ok(m.firstInnings.score >= 80);
       assert.ok(m.resultText);

@@ -2,7 +2,8 @@
   "meta": {
     "ratingsNote": "batting and bowling ratings are informal estimates (0-100) for game balance, not official IPL or ICC ratings. Swap this file to use your own pool.",
     "updated": "2026-11",
-    "currency": "All basePriceLakhs values are in \u20b9 lakh (100 lakh = \u20b91 crore)."
+    "currency": "All bids and base prices are in points. Every player has a flat base price of 2 points.",
+    "nomination": "The auction queue is a full random shuffle of the pool so stars and weaker known names appear in mixed order."
   },
   "players": [
     {
@@ -11,7 +12,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 93,
       "bowling": 12
     },
@@ -21,7 +22,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 88,
       "bowling": 15
     },
@@ -31,7 +32,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 90,
       "bowling": 14
     },
@@ -41,7 +42,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 91,
       "bowling": 16
     },
@@ -51,7 +52,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 86,
       "bowling": 10
     },
@@ -61,7 +62,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 22
     },
@@ -71,7 +72,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 89,
       "bowling": 14
     },
@@ -81,7 +82,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 18
     },
@@ -91,7 +92,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 32
     },
@@ -101,7 +102,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 18
     },
@@ -111,7 +112,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 16
     },
@@ -121,7 +122,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 88,
       "bowling": 38
     },
@@ -131,7 +132,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 15
     },
@@ -141,7 +142,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 20
     },
@@ -151,7 +152,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 82,
       "bowling": 24
     },
@@ -161,7 +162,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8
     },
@@ -171,7 +172,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 12
     },
@@ -181,7 +182,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "WI",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8
     },
@@ -191,7 +192,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "WI",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 77,
       "bowling": 18
     },
@@ -201,7 +202,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 10
     },
@@ -211,7 +212,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 10
     },
@@ -221,8 +222,8 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 150,
-      "batting": 75,
+      "basePriceLakhs": 2,
+      "batting": 70,
       "bowling": 8
     },
     {
@@ -231,7 +232,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 10
     },
@@ -241,8 +242,8 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
-      "batting": 73,
+      "basePriceLakhs": 2,
+      "batting": 68,
       "bowling": 8
     },
     {
@@ -251,7 +252,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 42
     },
@@ -261,7 +262,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 12
     },
@@ -271,7 +272,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
+      "basePriceLakhs": 2,
       "batting": 75,
       "bowling": 8
     },
@@ -281,19 +282,19 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
-      "batting": 72,
+      "basePriceLakhs": 2,
+      "batting": 68,
       "bowling": 14
     },
     {
-      "id": "priyansh-arya",
-      "name": "Priyansh Arya",
+      "id": "gautam-gambhir",
+      "name": "Gautam Gambhir",
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
-      "batting": 73,
-      "bowling": 10
+      "batting": 68,
+      "bowling": 8,
+      "basePriceLakhs": 2
     },
     {
       "id": "ashutosh-sharma",
@@ -301,7 +302,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 16
     },
@@ -311,7 +312,7 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 88,
       "bowling": 8
     },
@@ -321,7 +322,7 @@
       "role": "WK",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 90,
       "bowling": 8
     },
@@ -331,7 +332,7 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 86,
       "bowling": 8
     },
@@ -341,7 +342,7 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 87,
       "bowling": 8
     },
@@ -351,8 +352,8 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
-      "batting": 70,
+      "basePriceLakhs": 2,
+      "batting": 66,
       "bowling": 8
     },
     {
@@ -361,7 +362,7 @@
       "role": "WK",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 86,
       "bowling": 12
     },
@@ -371,7 +372,7 @@
       "role": "WK",
       "overseas": true,
       "country": "WI",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 10
     },
@@ -381,7 +382,7 @@
       "role": "WK",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 8
     },
@@ -391,7 +392,7 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8
     },
@@ -401,7 +402,7 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 77,
       "bowling": 8
     },
@@ -411,7 +412,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 82
     },
@@ -421,7 +422,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 86
     },
@@ -431,7 +432,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 84
     },
@@ -441,7 +442,7 @@
       "role": "AR",
       "overseas": true,
       "country": "WI",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 78
     },
@@ -451,7 +452,7 @@
       "role": "AR",
       "overseas": true,
       "country": "WI",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 87
     },
@@ -461,7 +462,7 @@
       "role": "AR",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 70
     },
@@ -471,7 +472,7 @@
       "role": "AR",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 78
     },
@@ -481,7 +482,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 64
     },
@@ -491,7 +492,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 79,
       "bowling": 74
     },
@@ -501,7 +502,7 @@
       "role": "AR",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 72
     },
@@ -511,7 +512,7 @@
       "role": "AR",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 70
     },
@@ -521,7 +522,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 64
     },
@@ -531,7 +532,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 79
     },
@@ -541,7 +542,7 @@
       "role": "AR",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 66
     },
@@ -551,7 +552,7 @@
       "role": "AR",
       "overseas": true,
       "country": "NZ",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 68
     },
@@ -561,7 +562,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 74
     },
@@ -571,7 +572,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 97
     },
@@ -581,7 +582,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AFG",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 42,
       "bowling": 93
     },
@@ -591,7 +592,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 32,
       "bowling": 91
     },
@@ -601,7 +602,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 20,
       "bowling": 90
     },
@@ -611,7 +612,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 36,
       "bowling": 90
     },
@@ -621,7 +622,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 24,
       "bowling": 89
     },
@@ -631,7 +632,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "NZ",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 20,
       "bowling": 88
     },
@@ -641,7 +642,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 88
     },
@@ -651,7 +652,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 24,
       "bowling": 88
     },
@@ -661,7 +662,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 87
     },
@@ -671,7 +672,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 86
     },
@@ -681,7 +682,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 85
     },
@@ -691,7 +692,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 86
     },
@@ -701,7 +702,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 200,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 84
     },
@@ -711,7 +712,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SL",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 86
     },
@@ -721,7 +722,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 85
     },
@@ -731,7 +732,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 8,
       "bowling": 83
     },
@@ -741,7 +742,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 82
     },
@@ -751,7 +752,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 82
     },
@@ -761,7 +762,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 26,
       "bowling": 80
     },
@@ -771,7 +772,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 80
     },
@@ -781,7 +782,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 81
     },
@@ -791,7 +792,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AFG",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 83
     },
@@ -801,7 +802,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 79
     },
@@ -811,19 +812,19 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 78
     },
     {
-      "id": "yash-dayal",
-      "name": "Yash Dayal",
+      "id": "amit-mishra",
+      "name": "Amit Mishra",
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
-      "batting": 10,
-      "bowling": 76
+      "batting": 18,
+      "bowling": 75,
+      "basePriceLakhs": 2
     },
     {
       "id": "nehal-wadhera",
@@ -831,7 +832,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 18
     },
@@ -841,7 +842,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 16
     },
@@ -851,39 +852,39 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
-      "batting": 72,
+      "basePriceLakhs": 2,
+      "batting": 67,
       "bowling": 12
     },
     {
-      "id": "abhinav-manohar",
-      "name": "Abhinav Manohar",
+      "id": "martin-guptill",
+      "name": "Martin Guptill",
       "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 30,
+      "overseas": true,
+      "country": "NZ",
       "batting": 70,
-      "bowling": 14
+      "bowling": 8,
+      "basePriceLakhs": 2
     },
     {
-      "id": "ayush-mhatre",
-      "name": "Ayush Mhatre",
+      "id": "lendl-simmons",
+      "name": "Lendl Simmons",
+      "role": "BAT",
+      "overseas": true,
+      "country": "WI",
+      "batting": 67,
+      "bowling": 10,
+      "basePriceLakhs": 2
+    },
+    {
+      "id": "shikhar-dhawan",
+      "name": "Shikhar Dhawan",
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
-      "batting": 73,
-      "bowling": 12
-    },
-    {
-      "id": "shaik-rasheed",
-      "name": "Shaik Rasheed",
-      "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 30,
       "batting": 71,
-      "bowling": 14
+      "bowling": 12,
+      "basePriceLakhs": 2
     },
     {
       "id": "sameer-rizvi",
@@ -891,29 +892,29 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 16
     },
     {
-      "id": "atharva-taide",
-      "name": "Atharva Taide",
+      "id": "aaron-finch",
+      "name": "Aaron Finch",
       "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 30,
-      "batting": 70,
-      "bowling": 18
+      "overseas": true,
+      "country": "AUS",
+      "batting": 73,
+      "bowling": 8,
+      "basePriceLakhs": 2
     },
     {
-      "id": "shubham-dubey",
-      "name": "Shubham Dubey",
+      "id": "shaun-marsh",
+      "name": "Shaun Marsh",
       "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 30,
-      "batting": 71,
-      "bowling": 12
+      "overseas": true,
+      "country": "AUS",
+      "batting": 72,
+      "bowling": 8,
+      "basePriceLakhs": 2
     },
     {
       "id": "sharukh-khan",
@@ -921,7 +922,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 73,
       "bowling": 20
     },
@@ -931,7 +932,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 22
     },
@@ -941,7 +942,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 79,
       "bowling": 28
     },
@@ -951,7 +952,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 10
     },
@@ -961,7 +962,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "NZ",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8
     },
@@ -971,7 +972,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 8
     },
@@ -981,7 +982,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 77,
       "bowling": 8
     },
@@ -991,7 +992,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "NZ",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 82,
       "bowling": 18
     },
@@ -1001,7 +1002,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 14
     },
@@ -1011,29 +1012,29 @@
       "role": "BAT",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 100,
-      "batting": 76,
+      "basePriceLakhs": 2,
+      "batting": 62,
       "bowling": 22
     },
     {
-      "id": "will-young",
-      "name": "Will Young",
-      "role": "BAT",
-      "overseas": true,
-      "country": "NZ",
-      "basePriceLakhs": 50,
-      "batting": 72,
-      "bowling": 8
-    },
-    {
-      "id": "reeza-hendricks",
-      "name": "Reeza Hendricks",
+      "id": "hashim-amla",
+      "name": "Hashim Amla",
       "role": "BAT",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 50,
-      "batting": 73,
-      "bowling": 10
+      "batting": 65,
+      "bowling": 8,
+      "basePriceLakhs": 2
+    },
+    {
+      "id": "chris-lynn",
+      "name": "Chris Lynn",
+      "role": "BAT",
+      "overseas": true,
+      "country": "AUS",
+      "batting": 74,
+      "bowling": 8,
+      "basePriceLakhs": 2
     },
     {
       "id": "matthew-short",
@@ -1041,7 +1042,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 77,
       "bowling": 42
     },
@@ -1051,59 +1052,59 @@
       "role": "BAT",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 8
     },
     {
-      "id": "shivam-singh",
-      "name": "Shivam Singh",
+      "id": "robin-uthappa",
+      "name": "Robin Uthappa",
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
-      "batting": 68,
-      "bowling": 16
-    },
-    {
-      "id": "anmolpreet-singh",
-      "name": "Anmolpreet Singh",
-      "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 20,
-      "batting": 67,
-      "bowling": 10
-    },
-    {
-      "id": "sudip-gharami",
-      "name": "Sudip Gharami",
-      "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 20,
       "batting": 66,
-      "bowling": 10
+      "bowling": 10,
+      "basePriceLakhs": 2
     },
     {
-      "id": "uday-saharan",
-      "name": "Uday Saharan",
+      "id": "ambati-rayudu",
+      "name": "Ambati Rayudu",
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 20,
-      "batting": 67,
-      "bowling": 12
+      "batting": 69,
+      "bowling": 12,
+      "basePriceLakhs": 2
     },
     {
-      "id": "sachin-baby",
-      "name": "Sachin Baby",
+      "id": "mandeep-singh",
+      "name": "Mandeep Singh",
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 20,
-      "batting": 65,
-      "bowling": 18
+      "batting": 64,
+      "bowling": 14,
+      "basePriceLakhs": 2
+    },
+    {
+      "id": "cheteshwar-pujara",
+      "name": "Cheteshwar Pujara",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "batting": 52,
+      "bowling": 8,
+      "basePriceLakhs": 2
+    },
+    {
+      "id": "manoj-tiwary",
+      "name": "Manoj Tiwary",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "batting": 63,
+      "bowling": 16,
+      "basePriceLakhs": 2
     },
     {
       "id": "naman-dhir",
@@ -1111,7 +1112,7 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 30
     },
@@ -1121,59 +1122,59 @@
       "role": "BAT",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
+      "basePriceLakhs": 2,
       "batting": 71,
       "bowling": 40
     },
     {
-      "id": "aniket-verma",
-      "name": "Aniket Verma",
-      "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 30,
-      "batting": 70,
-      "bowling": 14
-    },
-    {
-      "id": "aaradhya-yadav",
-      "name": "Aaradhya Yadav",
-      "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 20,
-      "batting": 64,
-      "bowling": 8
-    },
-    {
-      "id": "ayush-pandey",
-      "name": "Ayush Pandey",
-      "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 20,
-      "batting": 65,
-      "bowling": 12
-    },
-    {
-      "id": "swastik-chhikara",
-      "name": "Swastik Chhikara",
-      "role": "BAT",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 20,
-      "batting": 66,
-      "bowling": 10
-    },
-    {
-      "id": "will-smeed",
-      "name": "Will Smeed",
+      "id": "kevin-pietersen",
+      "name": "Kevin Pietersen",
       "role": "BAT",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 40,
-      "batting": 72,
-      "bowling": 8
+      "batting": 74,
+      "bowling": 10,
+      "basePriceLakhs": 2
+    },
+    {
+      "id": "eoin-morgan",
+      "name": "Eoin Morgan",
+      "role": "BAT",
+      "overseas": true,
+      "country": "ENG",
+      "batting": 70,
+      "bowling": 8,
+      "basePriceLakhs": 2
+    },
+    {
+      "id": "chris-gayle",
+      "name": "Chris Gayle",
+      "role": "BAT",
+      "overseas": true,
+      "country": "WI",
+      "batting": 78,
+      "bowling": 14,
+      "basePriceLakhs": 2
+    },
+    {
+      "id": "brendon-mccullum",
+      "name": "Brendon McCullum",
+      "role": "BAT",
+      "overseas": true,
+      "country": "NZ",
+      "batting": 74,
+      "bowling": 8,
+      "basePriceLakhs": 2
+    },
+    {
+      "id": "colin-munro",
+      "name": "Colin Munro",
+      "role": "BAT",
+      "overseas": true,
+      "country": "NZ",
+      "batting": 71,
+      "bowling": 12,
+      "basePriceLakhs": 2
     },
     {
       "id": "alex-hales",
@@ -1181,7 +1182,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 75,
       "bowling": 8
     },
@@ -1191,7 +1192,7 @@
       "role": "BAT",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 73,
       "bowling": 8
     },
@@ -1201,7 +1202,7 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8
     },
@@ -1211,7 +1212,7 @@
       "role": "WK",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 8
     },
@@ -1221,7 +1222,7 @@
       "role": "WK",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 8
     },
@@ -1231,7 +1232,7 @@
       "role": "WK",
       "overseas": true,
       "country": "AFG",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8
     },
@@ -1241,7 +1242,7 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8
     },
@@ -1251,7 +1252,7 @@
       "role": "WK",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 79,
       "bowling": 8
     },
@@ -1261,7 +1262,7 @@
       "role": "WK",
       "overseas": true,
       "country": "NZ",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 8
     },
@@ -1271,7 +1272,7 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 8
     },
@@ -1281,19 +1282,19 @@
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
-      "batting": 70,
+      "basePriceLakhs": 2,
+      "batting": 64,
       "bowling": 8
     },
     {
-      "id": "ks-bharat",
-      "name": "Srikar Bharat",
+      "id": "parthiv-patel",
+      "name": "Parthiv Patel",
       "role": "WK",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
-      "batting": 68,
-      "bowling": 8
+      "batting": 64,
+      "bowling": 8,
+      "basePriceLakhs": 2
     },
     {
       "id": "josh-inglis",
@@ -1301,7 +1302,7 @@
       "role": "WK",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8
     },
@@ -1311,7 +1312,7 @@
       "role": "WK",
       "overseas": true,
       "country": "NZ",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 28
     },
@@ -1321,7 +1322,7 @@
       "role": "AR",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 64
     },
@@ -1331,7 +1332,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 58
     },
@@ -1341,7 +1342,7 @@
       "role": "AR",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 68
     },
@@ -1351,7 +1352,7 @@
       "role": "AR",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 80
     },
@@ -1361,7 +1362,7 @@
       "role": "AR",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 82
     },
@@ -1371,7 +1372,7 @@
       "role": "AR",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 72
     },
@@ -1381,7 +1382,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 72
     },
@@ -1391,7 +1392,7 @@
       "role": "AR",
       "overseas": true,
       "country": "WI",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 74
     },
@@ -1401,7 +1402,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 58
     },
@@ -1411,7 +1412,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 70
     },
@@ -1421,7 +1422,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 60
     },
@@ -1431,7 +1432,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 62
     },
@@ -1441,7 +1442,7 @@
       "role": "AR",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 58
     },
@@ -1451,7 +1452,7 @@
       "role": "AR",
       "overseas": true,
       "country": "NZ",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 80
     },
@@ -1461,7 +1462,7 @@
       "role": "AR",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 76
     },
@@ -1471,7 +1472,7 @@
       "role": "AR",
       "overseas": true,
       "country": "SL",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 86
     },
@@ -1481,29 +1482,29 @@
       "role": "AR",
       "overseas": true,
       "country": "WI",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 64
     },
     {
-      "id": "corbin-bosch",
-      "name": "Corbin Bosch",
+      "id": "chris-morris",
+      "name": "Chris Morris",
       "role": "AR",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 75,
-      "batting": 70,
-      "bowling": 74
+      "batting": 68,
+      "bowling": 80,
+      "basePriceLakhs": 2
     },
     {
-      "id": "wiaan-mulder",
-      "name": "Wiaan Mulder",
+      "id": "shakib-al-hasan",
+      "name": "Shakib Al Hasan",
       "role": "AR",
       "overseas": true,
-      "country": "SA",
-      "basePriceLakhs": 50,
-      "batting": 70,
-      "bowling": 70
+      "country": "BAN",
+      "batting": 76,
+      "bowling": 82,
+      "basePriceLakhs": 2
     },
     {
       "id": "azmatullah-omarzai",
@@ -1511,7 +1512,7 @@
       "role": "AR",
       "overseas": true,
       "country": "AFG",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 76
     },
@@ -1521,29 +1522,29 @@
       "role": "AR",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 64
     },
     {
-      "id": "raj-angad-bawa",
-      "name": "Raj Bawa",
+      "id": "kieron-pollard",
+      "name": "Kieron Pollard",
       "role": "AR",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 30,
-      "batting": 66,
-      "bowling": 68
+      "overseas": true,
+      "country": "WI",
+      "batting": 82,
+      "bowling": 70,
+      "basePriceLakhs": 2
     },
     {
-      "id": "kamlesh-nagarkoti",
-      "name": "Kamlesh Nagarkoti",
+      "id": "dwayne-bravo",
+      "name": "Dwayne Bravo",
       "role": "AR",
-      "overseas": false,
-      "country": "IND",
-      "basePriceLakhs": 20,
-      "batting": 50,
-      "bowling": 70
+      "overseas": true,
+      "country": "WI",
+      "batting": 72,
+      "bowling": 78,
+      "basePriceLakhs": 2
     },
     {
       "id": "gerald-coetzee",
@@ -1551,7 +1552,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 24,
       "bowling": 82
     },
@@ -1561,7 +1562,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "NZ",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 84
     },
@@ -1571,7 +1572,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 85
     },
@@ -1581,7 +1582,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 28,
       "bowling": 80
     },
@@ -1591,7 +1592,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 44,
       "bowling": 76
     },
@@ -1601,7 +1602,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 77
     },
@@ -1611,29 +1612,29 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 76
     },
     {
-      "id": "mohsin-khan",
-      "name": "Mohsin Khan",
+      "id": "rp-singh",
+      "name": "RP Singh",
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
       "batting": 12,
-      "bowling": 76
+      "bowling": 66,
+      "basePriceLakhs": 2
     },
     {
-      "id": "akash-madhwal",
-      "name": "Akash Madhwal",
+      "id": "harbhajan-singh",
+      "name": "Harbhajan Singh",
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
-      "batting": 10,
-      "bowling": 75
+      "batting": 28,
+      "bowling": 76,
+      "basePriceLakhs": 2
     },
     {
       "id": "prasidh-krishna",
@@ -1641,7 +1642,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 82
     },
@@ -1651,7 +1652,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 74
     },
@@ -1661,7 +1662,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 150,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 85
     },
@@ -1671,7 +1672,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 80
     },
@@ -1681,7 +1682,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AFG",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 80
     },
@@ -1691,7 +1692,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 79
     },
@@ -1701,7 +1702,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SL",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 82
     },
@@ -1711,7 +1712,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 76
     },
@@ -1721,7 +1722,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 78
     },
@@ -1731,7 +1732,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 80
     },
@@ -1741,7 +1742,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SL",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 8,
       "bowling": 81
     },
@@ -1751,7 +1752,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "WI",
-      "basePriceLakhs": 100,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 82
     },
@@ -1761,7 +1762,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 76
     },
@@ -1771,9 +1772,9 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 18,
-      "bowling": 75
+      "bowling": 70
     },
     {
       "id": "mohit-sharma",
@@ -1781,7 +1782,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 78
     },
@@ -1791,7 +1792,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 80
     },
@@ -1801,7 +1802,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AUS",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 80
     },
@@ -1811,7 +1812,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "ENG",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 80
     },
@@ -1821,7 +1822,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 75,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 81
     },
@@ -1831,7 +1832,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "AFG",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 78
     },
@@ -1841,7 +1842,7 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 50,
+      "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 78
     },
@@ -1851,7 +1852,7 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
+      "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 74
     },
@@ -1861,19 +1862,19 @@
       "role": "BOWL",
       "overseas": true,
       "country": "SA",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 76
     },
     {
-      "id": "anshul-kamboj",
-      "name": "Anshul Kamboj",
+      "id": "praveen-kumar",
+      "name": "Praveen Kumar",
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
-      "batting": 14,
-      "bowling": 75
+      "batting": 20,
+      "bowling": 67,
+      "basePriceLakhs": 2
     },
     {
       "id": "umesh-yadav",
@@ -1881,9 +1882,9 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 40,
+      "basePriceLakhs": 2,
       "batting": 16,
-      "bowling": 74
+      "bowling": 71
     },
     {
       "id": "ishant-sharma",
@@ -1891,9 +1892,9 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
+      "basePriceLakhs": 2,
       "batting": 10,
-      "bowling": 73
+      "bowling": 70
     },
     {
       "id": "piyush-chawla",
@@ -1901,9 +1902,9 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
+      "basePriceLakhs": 2,
       "batting": 22,
-      "bowling": 74
+      "bowling": 71
     },
     {
       "id": "karn-sharma",
@@ -1911,19 +1912,19 @@
       "role": "BOWL",
       "overseas": false,
       "country": "IND",
-      "basePriceLakhs": 30,
+      "basePriceLakhs": 2,
       "batting": 18,
-      "bowling": 73
+      "bowling": 69
     },
     {
-      "id": "spencer-johnson",
-      "name": "Spencer Johnson",
+      "id": "ashish-nehra",
+      "name": "Ashish Nehra",
       "role": "BOWL",
-      "overseas": true,
-      "country": "AUS",
-      "basePriceLakhs": 50,
-      "batting": 10,
-      "bowling": 79
+      "overseas": false,
+      "country": "IND",
+      "batting": 14,
+      "bowling": 74,
+      "basePriceLakhs": 2
     }
   ]
 }

@@ -17,8 +17,8 @@ const { meta, players } = loadPlayers();
 function roomWith(names, timers) {
   const room = new GameRoom({
     code: "TEST",
-    purseLakhs: 10000,
-    timers: timers || { bidMs: 10_000, captainMs: 10_000 },
+    purseLakhs: 100,
+    timers: timers || { lotStartMs: 15_000, bidMs: 10_000, captainMs: 45_000 },
     allPlayers: players,
     meta,
   });
@@ -38,27 +38,40 @@ describe("player pool", () => {
       assert.ok(p.id && p.name);
       assert.ok(["BAT", "WK", "AR", "BOWL"].includes(p.role), p.name);
       assert.equal(typeof p.overseas, "boolean");
-      assert.ok(p.basePriceLakhs >= 20);
+      assert.equal(p.basePriceLakhs, 2);
       assert.ok(p.batting >= 0 && p.batting <= 100);
       assert.ok(p.bowling >= 0 && p.bowling <= 100);
     }
     assert.ok(meta.ratingsNote.toLowerCase().includes("estimate"));
+    const names = players.map((p) => p.name);
+    for (const known of ["Virat Kohli", "Shikhar Dhawan", "Chris Gayle", "Cheteshwar Pujara", "MS Dhoni", "Kieron Pollard", "Harbhajan Singh"]) {
+      assert.ok(names.includes(known), `missing known player ${known}`);
+    }
+    for (const obscure of ["Aaradhya Yadav", "Swastik Chhikara", "Sudip Gharami", "Uday Saharan", "Ayush Pandey"]) {
+      assert.ok(!names.includes(obscure), `obscure name still present ${obscure}`);
+    }
+    const batRatings = players.filter((p) => p.role === "BAT" || p.role === "WK").map((p) => p.batting);
+    assert.ok(Math.min(...batRatings) <= 55, "need weaker known batters");
+    assert.ok(Math.max(...batRatings) >= 90, "need star batters");
   });
 });
 
 describe("bid increments", () => {
-  test("₹20 lakh below 2 Cr, ₹25 lakh at or above", () => {
-    assert.equal(bidIncrement(0), 20);
-    assert.equal(bidIncrement(180), 20);
-    assert.equal(bidIncrement(199), 20);
-    assert.equal(bidIncrement(200), 25);
-    assert.equal(bidIncrement(500), 25);
+  test("raises are +1, +2 or +5 points from the current bid", () => {
+    const { BID_STEPS, isLegalRaise } = require("../server/rules");
+    assert.deepEqual(BID_STEPS, [1, 2, 5]);
+    assert.equal(bidIncrement(2), 1);
+    assert.equal(isLegalRaise(2, 3, true), true);
+    assert.equal(isLegalRaise(2, 4, true), true);
+    assert.equal(isLegalRaise(2, 7, true), true);
+    assert.equal(isLegalRaise(2, 8, true), false);
+    assert.equal(isLegalRaise(2, 2, true), false);
   });
 
-  test("first bid is base price; later bids add the increment", () => {
-    assert.equal(nextBidAmount(200, false), 200);
-    assert.equal(nextBidAmount(200, true), 225);
-    assert.equal(nextBidAmount(180, true), 200);
+  test("first bid is base price; later minimum is +1", () => {
+    assert.equal(nextBidAmount(2, false), 2);
+    assert.equal(nextBidAmount(2, true), 3);
+    assert.equal(nextBidAmount(7, true), 8);
   });
 });
 
@@ -67,10 +80,10 @@ describe("bid validation", () => {
     const kohli = players.find((p) => p.id === "virat-kohli");
     const extras = players.filter((p) => p.role === "BAT" && p.id !== kohli.id).slice(0, 4);
     const franchise = {
-      purseLakhs: 10000,
-      squad: extras.map((p) => ({ player: p, priceLakhs: 200 })),
+      purseLakhs: 100,
+      squad: extras.map((p) => ({ player: p, priceLakhs: 2 })),
     };
-    const result = canBidFor(franchise, kohli, 200, players.filter((p) => p.id !== kohli.id));
+    const result = canBidFor(franchise, kohli, 3, players.filter((p) => p.id !== kohli.id));
     assert.equal(result.ok, false);
     assert.match(result.reason, /quota/i);
   });
@@ -110,13 +123,13 @@ describe("auction opt-out and lock-in", () => {
     assert.equal(csk.squad.length, 1);
     assert.equal(csk.squad[0].player.id, "virat-kohli");
     assert.equal(csk.squad[0].priceLakhs, kohli.basePriceLakhs);
-    assert.equal(csk.purseLakhs, 10000 - kohli.basePriceLakhs);
+    assert.equal(csk.purseLakhs, 100 - kohli.basePriceLakhs);
   });
 
   test("default bid means the player does not go unsold if someone can take the role", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
     const player = players.find((p) => p.id === "karun-nair");
-    const next = players.find((p) => p.id === "priyansh-arya");
+    const next = players.find((p) => p.id === "gautam-gambhir");
     room.queue = [player, next];
     room.phase = "auction";
     room.nominateNext();
@@ -144,23 +157,24 @@ describe("auction opt-out and lock-in", () => {
     assert.equal(state.auction.youCanOptOut, false);
   });
 
-  test("a jump bid above the minimum is accepted and becomes the current bid", () => {
+  test("only +1, +2 or +5 raises are accepted", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
     room.queue = [players.find((p) => p.id === "jasprit-bumrah")];
     room.phase = "auction";
     room.nominateNext();
-    // Default bid is already at base with Ashutosh; Priya jumps.
-    const res = room.bid("Priya", 1500);
+    const illegal = room.bid("Priya", 20);
+    assert.equal(illegal.ok, false);
+    const res = room.bid("Priya", room.auction.currentBidLakhs + 5);
     assert.equal(res.ok, true);
-    assert.equal(room.auction.currentBidLakhs, 1500);
+    assert.equal(room.auction.currentBidLakhs, 7);
     assert.equal(room.auction.currentBidderKey, "priya");
   });
 
   test("default bid still goes to a team whose role quota is full; others may bid, that team cannot bid again while leading", () => {
     const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
     const wks = players.filter((p) => p.role === "WK");
-    room.findByName("Ashutosh").squad.push({ player: wks[0], priceLakhs: 200 });
-    room.findByName("Ashutosh").purseLakhs -= 200;
+    room.findByName("Ashutosh").squad.push({ player: wks[0], priceLakhs: 2 });
+    room.findByName("Ashutosh").purseLakhs -= 2;
     room.soldIds.add(wks[0].id);
     room.queue = [wks[1], players.find((p) => p.id === "karun-nair")];
     room.phase = "auction";
@@ -232,7 +246,7 @@ describe("default bid, round-robin and elimination", () => {
   test("eliminates a team that cannot afford the default-bid base price", () => {
     const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
     const star = players.find((p) => p.id === "virat-kohli");
-    room.findByName("Ashutosh").purseLakhs = 50; // below 200 lakh base
+    room.findByName("Ashutosh").purseLakhs = 1; // below the 2-point base
     room.queue = [star, players.find((p) => p.id === "karun-nair")];
     room.phase = "auction";
     room.nominateNext();
@@ -309,8 +323,8 @@ describe("default bid, round-robin and elimination", () => {
     assert.equal(room.findByName("Ashutosh").eliminated, false);
     // A voluntary overbid by Priya that leaves her unable to fill the XI is still rejected.
     const priya = room.findByName("Priya");
-    priya.purseLakhs = 400;
-    const denied = room.bid("Priya", 400);
+    priya.purseLakhs = 22; // 11 slots would need 22 at 2 points; bidding +5 leaves too little
+    const denied = room.bid("Priya", room.auction.currentBidLakhs + 5);
     assert.equal(denied.ok, false);
     assert.match(denied.error, /purse/i);
   });
@@ -355,12 +369,12 @@ describe("default bid, round-robin and elimination", () => {
     room.phase = "auction";
     room.nominateNext();
     assert.equal(room.auction.currentBidderKey, "ashutosh");
-    assert.equal(room.bid("Priya", 500).ok, true);
+    assert.equal(room.bid("Priya", room.auction.currentBidLakhs + 5).ok, true);
     assert.equal(room.auction.currentBidderKey, "priya");
-    const back = room.bid("Ashutosh", 800);
+    const back = room.bid("Ashutosh", room.auction.currentBidLakhs + 2);
     assert.equal(back.ok, true);
     assert.equal(room.auction.currentBidderKey, "ashutosh");
-    assert.equal(room.auction.currentBidLakhs, 800);
+    assert.equal(room.auction.currentBidLakhs, 9);
   });
 });
 
@@ -445,5 +459,105 @@ describe("overall rating", () => {
   test("weights bowling higher for bowlers", () => {
     const p = { role: "BOWL", batting: 20, bowling: 90 };
     assert.ok(Math.abs(overallRating(p) - 83) < 0.01);
+  });
+});
+
+describe("nomination order and timers", () => {
+  test("startAuction shuffles the full pool instead of grouping by base or rating", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const top = [...players].sort((a, b) => overallRating(b) - overallRating(a)).slice(0, 8).map((p) => p.id);
+    const firsts = new Set();
+    for (let i = 0; i < 12; i++) {
+      const r = roomWith(["Ashutosh", "Priya"]);
+      const started = r.startAuction("Ashutosh");
+      assert.equal(started.ok, true);
+      assert.equal(r.queue.length + 1, players.length); // nominee already taken from queue
+      firsts.add(r.auction.nominee.id);
+    }
+    assert.ok(firsts.size >= 3, `expected mixed openers, got ${[...firsts].join(", ")}`);
+    // Across runs it should not always be a top-rated star.
+    assert.ok([...firsts].some((id) => !top.includes(id)) || firsts.size >= 6);
+  });
+
+  test("a new lot gets 15 seconds and a bid resets the timer to 10", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { lotStartMs: 15_000, bidMs: 10_000, captainMs: 45_000 });
+    room.queue = [players.find((p) => p.id === "virat-kohli")];
+    room.phase = "auction";
+    const t0 = Date.now();
+    room.nominateNext();
+    const openLeft = room.auction.endsAt - t0;
+    assert.ok(openLeft > 14000 && openLeft <= 15100, `lot start ${openLeft}`);
+    const lead = room.auction.currentBidderKey === "ashutosh" ? "Priya" : "Ashutosh";
+    const t1 = Date.now();
+    assert.equal(room.bid(lead, room.auction.currentBidLakhs + 1).ok, true);
+    const bidLeft = room.auction.endsAt - t1;
+    assert.ok(bidLeft > 9000 && bidLeft <= 10100, `bid reset ${bidLeft}`);
+  });
+});
+
+describe("booster shop", () => {
+  const { BOOSTERS, getBooster } = require("../server/boosters");
+
+  function primedRoom() {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    for (const name of ["Ashutosh", "Priya"]) {
+      const team = room.findByName(name);
+      const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+      for (const p of players) {
+        if ((need[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+          team.squad.push({ player: p, priceLakhs: 2 });
+          room.soldIds.add(p.id);
+          need[p.role] -= 1;
+        }
+      }
+      team.purseLakhs = 40;
+    }
+    return room;
+  }
+
+  test("catalog has priced funny boosters and enforces one of each", () => {
+    assert.ok(BOOSTERS.length >= 6);
+    for (const b of BOOSTERS) {
+      assert.ok(b.pricePoints >= 15 && b.pricePoints <= 40, b.id);
+      assert.ok(b.name && b.blurb);
+    }
+    const room = primedRoom();
+    room.beginCaptainPhase();
+    assert.equal(room.phase, "captains");
+    assert.ok(room.captainEndsAt - Date.now() > 40000);
+    const cheer = getBooster("cheerleaders");
+    assert.equal(room.buyBooster("Ashutosh", cheer.id).ok, true);
+    assert.equal(room.findByName("Ashutosh").purseLakhs, 40 - cheer.pricePoints);
+    assert.equal(room.buyBooster("Ashutosh", cheer.id).ok, false);
+    room.findByName("Priya").purseLakhs = 10;
+    assert.equal(room.buyBooster("Priya", "bus-breakdown").ok, false);
+  });
+
+  test("boosters appear in results and can create moments, including rain no-results", () => {
+    const room = primedRoom();
+    room.findByName("Ashutosh").boosters = [
+      { id: "rain-dance", name: "Rain Dance", pricePoints: 28 },
+      { id: "lucky-toss", name: "Lucky Toss Coin", pricePoints: 16 },
+    ];
+    room.findByName("Priya").boosters = [{ id: "cheerleaders", name: "Cheerleader Squad", pricePoints: 15 }];
+    room.findByName("Ashutosh").captainId = room.findByName("Ashutosh").squad[0].player.id;
+    room.findByName("Priya").captainId = room.findByName("Priya").squad[0].player.id;
+    room.phase = "captains";
+    room.finishCaptains();
+    assert.equal(room.phase, "results");
+    const details = room.getMatches();
+    assert.ok(Array.isArray(details.teams));
+    assert.equal(details.teams.length, 2);
+    const ash = details.teams.find((t) => t.name === "Ashutosh");
+    assert.ok(ash.squad.length >= 11);
+    assert.ok(ash.squad.some((s) => s.isCaptain));
+    assert.ok(ash.boosters.some((b) => b.id === "rain-dance"));
+    assert.ok(ash.squad.some((s) => s.stats && (s.stats.runs > 0 || s.stats.wickets > 0)));
+    assert.ok(details.moments);
+    const table = room.tournament.table;
+    for (const row of table) {
+      assert.ok("nr" in row);
+      assert.equal(row.points, row.won * 2 + (row.nr || 0));
+    }
   });
 });

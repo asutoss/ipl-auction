@@ -2,55 +2,55 @@
   "single": [
     {
       "players": 2,
-      "outboundMb": 0.092,
+      "outboundMb": 0.097,
       "beforeMb": 0.35,
-      "pctOfBefore": 26.3,
-      "rssMb": 84,
-      "p95AckMs": 2
+      "pctOfBefore": 27.7,
+      "rssMb": 84.6,
+      "p95AckMs": 3
     },
     {
       "players": 4,
-      "outboundMb": 0.495,
+      "outboundMb": 0.498,
       "beforeMb": 5.4,
       "pctOfBefore": 9.2,
-      "rssMb": 92.8,
-      "p95AckMs": 2
+      "rssMb": 92.6,
+      "p95AckMs": 3
     },
     {
       "players": 6,
-      "outboundMb": 1.426,
+      "outboundMb": 1.501,
       "beforeMb": 29,
-      "pctOfBefore": 4.9,
-      "rssMb": 95.5,
-      "p95AckMs": 1
+      "pctOfBefore": 5.2,
+      "rssMb": 95.9,
+      "p95AckMs": 2
     },
     {
       "players": 8,
-      "outboundMb": 3.533,
+      "outboundMb": 3.816,
       "beforeMb": 78,
-      "pctOfBefore": 4.5,
-      "rssMb": 97.1,
+      "pctOfBefore": 4.9,
+      "rssMb": 98.6,
       "p95AckMs": 2
     },
     {
       "players": 10,
-      "outboundMb": 7.356,
+      "outboundMb": 7.84,
       "beforeMb": 141,
-      "pctOfBefore": 5.2,
-      "rssMb": 102.1,
+      "pctOfBefore": 5.6,
+      "rssMb": 117.8,
       "p95AckMs": 2
     }
   ],
   "tenByTen": {
-    "totalOutboundMb": 74.78,
-    "avgOutboundMbPerRoom": 7.48,
-    "rssMb": 252.7,
-    "rssDeltaMb": 150.5,
-    "approxRssMbPerRoom": 15,
-    "meanP95AckMs": 11,
-    "elapsedMs": 6194,
+    "totalOutboundMb": 76.69,
+    "avgOutboundMbPerRoom": 7.67,
+    "rssMb": 285,
+    "rssDeltaMb": 167.1,
+    "approxRssMbPerRoom": 16.7,
+    "meanP95AckMs": 10.4,
+    "elapsedMs": 6104,
     "events": {
-      "delta": 86445,
+      "delta": 90775,
       "state": 750
     }
   }

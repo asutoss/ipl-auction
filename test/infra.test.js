@@ -167,8 +167,8 @@ describe("delta events and lite results", () => {
     const { players, meta } = loadPlayers();
     const room = new GameRoom({
       code: "DELTA1",
-      purseLakhs: 10000,
-      timers: { bidMs: 60_000, captainMs: 60_000 },
+      purseLakhs: 100,
+      timers: { lotStartMs: 15_000, bidMs: 60_000, captainMs: 60_000 },
       allPlayers: players,
       meta,
     });
@@ -229,8 +229,8 @@ describe("delta events and lite results", () => {
     const { players, meta } = loadPlayers();
     const room = new GameRoom({
       code: "RES001",
-      purseLakhs: 10000,
-      timers: { bidMs: 50, captainMs: 50 },
+      purseLakhs: 100,
+      timers: { lotStartMs: 50, bidMs: 50, captainMs: 50 },
       allPlayers: players,
       meta,
     });
@@ -262,6 +262,10 @@ describe("delta events and lite results", () => {
     const matches = room.getMatches();
     assert.ok(matches.leagueMatches.length >= 1);
     assert.ok(Array.isArray(matches.playoffMatches));
+    assert.ok(Array.isArray(matches.teams));
+    assert.ok(matches.teams[0].squad.length >= 11);
+    assert.ok(matches.teams[0].squad[0].stats);
+    assert.ok(Array.isArray(matches.moments));
 
     // Client applies nothing from lite; fetching fills matches.
     const merged = { ...lite, tournament: { ...lite.tournament, leagueMatches: matches.leagueMatches, playoffs: { ...lite.tournament.playoffs, matches: matches.playoffMatches } } };
@@ -271,10 +275,10 @@ describe("delta events and lite results", () => {
   test("applyDelta keeps client auction and squad in sync", () => {
     const state = {
       phase: "auction",
-      you: { name: "Ashutosh", purseLakhs: 10000, squad: [], roleCounts: { BAT: 0, WK: 0, AR: 0, BOWL: 0 }, remainingQuota: { BAT: 4, WK: 1, AR: 2, BOWL: 4 } },
+      you: { name: "Ashutosh", purseLakhs: 100, squad: [], roleCounts: { BAT: 0, WK: 0, AR: 0, BOWL: 0 }, remainingQuota: { BAT: 4, WK: 1, AR: 2, BOWL: 4 } },
       franchises: [
-        { name: "Ashutosh", purseLakhs: 10000, squad: [], franchise: { short: "CSK", color: "#fc0" } },
-        { name: "Priya", purseLakhs: 10000, squad: [], franchise: { short: "MI", color: "#00f" } },
+        { name: "Ashutosh", purseLakhs: 100, squad: [], franchise: { short: "CSK", color: "#fc0" } },
+        { name: "Priya", purseLakhs: 100, squad: [], franchise: { short: "MI", color: "#00f" } },
       ],
       quotas: { BAT: 4, WK: 1, AR: 2, BOWL: 4 },
       squadSize: 11,

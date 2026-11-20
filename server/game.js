@@ -15,9 +15,13 @@ const {
   hasMinSquad,
   bidIncrement,
   nextBidAmount,
+  isLegalRaise,
   canBidFor,
   availablePlayers,
+  BID_STEPS,
+  BASE_PRICE_POINTS,
 } = require("./rules");
+const { getBooster, canAffordAny, publicCatalog } = require("./boosters");
 
 function normalizeName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
@@ -38,8 +42,9 @@ function shuffle(arr, rng = Math.random) {
 
 function defaultTimers() {
   return {
+    lotStartMs: Number(process.env.LOT_START_MS) || 15000,
     bidMs: Number(process.env.BID_TIMER_MS) || 10000,
-    captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 30000,
+    captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 45000,
   };
 }
 
@@ -128,6 +133,7 @@ class GameRoom extends EventEmitter {
       hasBidder,
       minBidLakhs,
       incrementLakhs,
+      bidSteps: BID_STEPS,
       endsAt: this.auction.endsAt,
       stillIn: this.packStillIn(),
       pass: this.pass,
@@ -198,6 +204,7 @@ class GameRoom extends EventEmitter {
       purseLakhs: this.purseLakhs,
       squad: [],
       captainId: null,
+      boosters: [],
       eliminated: false,
       eliminatedReason: null,
       eliminatedAt: null,
@@ -228,15 +235,15 @@ class GameRoom extends EventEmitter {
     }
   }
 
-  setPurse(byName, purseCrore) {
+  setPurse(byName, pursePoints) {
     const f = this.findByName(byName);
     if (!f || f.key !== this.hostKey) return { ok: false, error: "Only the host can set the purse." };
     if (this.phase !== "lobby") return { ok: false, error: "Purse is locked once the auction starts." };
-    const cr = Number(purseCrore);
-    if (!Number.isFinite(cr) || cr < 20 || cr > 200) {
-      return { ok: false, error: "Purse must be between ₹20 Cr and ₹200 Cr." };
+    const pts = Math.round(Number(pursePoints));
+    if (!Number.isFinite(pts) || pts < 20 || pts > 200) {
+      return { ok: false, error: "Purse must be between 20 and 200 points." };
     }
-    this.purseLakhs = Math.round(cr * 100);
+    this.purseLakhs = pts;
     for (const team of this.franchises) team.purseLakhs = this.purseLakhs;
     this.bump("lobby");
     return { ok: true };
@@ -250,15 +257,7 @@ class GameRoom extends EventEmitter {
       return { ok: false, error: "Need at least 2 franchises to start." };
     }
     this.phase = "auction";
-    const byBase = {};
-    for (const p of this.allPlayers) {
-      (byBase[p.basePriceLakhs] ||= []).push(p);
-    }
-    const bases = Object.keys(byBase)
-      .map(Number)
-      .sort((a, b) => b - a);
-    this.queue = [];
-    for (const b of bases) this.queue.push(...shuffle(byBase[b]));
+    this.queue = shuffle(this.allPlayers);
     this.unsold = [];
     this.pass = 1;
     this.soldIds = new Set();
@@ -363,10 +362,11 @@ class GameRoom extends EventEmitter {
     return false;
   }
 
-  startLotTimer() {
+  startLotTimer(reset = false) {
     const lotId = this.lotId;
-    this.auction.endsAt = Date.now() + this.timers.bidMs;
-    this.armTimer(() => this.onLotTimeout(lotId), this.timers.bidMs);
+    const ms = reset ? this.timers.bidMs : this.timers.lotStartMs;
+    this.auction.endsAt = Date.now() + ms;
+    this.armTimer(() => this.onLotTimeout(lotId), ms);
   }
 
   onLotTimeout(lotId) {
@@ -395,7 +395,7 @@ class GameRoom extends EventEmitter {
     }
 
     const player = this.queue.shift();
-    if (this.soldIds.has(player.id)) {
+    if (!player || this.soldIds.has(player.id)) {
       this.nominateNext();
       return;
     }
@@ -419,9 +419,9 @@ class GameRoom extends EventEmitter {
       currentBidderKey: defaultTeam.key,
       defaultBidderKey: defaultTeam.key,
       optedOut: new Set(),
-      endsAt: Date.now() + this.timers.bidMs,
+      endsAt: Date.now() + this.timers.lotStartMs,
     };
-    this.startLotTimer();
+    this.startLotTimer(false);
     if (!this.maybeResolveLot()) {
       this.emitDelta({ type: "lotStart", ...this.packAuctionPublic() });
     }
@@ -502,13 +502,13 @@ class GameRoom extends EventEmitter {
     const minBid = nextBidAmount(this.auction.currentBidLakhs, hasBidder);
     const amount = Number(amountLakhs);
     if (!Number.isFinite(amount) || !Number.isInteger(amount)) {
-      return { ok: false, error: "Bid an amount in whole lakhs." };
+      return { ok: false, error: "Bid a whole number of points." };
     }
-    if (amount % 5 !== 0) {
-      return { ok: false, error: "Bids must be in ₹5 lakh steps." };
+    if (!isLegalRaise(this.auction.currentBidLakhs, amount, hasBidder)) {
+      return { ok: false, error: `Bid exactly +1, +2 or +5 points (minimum ${minBid}).` };
     }
     if (amount < minBid) {
-      return { ok: false, error: `Minimum bid is ${minBid} lakh.` };
+      return { ok: false, error: `Minimum bid is ${minBid} points.` };
     }
 
     const check = canBidFor(team, this.auction.nominee, amount, this.remainingPool(this.auction.nominee.id));
@@ -516,7 +516,7 @@ class GameRoom extends EventEmitter {
 
     this.auction.currentBidLakhs = amount;
     this.auction.currentBidderKey = team.key;
-    this.startLotTimer();
+    this.startLotTimer(true);
     if (!this.maybeResolveLot()) {
       this.emitDelta({
         type: "bid",
@@ -610,18 +610,58 @@ class GameRoom extends EventEmitter {
     this.clearTimer();
     this.phase = "captains";
     this.auction = null;
+    for (const f of this.franchises) {
+      if (!Array.isArray(f.boosters)) f.boosters = [];
+    }
     for (const f of this.activeFranchises()) {
       if (!f.captainId) continue;
       if (!f.squad.some((s) => s.player.id === f.captainId)) f.captainId = null;
     }
     const needingCaptain = this.activeFranchises().filter((f) => !f.captainId && f.squad.length);
-    if (needingCaptain.length === 0) {
+    const shopOpen = this.activeFranchises().some((f) => canAffordAny(f));
+    if (needingCaptain.length === 0 && !shopOpen) {
       this.runSimulation();
       return;
     }
     this.captainEndsAt = Date.now() + this.timers.captainMs;
     this.armTimer(() => this.finishCaptains(), this.timers.captainMs);
     this.bump("captains");
+  }
+
+  maybeFinishPrep() {
+    if (this.phase !== "captains") return;
+    const needing = this.activeFranchises().filter((f) => !f.captainId && f.squad.length);
+    if (needing.length) return;
+    if (this.activeFranchises().some((f) => canAffordAny(f))) return;
+    this.finishCaptains();
+  }
+
+  buyBooster(byName, boosterId) {
+    if (this.phase !== "captains") return { ok: false, error: "The booster shop is closed." };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (team.eliminated) return { ok: false, error: "Your franchise has been eliminated." };
+    const item = getBooster(boosterId);
+    if (!item) return { ok: false, error: "Unknown booster." };
+    if (!Array.isArray(team.boosters)) team.boosters = [];
+    if (team.boosters.some((b) => b.id === item.id)) {
+      return { ok: false, error: "You already bought that booster." };
+    }
+    if (team.purseLakhs < item.pricePoints) {
+      return { ok: false, error: "Not enough points for that booster." };
+    }
+    team.purseLakhs -= item.pricePoints;
+    const bought = { id: item.id, name: item.name, pricePoints: item.pricePoints };
+    team.boosters.push(bought);
+    this.emitDelta({
+      type: "booster",
+      name: team.name,
+      short: team.franchise.short,
+      booster: bought,
+      purseLakhs: team.purseLakhs,
+    });
+    this.maybeFinishPrep();
+    return { ok: true };
   }
 
   selectCaptain(byName, playerId) {
@@ -632,17 +672,13 @@ class GameRoom extends EventEmitter {
     const slot = team.squad.find((s) => s.player.id === playerId);
     if (!slot) return { ok: false, error: "That player is not in your XI." };
     team.captainId = playerId;
-    const still = this.activeFranchises().filter((f) => !f.captainId && f.squad.length);
-    if (still.length === 0) {
-      this.finishCaptains();
-    } else {
-      this.emitDelta({
-        type: "captain",
-        name: team.name,
-        short: team.franchise.short,
-        captainId: playerId,
-      });
-    }
+    this.emitDelta({
+      type: "captain",
+      name: team.name,
+      short: team.franchise.short,
+      captainId: playerId,
+    });
+    this.maybeFinishPrep();
     return { ok: true };
   }
 
@@ -701,6 +737,7 @@ class GameRoom extends EventEmitter {
       remainingQuota: remainingQuota(f.squad),
       complete: hasMinSquad(f.squad),
       captainId: f.captainId,
+      boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
       eliminated: Boolean(f.eliminated),
       eliminatedReason: f.eliminated ? "Eliminated - insufficient purse" : null,
     };
@@ -725,11 +762,50 @@ class GameRoom extends EventEmitter {
         matchCount: (t.playoffs.matches || []).length,
       },
       leagueMatchCount: (t.leagueMatches || []).length,
+      momentCount: (t.moments || []).length,
     };
     if (includeMatches) {
       summary.leagueMatches = t.leagueMatches;
+      summary.moments = t.moments || [];
+      summary.playerStats = t.playerStats || {};
     }
     return summary;
+  }
+
+  packTeamReports() {
+    const t = this.tournament;
+    if (!t) return [];
+    const statsByTeam = t.playerStats || {};
+    return this.franchises.map((f) => {
+      const row = (t.table || []).find((r) => r.name === f.name) || null;
+      const pos = (t.positions || []).find((r) => r.name === f.name) || null;
+      const stats = statsByTeam[f.name] || [];
+      const statMap = new Map(stats.map((s) => [s.playerId, s]));
+      return {
+        name: f.name,
+        short: f.franchise.short,
+        color: f.franchise.color,
+        franchiseName: f.franchise.name,
+        captainId: f.captainId,
+        purseLakhs: f.purseLakhs,
+        boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
+        moments: (t.moments || []).filter((m) => m.teamName === f.name),
+        eliminated: Boolean(f.eliminated),
+        title: pos ? pos.title : (f.eliminated ? "Eliminated - insufficient purse" : null),
+        played: row ? row.played : 0,
+        won: row ? row.won : 0,
+        lost: row ? row.lost : 0,
+        nr: row ? row.nr : 0,
+        points: row ? row.points : 0,
+        nrr: row ? row.nrr : 0,
+        squad: f.squad.map((s) => ({
+          player: s.player,
+          priceLakhs: s.priceLakhs,
+          isCaptain: f.captainId === s.player.id,
+          stats: statMap.get(s.player.id) || null,
+        })),
+      };
+    });
   }
 
   getMatches() {
@@ -737,6 +813,9 @@ class GameRoom extends EventEmitter {
     return {
       leagueMatches: this.tournament.leagueMatches || [],
       playoffMatches: this.tournament.playoffs.matches || [],
+      moments: this.tournament.moments || [],
+      playerStats: this.tournament.playerStats || {},
+      teams: this.packTeamReports(),
     };
   }
 
@@ -787,6 +866,7 @@ class GameRoom extends EventEmitter {
       lastEvent: this.lastEvent,
       soldLog: this.soldLog,
       captainEndsAt: this.captainEndsAt,
+      boosterCatalog: this.phase === "captains" ? publicCatalog() : [],
       captainsPending: this.phase === "captains"
         ? this.activeFranchises().filter((f) => !f.captainId && f.squad.length).map((f) => ({
             name: f.name,

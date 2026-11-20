@@ -145,3 +145,22 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .positions { list-style: none; padding: 0; margin: 0; }
 .positions li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #243049; }
 .error { color: var(--danger); font-size: 14px; margin-top: 10px; }
+
+.name-bar { margin-bottom: 8px; }
+.name-bar input { max-width: 360px; }
+.home { display: flex; flex-direction: column; gap: 24px; }
+.bid-steps { flex-wrap: wrap; }
+.bid-steps .btn { min-width: 92px; }
+.prep-layout { display: grid; gap: 18px; grid-template-columns: 1.1fr 0.9fr; }
+@media (max-width: 900px) { .prep-layout { grid-template-columns: 1fr; } }
+.booster-grid { display: grid; gap: 10px; }
+.booster { background: #0c1324; border: 1px solid #334169; border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
+.booster.owned { border-color: #3d6b4f; }
+.booster .tag { margin-left: 8px; }
+.team-reports { display: grid; gap: 16px; }
+.team-report { background: #0c1324; border: 1px solid #334169; border-radius: 16px; padding: 16px; border-left: 4px solid var(--c, var(--gold)); }
+.team-report header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 10px; }
+.team-report h3 { margin: 0 0 4px; }
+.team-report .record { font-weight: 700; margin: 0; }
+.moments { margin: 8px 0 12px; padding-left: 18px; color: var(--muted); }
+.moments li { margin: 4px 0; }

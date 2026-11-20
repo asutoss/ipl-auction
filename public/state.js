@@ -143,6 +143,18 @@
         syncYou(state);
         break;
       }
+      case "booster": {
+        const team = findTeam(state, evt.name);
+        if (team) {
+          if (evt.purseLakhs != null) team.purseLakhs = evt.purseLakhs;
+          team.boosters = team.boosters || [];
+          if (evt.booster && !team.boosters.some((b) => b.id === evt.booster.id)) {
+            team.boosters.push(evt.booster);
+          }
+        }
+        syncYou(state);
+        break;
+      }
       default:
         break;
     }

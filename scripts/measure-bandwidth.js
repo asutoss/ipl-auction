@@ -107,7 +107,7 @@ async function playAuction(sockets, acks) {
       a.currentBidderName !== state.you.name &&
       needsRole(state, a.nominee.role) &&
       overall(a.nominee) >= 92 &&
-      a.currentBidLakhs <= 300
+      a.currentBidLakhs <= 20
     ) {
       return { key, op: "bid", amountLakhs: a.minBidLakhs };
     }
@@ -146,8 +146,8 @@ async function playGame(url, n, resetBytes, getBytes) {
   sockets.push(host);
   const created = await ack(host, "createRoom", {
     name: names[0],
-    purseCrore: 100,
-    testTimers: { bidMs: 200, captainMs: 200 },
+    pursePoints: 100,
+    testTimers: { lotStartMs: 80, bidMs: 80, captainMs: 200 },
   }, acks);
   if (!created.ok) throw new Error(created.error || "create failed");
   const code = created.code;
@@ -170,6 +170,8 @@ async function playGame(url, n, resetBytes, getBytes) {
       if (st?.phase === "captains" && st.you?.squad?.length) {
         const pick = [...st.you.squad].sort((a, b) => overall(b.player) - overall(a.player))[0];
         await ack(s, "selectCaptain", { playerId: pick.player.id }, acks);
+        const cheap = (st.boosterCatalog || []).filter((b) => b.pricePoints <= (s.state?.you?.purseLakhs || 0)).sort((a, b) => a.pricePoints - b.pricePoints)[0];
+        if (cheap) await ack(s, "buyBooster", { boosterId: cheap.id }, acks);
       }
     }
   }
