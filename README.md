@@ -6,11 +6,11 @@ This is a local MVP. Nothing is deployed, and no accounts are required.
 
 ## Rules
 
-- **Room:** 2–10 players. Create or join with a 6-character code. Rejoin later with the same name and code. In the lobby each player picks an original team logo and colour theme (Chai Chargers, Sleepy Sloths, and friends — no real IPL franchise marks). Logos are unique in the room; anything unpicked is auto-assigned when the host starts. The host can **End game** (with a confirm) to close the room and send everyone back to the start page; anyone else can **Leave**.
+- **Room:** 2–10 players. On the start page you enter a **team name** (unique in the room). Create or join with a 6-character code; rejoin later with the same team name and code. In the lobby you only pick a logo — team names cannot be edited there. There are about 20 original cartoon-character marks, each with a distinct colour theme (simple geometric caricatures, not official artwork). Logos are unique in the room; anything unpicked is auto-assigned when the host starts. The team name is used everywhere (lobby, auction ring, top bar, squads, results, and the "Game paused by [team]" modal). The host can **End game** (with a confirm) to close the room and send everyone back to the start page; anyone else can **Leave**.
 - **Purse:** 100 points each (host can change this in the lobby).
 - **Squad:** the auction runs until every remaining team has **at least 11** players, or the pool is exhausted (then leftover teams under 11 are auto-filled at 1 point if they can afford it). The **whole squad counts** in the tournament — there is no trimming back to an XI. Default bids can push a team past 11 or past a role quota (for example 6 bowlers and 2 batters).
 - **Role quotas (voluntary bids only):** 4 batters (BAT), 1 wicket-keeper (WK), 2 all-rounders (AR), 4 bowlers (BOWL). You cannot *choose* to bid on a role that is already full. Default-bid assignments can exceed those quotas. There is **no overseas cap**.
-- **Auction:** the server puts one player on the block at a time. The auction ring shows that player's name, role and ratings in the centre, with a coloured arc for every team still in. The leading (or default) bid is highlighted on the ring. Anyone can **Pause**; every client sees a full-screen "Game paused by [name]" modal, timers freeze, and the pauser or host can resume with the remaining time.
+- **Auction:** the server puts one player on the block at a time. The auction ring shows that player's name, role and ratings in the centre, with a coloured arc for every team still in. The leading (or default) bid is highlighted on the ring. Anyone can **Pause**; every client sees a full-screen "Game paused by [team]" modal, timers freeze, and the pauser or host can resume with the remaining time.
   - **Default bid:** when a player comes up, one team is automatically given the first bid at that lot's starting price, rotating round-robin in join order. The default team is **never skipped** for a full quota or an already-complete squad — only eliminated teams are skipped. If nobody outbids, the player is **always** locked to that team. There is no unsold path while a default or leading bidder exists.
   - The starting bid is a **random integer from 1 to 5**, chosen by the server when the lot starts. The default bid is placed at that amount.
   - If the chosen team cannot afford that starting bid, that team is **eliminated** immediately — out of the rest of the auction and the tournament, and listed last as "Eliminated - insufficient purse". The default bid then moves to the next team.
@@ -59,7 +59,7 @@ server/manager.js     Room cap, rate limit, eviction
 server/rules.js       Quotas, point increments, purse-reserve checks
 server/boosters.js    Booster catalogue and purchase helpers
 public/state.js       Shared client delta-apply helper
-public/identities.js  Shared original team logos and colour themes
+public/identities.js  Shared original cartoon logo marks and colour themes
 public/ring.js        Auction ring (SVG segments + timer)
 server/simulate.js    League + playoffs + awards
 server/players.js     Load the player pool

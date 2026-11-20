@@ -60,11 +60,21 @@ function remainingMs(endsAt) {
   return Math.max(0, (endsAt || 0) - Date.now());
 }
 
-function teamMark(franchise, size = "") {
+function teamMark(franchise, size = "", title = "") {
   if (!franchise) return "";
   const svg = (window.IplIdentities && franchise.id) ? IplIdentities.logoSvg(franchise.id) : "";
-  const inner = svg || esc(franchise.emoji || franchise.short || "");
-  return `<span class="team-mark-wrap ${esc(size)}" style="--c:${esc(franchise.color)};--c2:${esc(franchise.color2 || "")}" title="${esc(franchise.name || "")}">${inner}</span>`;
+  const inner = svg || esc(franchise.character || "");
+  const label = title || franchise.character || "";
+  return `<span class="team-mark-wrap ${esc(size)}" style="--c:${esc(franchise.color)};--c2:${esc(franchise.color2 || "")}" title="${esc(label)}">${inner}</span>`;
+}
+
+function accentColor(franchise) {
+  if (!franchise) return "";
+  return franchise.text || franchise.color || "";
+}
+
+function characterName(franchise) {
+  return (franchise && (franchise.character || franchise.name)) || "";
 }
 
 function goHome() {
@@ -101,7 +111,7 @@ function syncOverlays() {
   const paused = Boolean(state && state.paused && state.phase && state.phase !== "ended");
   modal.hidden = !paused;
   const msg = document.getElementById("pause-msg");
-  if (msg) msg.textContent = paused ? `Game paused by ${state.pausedBy || "a player"}.` : "";
+  if (msg) msg.textContent = paused ? `Game paused by ${state.pausedBy || "a team"}.` : "";
   const btn = document.getElementById("resume");
   if (btn) {
     const you = state && state.you;
@@ -136,7 +146,7 @@ function renderTop() {
   topMeta.innerHTML = `
     <span class="pill">Room <strong>${esc(state.code)}</strong></span>
     <span class="pill">${esc(state.phase)}</span>
-    ${you ? `<span class="pill" style="display:inline-flex;gap:8px;align-items:center">${teamMark(you.franchise, "sm")}<span style="color:${esc(you.franchise.color)}">${esc(you.franchise.short)}</span> · ${esc(you.name)}</span>` : ""}
+    ${you ? `<span class="pill" style="display:inline-flex;gap:8px;align-items:center">${teamMark(you.franchise, "sm", you.name)}<span style="color:${esc(accentColor(you.franchise))}">${esc(you.name)}</span></span>` : ""}
     ${you ? `<span class="pill">Purse <strong>${money(you.purseLakhs)}</strong></span>` : ""}
     <span class="top-actions">
       ${canPause ? `<button class="btn secondary" id="pause" type="button" ${state.paused ? "disabled" : ""}>${pauseLabel}</button>` : ""}
@@ -149,9 +159,9 @@ function homeView() {
   return `
     <section class="home">
       <div class="panel name-bar">
-        <label for="name">Your name</label>
-        <input id="name" maxlength="24" placeholder="e.g. Ashutosh" />
-        <p class="hint">This name is used to create or join a room. Rejoin later with the same name and room code.</p>
+        <label for="name">Team name</label>
+        <input id="name" maxlength="24" placeholder="e.g. Night Owls" />
+        <p class="hint">This team name is used everywhere in the game and must be unique in the room. Rejoin later with the same team name and room code.</p>
       </div>
       <section class="hero">
         <div class="panel">
@@ -164,7 +174,7 @@ function homeView() {
         </div>
         <div class="panel">
           <h2>Join a room</h2>
-          <p class="lede">Ask the host for the 6-character room code, then join with the name above.</p>
+          <p class="lede">Ask the host for the 6-character room code, then join with the team name above.</p>
           <div class="row">
             <div>
               <label for="code">Room code</label>
@@ -194,7 +204,7 @@ function lobbyView() {
       const used = taken.has(pack.id) && !selected;
       return `<button type="button" class="logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""}>
         ${IplIdentities.logoSvg(pack.id)}
-        <span>${esc(pack.name)}</span>
+        <span>${esc(characterName(pack))}</span>
       </button>`;
     })
     .join("");
@@ -202,11 +212,10 @@ function lobbyView() {
     .map(
       (f) => `
       <div class="franchise-card ${f.connected ? "" : "offline"}" style="--c:${esc(f.franchise.color)}">
-        ${teamMark(f.franchise, "lg")}
+        ${teamMark(f.franchise, "lg", f.name)}
         <div>
-          <p class="short" style="color:${esc(f.franchise.color)}">${esc(f.franchise.short)}</p>
-          <p class="owner">${esc(f.franchise.name)}</p>
-          <p class="owner">${esc(f.name)}${f.isHost ? " · host" : ""}${f.connected ? "" : " · offline"}${f.eliminated ? " · eliminated" : ""}</p>
+          <p class="short" style="color:${esc(accentColor(f.franchise))}">${esc(f.name)}</p>
+          <p class="owner">${f.isHost ? "Host" : "Team"}${f.connected ? "" : " · offline"}${f.eliminated ? " · eliminated" : ""}</p>
         </div>
       </div>`
     )
@@ -215,8 +224,8 @@ function lobbyView() {
     <section class="panel">
       <p class="lede">Share this code</p>
       <p class="room-code">${esc(state.code)}</p>
-      <p class="lede">${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Pick a unique logo before the host starts. Unpicked logos are auto-assigned. Need at least ${state.minPlayers} to start.</p>
-      <h3>Choose your team</h3>
+      <p class="lede">${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Pick a unique character logo before the host starts. Team names were set on the start page and cannot be edited here. Unpicked logos are auto-assigned. Need at least ${state.minPlayers} to start.</p>
+      <h3>Choose a logo</h3>
       <div class="logo-picker">${picker}</div>
       ${
         isHost
@@ -284,10 +293,10 @@ function canPayStep(step) {
 function leaderLine(a) {
   if (!a) return "";
   if (a.isDefaultBidLeading) {
-    return `Default bid: <strong style="color:${esc(a.currentBidderColor)}">${esc(a.currentBidderShort)}</strong> · ${esc(a.currentBidderName)}`;
+    return `Default bid: <strong style="color:${esc(a.currentBidderColor)}">${esc(a.currentBidderName || a.currentBidderShort)}</strong>`;
   }
   if (a.hasBidder) {
-    return `Leading: <strong style="color:${esc(a.currentBidderColor)}">${esc(a.currentBidderShort)}</strong> · ${esc(a.currentBidderName)}`;
+    return `Leading: <strong style="color:${esc(a.currentBidderColor)}">${esc(a.currentBidderName || a.currentBidderShort)}</strong>`;
   }
   return "Waiting for a bid";
 }
@@ -316,11 +325,11 @@ function auctionView() {
   let banner = "";
   if (event && event.player && event.player.id !== p.id) {
     if (event.type === "sold") {
-      banner = `<div class="sold-banner">${event.short ? teamMark({ id: null, short: event.short, color: event.color, name: event.short }, "sm") : ""} <strong>${esc(event.short)}</strong> signed ${esc(event.player.name)} for ${money(event.priceLakhs)}.</div>`;
+      banner = `<div class="sold-banner"><strong style="color:${esc(event.color || "")}">${esc(event.buyerName || event.short)}</strong> signed ${esc(event.player.name)} for ${money(event.priceLakhs)}.</div>`;
     } else if (event.type === "unsold" || event.type === "skipped") {
       banner = `<div class="sold-banner unsold">${esc(event.player.name)} was skipped — no team could take this player.</div>`;
     } else if (event.type === "eliminated") {
-      banner = `<div class="sold-banner unsold"><strong>${esc(event.short)}</strong> ${esc(event.reason || "Eliminated - insufficient purse")}.</div>`;
+      banner = `<div class="sold-banner unsold"><strong>${esc(event.buyerName || event.short || event.name)}</strong> ${esc(event.reason || "Eliminated - insufficient purse")}.</div>`;
     }
   }
 
@@ -350,7 +359,7 @@ function auctionView() {
         </div>
       </div>
       <aside class="panel side">
-        <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm") : ""}${you ? esc(you.franchise.short) : "Squad"}</h3>
+        <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm", you.name) : ""}${you ? esc(you.name) : "Squad"}</h3>
         ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede">${you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.squad.length < 11 ? ` · need ${11 - you.squad.length} more` : you.squad.length > 11 ? " · full squad+" : " · min 11 reached"}</p>` : ""}
         ${you ? squadSlots(you) : ""}
       </aside>
@@ -430,7 +439,7 @@ function patchAuction() {
 function captainView() {
   const you = state.you;
   const left = Math.ceil(remainingMs(state.captainEndsAt) / 1000);
-  const pending = (state.captainsPending || []).map((p) => esc(p.short)).join(", ") || "none";
+  const pending = (state.captainsPending || []).map((p) => esc(p.name || p.short)).join(", ") || "none";
   const catalog = state.boosterCatalog || [];
   const owned = new Set((you?.boosters || []).map((b) => b.id));
   const picks = (you?.squad || [])
@@ -483,12 +492,12 @@ function matchCard(m) {
       <p class="lbl">${esc(m.label)}</p>
       <div class="scoreline">
         <div>
-          <div style="color:${esc(m.firstInnings.franchise.color)}">${esc(m.firstInnings.franchise.short)}</div>
+          <div style="color:${esc(accentColor(m.firstInnings.franchise))}">${esc(m.firstInnings.short || m.firstInnings.name)}</div>
           <b>${m.firstInnings.score}/${m.firstInnings.wickets}</b>
           <div class="lede" style="margin:0">(${m.firstInnings.overs} ov)</div>
         </div>
         <div>
-          <div style="color:${esc(m.secondInnings.franchise.color)}">${esc(m.secondInnings.franchise.short)}</div>
+          <div style="color:${esc(accentColor(m.secondInnings.franchise))}">${esc(m.secondInnings.short || m.secondInnings.name)}</div>
           <b>${m.secondInnings.score}/${m.secondInnings.wickets}</b>
           <div class="lede" style="margin:0">(${m.secondInnings.overs} ov)</div>
         </div>
@@ -507,7 +516,7 @@ function tableHtml(rows) {
           ${rows
             .map(
               (r) =>
-                `<tr><td>${r.position}</td><td style="color:${esc(r.color)}">${esc(r.short)}</td><td>${r.played}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.nr || 0}</td><td>${r.points}</td><td>${r.nrr >= 0 ? "+" : ""}${Number(r.nrr).toFixed(3)}</td></tr>`
+                `<tr><td>${r.position}</td><td style="color:${esc(r.color)}">${esc(r.name || r.short)}</td><td>${r.played}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.nr || 0}</td><td>${r.points}</td><td>${r.nrr >= 0 ? "+" : ""}${Number(r.nrr).toFixed(3)}</td></tr>`
             )
             .join("")}
         </tbody>
@@ -570,10 +579,10 @@ function teamReportCard(team) {
   return `
     <article class="team-report" style="--c:${esc(team.color)}">
       <header>
-        ${teamMark({ id: team.identityId, name: team.franchiseName, short: team.short, color: team.color, color2: team.color2, emoji: team.emoji }, "lg")}
+        ${teamMark({ id: team.identityId, color: team.color, color2: team.color2, text: team.text }, "lg", team.name)}
         <div>
-          <h3 style="color:${esc(team.color)}">${esc(team.short)} · ${esc(team.franchiseName)}</h3>
-          <p class="lede">${esc(team.name)}${team.title ? " · " + esc(team.title) : ""}${team.eliminated ? " · eliminated" : ""}</p>
+          <h3 style="color:${esc(team.text || team.color)}">${esc(team.name || team.short)}</h3>
+          <p class="lede">${team.title ? esc(team.title) : ""}${team.eliminated ? (team.title ? " · " : "") + "eliminated" : ""}</p>
         </div>
         <p class="record">${team.won || 0}W–${team.lost || 0}L–${team.nr || 0}NR · ${team.points || 0} pts · NRR ${nrrText(team.nrr)}</p>
       </header>
@@ -602,9 +611,9 @@ function resultsView() {
         champ
           ? `<div class="panel champion">
               <h2>Champion</h2>
-              ${teamMark({ id: champ.identityId || (state.franchises || []).find((f) => f.name === champ.name)?.franchise?.id, name: champ.franchiseName, short: champ.short, color: champ.color, color2: champ.color2, emoji: champ.emoji }, "lg")}
-              <p class="name" style="color:${esc(champ.color)}">${esc(champ.short)}</p>
-              <p class="lede">${esc(champ.franchiseName)} · owned by ${esc(champ.name)}</p>
+              ${teamMark({ id: champ.identityId || (state.franchises || []).find((f) => f.name === champ.name)?.franchise?.id, color: champ.color, color2: champ.color2, text: champ.text }, "lg", champ.name)}
+              <p class="name" style="color:${esc(champ.text || champ.color)}">${esc(champ.name || champ.short)}</p>
+              <p class="lede">${champ.title ? esc(champ.title) : "Champion"}</p>
             </div>`
           : `<div class="panel"><h2>Tournament underway</h2><p class="lede">Match results are coming in…</p><div class="actions"><button class="btn secondary" id="skip-reveal">Skip to results</button></div></div>`
       }
@@ -625,7 +634,7 @@ function resultsView() {
                 ${t.positions
                   .map(
                     (p) =>
-                      `<li><span style="color:${esc(p.color)}">${p.position}. ${esc(p.short)}</span><span>${esc(p.title)}</span></li>`
+                      `<li><span style="color:${esc(p.text || p.color)}">${p.position}. ${esc(p.name || p.short)}</span><span>${esc(p.title)}</span></li>`
                   )
                   .join("")}
               </ol>
@@ -643,8 +652,8 @@ function resultsView() {
       ${
         awards
           ? `<div class="awards">
-              <div class="award"><h3>Best buy</h3><p><strong>${esc(awards.bestBuy?.playerName || "—")}</strong> (${esc(awards.bestBuy?.short || "")})</p><p class="lede">${esc(awards.bestBuy?.reason || "")}</p></div>
-              <div class="award"><h3>Costliest flop</h3><p><strong>${esc(awards.costliestFlop?.playerName || "—")}</strong> (${esc(awards.costliestFlop?.short || "")})</p><p class="lede">${esc(awards.costliestFlop?.reason || "")}</p></div>
+              <div class="award"><h3>Best buy</h3><p><strong>${esc(awards.bestBuy?.playerName || "—")}</strong> (${esc(awards.bestBuy?.teamName || awards.bestBuy?.short || "")})</p><p class="lede">${esc(awards.bestBuy?.reason || "")}</p></div>
+              <div class="award"><h3>Costliest flop</h3><p><strong>${esc(awards.costliestFlop?.playerName || "—")}</strong> (${esc(awards.costliestFlop?.teamName || awards.costliestFlop?.short || "")})</p><p class="lede">${esc(awards.costliestFlop?.reason || "")}</p></div>
             </div>`
           : ""
       }

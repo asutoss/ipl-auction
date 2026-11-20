@@ -275,7 +275,7 @@ function addMoment(ctx, team, boosterId, text, match) {
   const booster = (team.boosters || []).find((b) => b.id === boosterId);
   ctx.moments.push({
     teamName: team.name,
-    short: team.franchise.short,
+    short: team.name,
     color: team.franchise.color,
     boosterId,
     boosterName: booster ? booster.name : boosterId,
@@ -294,7 +294,7 @@ function decideToss(teamA, teamB, rng, ctx, label) {
   else winner = rng() < 0.5 ? teamA : teamB;
   const loser = winner === teamA ? teamB : teamA;
   if ((aLucky || bLucky) && aLucky !== bLucky) {
-    addMoment(ctx, winner, "lucky-toss", `Lucky Toss Coin landed for ${winner.franchise.short} vs ${loser.franchise.short}`, { id: `${label}-${teamA.franchise.short}-${teamB.franchise.short}`, label });
+    addMoment(ctx, winner, "lucky-toss", `Lucky Toss Coin landed for ${winner.name} vs ${loser.name}`, { id: `${label}-${teamA.name}-${teamB.name}`, label });
   }
   const wS = teamStrength(winner);
   const lS = teamStrength(loser);
@@ -395,7 +395,7 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     if (saboteur && ctx._busNoted && !ctx._busNoted.has(key)) {
       ctx._busNoted.add(key);
       const t = ctx.teamsByName ? ctx.teamsByName[saboteur] : null;
-      if (t) addMoment(ctx, t, "bus-breakdown", `Team Bus Breakdown delayed ${teamA.franchise.short} vs ${teamB.franchise.short}`, { id: `${label}-${teamA.franchise.short}-${teamB.franchise.short}`, label });
+      if (t) addMoment(ctx, t, "bus-breakdown", `Team Bus Breakdown delayed ${teamA.name} vs ${teamB.name}`, { id: `${label}-${teamA.name}-${teamB.name}`, label });
     }
   }
   if (bNerf) {
@@ -405,7 +405,7 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     if (saboteur && ctx._busNoted && !ctx._busNoted.has(key)) {
       ctx._busNoted.add(key);
       const t = ctx.teamsByName ? ctx.teamsByName[saboteur] : null;
-      if (t) addMoment(ctx, t, "bus-breakdown", `Team Bus Breakdown delayed ${teamB.franchise.short} vs ${teamA.franchise.short}`, { id: `${label}-${teamA.franchise.short}-${teamB.franchise.short}`, label });
+      if (t) addMoment(ctx, t, "bus-breakdown", `Team Bus Breakdown delayed ${teamB.name} vs ${teamA.name}`, { id: `${label}-${teamA.name}-${teamB.name}`, label });
     }
   }
 
@@ -421,7 +421,7 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
   let winner = chased ? second : first;
   let loser = chased ? first : second;
 
-  const provisionalId = `${label}-${teamA.franchise.short}-${teamB.franchise.short}`;
+  const provisionalId = `${label}-${teamA.name}-${teamB.name}`;
   const close = chased ? 10 - inn2.wickets <= 2 : inn1.score - inn2.score <= 8;
 
   function tryFlip(boosterId, chance, text) {
@@ -447,7 +447,7 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     tryFlip(
       "friendly-umpire",
       0.35,
-      `Friendly Umpire turned the match vs ${winner.franchise.short}`
+      `Friendly Umpire turned the match vs ${winner.name}`
     );
   }
   const stillClose = chased ? 10 - inn2.wickets <= 2 : inn1.score - inn2.score <= 8;
@@ -455,19 +455,20 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     tryFlip(
       "drs-wizard",
       0.15,
-      `DRS Wizard overturned a narrow loss vs ${winner.franchise.short}`
+      `DRS Wizard overturned a narrow loss vs ${winner.name}`
     );
   }
 
   let noResult = false;
   if (label === "League" && hasBooster(loser, "rain-dance") && rng() < 0.22) {
     noResult = true;
-    addMoment(ctx, loser, "rain-dance", `Rain Dance washed out a loss vs ${winner.franchise.short}`, { id: provisionalId, label });
+    addMoment(ctx, loser, "rain-dance", `Rain Dance washed out a loss vs ${winner.name}`, { id: provisionalId, label });
   }
 
   function card(team, inn, battingFirst) {
     return {
       name: team.name,
+      short: team.name,
       franchise: team.franchise,
       score: inn.score,
       wickets: inn.wickets,
@@ -485,10 +486,10 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     resultText = "No result — rain stopped play";
   } else if (chased) {
     const wkts = 10 - inn2.wickets;
-    resultText = `${second.franchise.short} won by ${wkts} wicket${wkts === 1 ? "" : "s"}`;
+    resultText = `${second.name} won by ${wkts} wicket${wkts === 1 ? "" : "s"}`;
   } else {
     const runs = inn1.score - inn2.score;
-    resultText = `${first.franchise.short} won by ${runs} run${runs === 1 ? "" : "s"}`;
+    resultText = `${first.name} won by ${runs} run${runs === 1 ? "" : "s"}`;
   }
 
   const match = {
@@ -496,15 +497,15 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     label,
     teamA: teamA.name,
     teamB: teamB.name,
-    shortA: teamA.franchise.short,
-    shortB: teamB.franchise.short,
+    shortA: teamA.name,
+    shortB: teamB.name,
     colorA: teamA.franchise.color,
     colorB: teamB.franchise.color,
-    toss: `${toss.winner.franchise.short} elected to ${toss.winnerBatsFirst ? "bat" : "bowl"}`,
+    toss: `${toss.winner.name} elected to ${toss.winnerBatsFirst ? "bat" : "bowl"}`,
     firstInnings: firstCard,
     secondInnings: secondCard,
     winnerName: noResult ? null : winner.name,
-    winnerShort: noResult ? null : winner.franchise.short,
+    winnerShort: noResult ? null : winner.name,
     loserName: noResult ? null : loser.name,
     resultText,
     noResult,
@@ -596,9 +597,10 @@ function snapshotTable(rows) {
   return sortTable(rows).map((r, i) => ({
     position: i + 1,
     name: r.name,
-    short: r.franchise.short,
+    short: r.name,
     color: r.franchise.color,
-    franchiseName: r.franchise.name,
+    text: r.franchise.text || r.franchise.color,
+    franchiseName: r.name,
     played: r.played,
     won: r.won,
     lost: r.lost,
@@ -649,7 +651,7 @@ function awards(teams) {
         overall,
         priceLakhs: price,
         teamName: t.name,
-        short: t.franchise.short,
+        short: t.name,
         color: t.franchise.color,
         value: overall / Math.max(price, 1),
         flop: price / Math.max(overall, 1),
@@ -793,9 +795,11 @@ function simulateTournament(franchises, seed) {
     positions.push({
       position: positions.length + 1,
       name,
-      short: team.franchise.short,
+      short: team.name,
       color: team.franchise.color,
-      franchiseName: team.franchise.name,
+      text: team.franchise.text || team.franchise.color,
+      identityId: team.franchise.id,
+      franchiseName: team.name,
       title,
       leaguePosition: row ? row.position : null,
       points: row ? row.points : 0,
@@ -829,9 +833,11 @@ function simulateTournament(franchises, seed) {
     champion: championTeam
       ? {
           name: championTeam.name,
-          franchiseName: championTeam.franchise.name,
-          short: championTeam.franchise.short,
+          franchiseName: championTeam.name,
+          short: championTeam.name,
           color: championTeam.franchise.color,
+          text: championTeam.franchise.text || championTeam.franchise.color,
+          identityId: championTeam.franchise.id,
           captainId: championTeam.captainId,
         }
       : null,

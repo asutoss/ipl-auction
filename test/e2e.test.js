@@ -279,12 +279,22 @@ describe("identities, pause, start bid and end game over sockets", () => {
     assert.equal((await ack(rohan, "joinRoom", { code, name: "Rohan" })).ok, true);
 
     await waitState(ash, (s) => s.franchises && s.franchises.length === 3);
+    const catalog = ash.state.identities || [];
+    assert.equal(catalog.length, 20);
+    assert.equal(new Set(catalog.map((t) => t.color.toLowerCase())).size, 20);
+    assert.ok(catalog.every((t) => t.character && t.id));
+
+    const clash = await connect(url, "Clone");
+    sockets.push(clash);
+    const takenName = await ack(clash, "joinRoom", { code, name: "Priya" });
+    assert.equal(takenName.ok, false);
+    assert.match(takenName.error || "", /team name/i);
+
     const ids = ash.state.franchises.map((f) => f.franchise.id);
     assert.equal(new Set(ids).size, 3);
     const taken = ash.state.you.franchise.id;
     const fail = await ack(priya, "selectIdentity", { identityId: taken });
     assert.equal(fail.ok, false);
-    const catalog = ash.state.identities || [];
     const free = catalog.find((t) => !ids.includes(t.id));
     assert.ok(free, "need a free logo");
     const picked = await ack(priya, "selectIdentity", { identityId: free.id });

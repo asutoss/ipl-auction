@@ -159,9 +159,9 @@ class GameRoom extends EventEmitter {
   packStillIn() {
     return this.stillInTeams().map((f) => ({
       name: f.name,
-      short: f.franchise.short,
+      short: f.name,
       color: f.franchise.color,
-      franchiseName: f.franchise.name,
+      franchiseName: f.name,
       identityId: f.franchise.id,
       color2: f.franchise.color2 || null,
       emoji: f.franchise.emoji || null,
@@ -186,8 +186,8 @@ class GameRoom extends EventEmitter {
       nominee: this.auction.nominee,
       currentBidLakhs: this.auction.currentBidLakhs,
       currentBidderName: leader ? leader.name : null,
-      currentBidderShort: leader ? leader.franchise.short : null,
-      currentBidderColor: leader ? leader.franchise.color : null,
+      currentBidderShort: leader ? leader.name : null,
+      currentBidderColor: leader ? (leader.franchise.text || leader.franchise.color) : null,
       hasBidder,
       minBidLakhs,
       incrementLakhs,
@@ -198,7 +198,7 @@ class GameRoom extends EventEmitter {
       soldCount: this.soldLog.length,
       remainingLots: this.queue.length + (this.pass === 1 ? this.unsold.length : 0),
       defaultBidderName: def ? def.name : null,
-      defaultBidderShort: def ? def.franchise.short : null,
+      defaultBidderShort: def ? def.name : null,
       isDefaultBidLeading: this.auction.currentBidderKey === this.auction.defaultBidderKey
         && this.auction.currentBidLakhs === this.auction.startBidLakhs,
       startBidLakhs: this.auction.startBidLakhs,
@@ -224,13 +224,13 @@ class GameRoom extends EventEmitter {
 
   addPlayer(rawName, socketId) {
     const name = normalizeName(rawName);
-    if (!name) return { ok: false, error: "Enter a display name." };
-    if (name.length > 24) return { ok: false, error: "Name must be 24 characters or fewer." };
+    if (!name) return { ok: false, error: "Enter a team name." };
+    if (name.length > 24) return { ok: false, error: "Team name must be 24 characters or fewer." };
 
     const existing = this.findByName(name);
     if (existing) {
       if (existing.connected && existing.socketId && existing.socketId !== socketId) {
-        return { ok: false, error: "That name is already in this room." };
+        return { ok: false, error: "That team name is already in this room." };
       }
       existing.socketId = socketId;
       existing.connected = true;
@@ -247,7 +247,7 @@ class GameRoom extends EventEmitter {
     }
 
     if (this.phase !== "lobby") {
-      return { ok: false, error: "The auction has already started. Rejoin with your original name." };
+      return { ok: false, error: "The auction has already started. Rejoin with your original team name." };
     }
     if (this.franchises.length >= MAX_PLAYERS) {
       return { ok: false, error: "This room is full (10 franchises)." };
@@ -475,7 +475,7 @@ class GameRoom extends EventEmitter {
     team.eliminatedAt = Date.now();
     const entry = {
       name: team.name,
-      short: team.franchise.short,
+      short: team.name,
       color: team.franchise.color,
       reason: "Eliminated - insufficient purse",
     };
@@ -634,7 +634,7 @@ class GameRoom extends EventEmitter {
       player,
       priceLakhs: price,
       buyerName: winner.name,
-      short: winner.franchise.short,
+      short: winner.name,
       color: winner.franchise.color,
     });
     this.lastEvent = {
@@ -642,7 +642,7 @@ class GameRoom extends EventEmitter {
       player,
       priceLakhs: price,
       buyerName: winner.name,
-      short: winner.franchise.short,
+      short: winner.name,
       color: winner.franchise.color,
     };
     this.auction = null;
@@ -651,7 +651,7 @@ class GameRoom extends EventEmitter {
       player,
       priceLakhs: price,
       buyerName: winner.name,
-      short: winner.franchise.short,
+      short: winner.name,
       color: winner.franchise.color,
       purseLakhs: winner.purseLakhs,
       squadSize: winner.squad.length,
@@ -717,7 +717,7 @@ class GameRoom extends EventEmitter {
         type: "bid",
         amountLakhs: amount,
         bidderName: team.name,
-        bidderShort: team.franchise.short,
+        bidderShort: team.name,
         bidderColor: team.franchise.color,
         endsAt: this.auction.endsAt,
         stillIn: this.packStillIn(),
@@ -726,8 +726,8 @@ class GameRoom extends EventEmitter {
         isDefaultBidLeading: false,
         currentBidLakhs: this.auction.currentBidLakhs,
         currentBidderName: team.name,
-        currentBidderShort: team.franchise.short,
-        currentBidderColor: team.franchise.color,
+        currentBidderShort: team.name,
+        currentBidderColor: team.franchise.text || team.franchise.color,
         hasBidder: true,
       });
     }
@@ -757,7 +757,7 @@ class GameRoom extends EventEmitter {
       this.emitDelta({
         type: "optOut",
         name: team.name,
-        short: team.franchise.short,
+        short: team.name,
         color: team.franchise.color,
         stillIn: this.packStillIn(),
       });
@@ -791,7 +791,7 @@ class GameRoom extends EventEmitter {
           player: pick,
           priceLakhs: fillPrice,
           buyerName: team.name,
-          short: team.franchise.short,
+          short: team.name,
           color: team.franchise.color,
           auto: true,
         });
@@ -856,7 +856,7 @@ class GameRoom extends EventEmitter {
     this.emitDelta({
       type: "booster",
       name: team.name,
-      short: team.franchise.short,
+      short: team.name,
       booster: bought,
       purseLakhs: team.purseLakhs,
     });
@@ -877,7 +877,7 @@ class GameRoom extends EventEmitter {
     this.emitDelta({
       type: "captain",
       name: team.name,
-      short: team.franchise.short,
+      short: team.name,
       captainId: playerId,
     });
     this.maybeFinishPrep();
@@ -905,12 +905,12 @@ class GameRoom extends EventEmitter {
       result.positions.push({
         position: result.positions.length + 1,
         name: f.name,
-        short: f.franchise.short,
+        short: f.name,
         color: f.franchise.color,
         color2: f.franchise.color2 || null,
-        emoji: f.franchise.emoji || null,
+        text: f.franchise.text || f.franchise.color,
         identityId: f.franchise.id,
-        franchiseName: f.franchise.name,
+        franchiseName: f.name,
         title: "Eliminated - insufficient purse",
         eliminated: true,
         leaguePosition: null,
@@ -988,12 +988,12 @@ class GameRoom extends EventEmitter {
       const statMap = new Map(stats.map((s) => [s.playerId, s]));
       return {
         name: f.name,
-        short: f.franchise.short,
+        short: f.name,
         color: f.franchise.color,
         color2: f.franchise.color2 || null,
-        emoji: f.franchise.emoji || null,
+        text: f.franchise.text || f.franchise.color,
         identityId: f.franchise.id,
-        franchiseName: f.franchise.name,
+        franchiseName: f.name,
         captainId: f.captainId,
         purseLakhs: f.purseLakhs,
         boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
@@ -1082,7 +1082,7 @@ class GameRoom extends EventEmitter {
       captainsPending: this.phase === "captains"
         ? this.activeFranchises().filter((f) => !f.captainId && f.squad.length).map((f) => ({
             name: f.name,
-            short: f.franchise.short,
+            short: f.name,
             color: f.franchise.color,
           }))
         : [],

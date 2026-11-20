@@ -731,3 +731,64 @@ describe("end game and leave", () => {
     assert.equal(room.franchises[0].name, "Ashutosh");
   });
 });
+
+
+describe("team names and logo catalog", () => {
+  test("catalog has 20 cartoon logos with unique colours and no food-theme team names", () => {
+    const { IDENTITIES, logoSvg } = require("../public/identities");
+    assert.equal(IDENTITIES.length, 20);
+    const ids = IDENTITIES.map((t) => t.id);
+    const characters = IDENTITIES.map((t) => t.character);
+    const colors = IDENTITIES.map((t) => t.color.toLowerCase());
+    assert.equal(new Set(ids).size, 20);
+    assert.equal(new Set(characters).size, 20);
+    assert.equal(new Set(colors).size, 20);
+    for (const t of IDENTITIES) {
+      assert.ok(t.character && t.character.length > 1, t.id);
+      assert.match(t.color, /^#[0-9A-Fa-f]{6}$/);
+      assert.match(t.color2, /^#[0-9A-Fa-f]{6}$/);
+      assert.match(t.text, /^#[0-9A-Fa-f]{6}$/);
+      const svg = logoSvg(t.id);
+      assert.match(svg, /<svg /);
+      assert.doesNotMatch(t.character, /chargers|sloths|punchers|rockets|smashers|mavericks|blasters|jaguars|jammers|dynamos|lions|vikings/i);
+    }
+    // Colours should be visually spread (ignore near-neutrals).
+    function hexRgb(hex) {
+      const n = parseInt(hex.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    function dist(a, b) {
+      const [ar, ag, ab] = hexRgb(a);
+      const [br, bg, bb] = hexRgb(b);
+      return Math.hypot(ar - br, ag - bg, ab - bb);
+    }
+    for (let i = 0; i < colors.length; i++) {
+      for (let j = i + 1; j < colors.length; j++) {
+        assert.ok(dist(colors[i], colors[j]) >= 28, `${IDENTITIES[i].character} vs ${IDENTITIES[j].character} too close`);
+      }
+    }
+  });
+
+  test("rejects a second team that reuses a connected team name", () => {
+    const room = roomWith(["Night Owls"]);
+    const fail = room.addPlayer("night owls", "sock-other");
+    assert.equal(fail.ok, false);
+    assert.match(fail.error, /team name/i);
+    assert.equal(room.franchises.length, 1);
+  });
+
+  test("rejoins by the same team name after a disconnect", () => {
+    const room = roomWith(["Night Owls", "Red Caps"]);
+    const team = room.findByName("Night Owls");
+    const logo = team.franchise.id;
+    room.disconnect(team.socketId);
+    assert.equal(team.connected, false);
+    const again = room.addPlayer("night owls", "sock-rejoin");
+    assert.equal(again.ok, true);
+    assert.equal(again.rejoined, true);
+    assert.equal(again.name, "Night Owls");
+    assert.equal(room.findByName("Night Owls").connected, true);
+    assert.equal(room.findByName("Night Owls").franchise.id, logo);
+    assert.equal(room.franchises.length, 2);
+  });
+});
