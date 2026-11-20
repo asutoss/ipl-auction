@@ -9,6 +9,7 @@ const STORE_KEY = "ipl-auction-session";
 
 let state = null;
 let lastError = "";
+let selectedMode = "classical";
 let bidDraft = null;
 let reveal = null; // { startedAt, skipped }
 let tickTimer = null;
@@ -286,6 +287,37 @@ function roleTag(role) {
   return `<span class="tag role-${esc(role)}">${esc(role)}</span>`;
 }
 
+const MODE_FALLBACKS = {
+  classical: { id: "classical", name: "Classical", squadSize: 11, purse: 100, overs: 20, quota: { BAT: 4, WK: 1, AR: 2, BOWL: 4 }, compositionLabel: "4 BAT · 1 WK · 2 AR · 4 BOWL", purseOptions: [50, 75, 100, 120, 150], summary: "Classical · 11-player squad", blurb: "Full IPL-style auction" },
+  rapid: { id: "rapid", name: "Rapid", squadSize: 5, purse: 50, overs: 10, quota: { BAT: 2, WK: 1, AR: 0, BOWL: 2 }, compositionLabel: "2 BAT · 1 WK · 2 BOWL", purseOptions: [30, 40, 50, 65, 80], summary: "Rapid · 5-player squad", blurb: "Five-player sprint" },
+  bullet: { id: "bullet", name: "Bullet", squadSize: 3, purse: 30, overs: 6, quota: { BAT: 1, WK: 1, AR: 0, BOWL: 1 }, compositionLabel: "1 BAT · 1 WK · 1 BOWL", purseOptions: [20, 25, 30, 40, 50], summary: "Bullet · 3-player squad", blurb: "Three-player dash" },
+};
+
+function modeInfo() {
+  const raw = state && state.mode;
+  const id = (raw && raw.id) || (typeof raw === "string" ? raw : "classical");
+  const base = MODE_FALLBACKS[id] || MODE_FALLBACKS.classical;
+  if (raw && typeof raw === "object") return { ...base, ...raw, quota: raw.quota || base.quota, purseOptions: raw.purseOptions || base.purseOptions };
+  return base;
+}
+
+function modePill() {
+  const m = modeInfo();
+  return `<span class="pill mode-pill">${esc(m.name)} · ${m.squadSize} players</span>`;
+}
+
+function gameModeCards() {
+  return ["classical", "rapid", "bullet"].map((id) => {
+    const m = MODE_FALLBACKS[id];
+    const on = selectedMode === id;
+    return `<button type="button" class="game-mode ${on ? "selected" : ""}" data-mode="${id}" role="radio" aria-checked="${on ? "true" : "false"}">
+      <strong>${esc(m.name)}</strong>
+      <span class="game-mode-size">${m.squadSize}-player squad</span>
+      <small>${esc(m.compositionLabel)}</small>
+    </button>`;
+  }).join("");
+}
+
 function renderTop() {
   if (!state || !state.code || state.phase === "ended") {
     topMeta.hidden = true;
@@ -301,6 +333,7 @@ function renderTop() {
     : `<button class="btn secondary" id="leave" type="button">Leave</button>`;
   topMeta.innerHTML = `
     <span class="pill">Room <strong>${esc(state.code)}</strong></span>
+    ${modePill()}
     <span class="pill">${esc(state.phase)}</span>
     ${you ? `<span class="pill" style="display:inline-flex;gap:8px;align-items:center">${teamMark(you.franchise, "sm", you.name)}<span style="color:${esc(accentColor(you.franchise))}">${esc(you.name)}</span></span>` : ""}
     ${you ? `<span class="pill">Purse <strong>${money(you.purseLakhs)}</strong></span>` : ""}
@@ -322,11 +355,15 @@ function homeView() {
       <section class="hero">
         <div class="panel">
           <h2>Build a franchise. Win the league.</h2>
-          <p class="lede">Join a room with friends, bid for an XI (4 batters, 1 keeper, 2 all-rounders, 4 bowlers), pick a captain, and watch a simulated IPL-style tournament unfold.</p>
+          <p class="lede">Join a room with friends, bid for a squad, pick a captain, and watch a simulated tournament unfold. Choose the game type before you create the room.</p>
+          <div class="game-mode-block">
+            <p class="game-mode-label" id="game-type-label">Game type</p>
+            <div class="game-modes" role="radiogroup" aria-labelledby="game-type-label">${gameModeCards()}</div>
+          </div>
           <div class="actions">
             <button class="btn" id="create">Create room</button>
           </div>
-          <p class="hint">2–10 franchises. Each team starts with 100 points. Ratings in the player pool are informal estimates.</p>
+          <p class="hint">2–10 teams. Classical is the full 11-player auction (purse 100). Rapid is 5 players (50 points). Bullet is 3 players (30 points). Ratings in the player pool are informal estimates.</p>
         </div>
         <div class="panel">
           <h2>Join a room</h2>
@@ -391,7 +428,7 @@ function lobbyView() {
     <section class="panel">
       <p class="lede">Share this code</p>
       <p class="room-code">${esc(state.code)}</p>
-      <p class="lede">${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Choose a unique character before the host starts. Team names were set on the start page and cannot be edited here. Unpicked characters are auto-assigned. Taken characters are greyed out and show the team that chose them. Need at least ${state.minPlayers} to start.</p>
+      <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · ${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Choose a unique character before the host starts. Team names were set on the start page and cannot be edited here. Unpicked characters are auto-assigned. Taken characters are greyed out and show the team that chose them. Need at least ${state.minPlayers} to start.</p>
       <h3>Choose your character</h3>
       <div class="character-picker logo-picker">${picker}</div>
       ${
@@ -400,12 +437,12 @@ function lobbyView() {
               <div>
                 <label for="purse">Purse (points)</label>
                 <select id="purse">
-                  ${[50, 75, 100, 120, 150]
-                    .map(
-                      (n) =>
-                        `<option value="${n}" ${state.purseLakhs === n ? "selected" : ""}>${n}</option>`
-                    )
-                    .join("")}
+                  ${(() => {
+                    const opts = [...(modeInfo().purseOptions || [50, 75, 100, 120, 150])];
+                    if (state.purseLakhs && !opts.includes(state.purseLakhs)) opts.push(state.purseLakhs);
+                    opts.sort((a, b) => a - b);
+                    return opts.map((n) => `<option value="${n}" ${state.purseLakhs === n ? "selected" : ""}>${n}</option>`).join("");
+                  })()}
                 </select>
               </div>
             </div>`
@@ -421,12 +458,10 @@ function lobbyView() {
 }
 
 function squadSlots(franchise) {
-  const groups = [
-    ["BAT", 4],
-    ["WK", 1],
-    ["AR", 2],
-    ["BOWL", 4],
-  ];
+  const quota = (modeInfo().quota) || { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+  const groups = ["BAT", "WK", "AR", "BOWL"]
+    .map((role) => [role, quota[role] || 0])
+    .filter(([, n]) => n > 0);
   const rows = [];
   for (const [role, minCount] of groups) {
     const matches = (franchise.squad || []).filter((s) => s.player.role === role);
@@ -456,7 +491,7 @@ function teamStripHtml(a) {
   const leader = a.currentBidderName;
   return snap
     .map((row) => {
-      const pending = row.pending != null ? row.pending : Math.max(0, 11 - (row.squadSize || 0));
+      const pending = row.pending != null ? row.pending : Math.max(0, (state.squadSize || modeInfo().squadSize || 11) - (row.squadSize || 0));
       const done = Boolean(row.complete) || pending === 0;
       const out = !row.eliminated && !done && !still.has(row.name);
       const cls = [
@@ -574,7 +609,7 @@ function auctionView() {
     <div>${banner}</div>
     <section class="auction-layout">
       <div class="panel player-card">
-        <p class="lede">On the block ${a.pass === 2 ? "· unsold list" : ""} · ${a.soldCount} sold · ${a.remainingLots} still to come · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
+        <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · On the block${a.pass === 2 ? " · unsold list" : ""} · ${a.soldCount} sold · ${a.remainingLots} still to come · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
         <div class="auction-stage">
           <div class="ring-wrap">
             <div class="ring-stage">
@@ -1276,10 +1311,20 @@ function wireHome() {
   const session = loadSession();
   if (nameEl && session?.name && !nameEl.value) nameEl.value = session.name;
   if (codeEl && session?.code && !codeEl.value) codeEl.value = session.code;
+  document.querySelectorAll("[data-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedMode = btn.getAttribute("data-mode") || "classical";
+      document.querySelectorAll("[data-mode]").forEach((b) => {
+        const on = b.getAttribute("data-mode") === selectedMode;
+        b.classList.toggle("selected", on);
+        b.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    });
+  });
   document.getElementById("create")?.addEventListener("click", async () => {
     lastError = "";
     const name = (nameEl?.value || "").trim();
-    const res = await emit("createRoom", { name });
+    const res = await emit("createRoom", { name, mode: selectedMode });
     if (!res.ok) {
       lastError = res.error || "Could not create room.";
       render();

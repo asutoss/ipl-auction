@@ -16,10 +16,14 @@ const { simulateTournament, teamStrength } = require("../server/simulate");
 
 const { meta, players } = loadPlayers();
 
-function roomWith(names, timers) {
+function roomWith(names, timers, opts = {}) {
+  const mode = opts.mode || "classical";
+  const { getMode } = require("../server/rules");
+  const purse = opts.purseLakhs != null ? opts.purseLakhs : (opts.mode ? getMode(mode).purse : 100);
   const room = new GameRoom({
     code: "TEST",
-    purseLakhs: 100,
+    purseLakhs: purse,
+    mode,
     timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
@@ -1089,5 +1093,137 @@ describe("lot snapshot strip", () => {
     const row = room.auction.lotSnapshot.find((r) => r.name === "Priya");
     assert.equal(row.pending, 10);
     assert.equal(row.squadSize, 1);
+  });
+});
+
+
+
+describe("game modes", () => {
+  const { MODES, getMode, publicMode, listModes, isSquadComplete, pendingSlots } = require("../server/rules");
+
+  function fakeSquad(roles) {
+    return roles.map((role, i) => ({
+      player: { id: "p" + i, name: role + i, role, batting: 70, bowling: 70 },
+      priceLakhs: 2,
+    }));
+  }
+
+  function simTeam(name, roles, offset) {
+    const need = {};
+    const skipped = {};
+    for (const role of roles) {
+      need[role] = (need[role] || 0) + 1;
+      skipped[role] = 0;
+    }
+    const squad = [];
+    for (const p of players) {
+      if (!need[p.role]) continue;
+      if (skipped[p.role] < (offset || 0)) {
+        skipped[p.role] += 1;
+        continue;
+      }
+      const have = squad.filter((s) => s.player.role === p.role).length;
+      if (have >= need[p.role]) continue;
+      squad.push({ player: p, priceLakhs: 4 });
+    }
+    return {
+      name,
+      franchise: { id: name, name, short: name, color: "#123" },
+      squad,
+      captainId: squad[0].player.id,
+    };
+  }
+
+  test("classical, rapid, and bullet have the expected composition and purse", () => {
+    assert.equal(listModes().length, 3);
+    assert.equal(MODES.classical.squadSize, 11);
+    assert.deepEqual(MODES.classical.quota, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    assert.equal(MODES.classical.purse, 100);
+    assert.deepEqual(MODES.rapid.quota, { BAT: 2, WK: 1, AR: 0, BOWL: 2 });
+    assert.equal(MODES.rapid.squadSize, 5);
+    assert.equal(MODES.rapid.purse, 50);
+    assert.deepEqual(MODES.bullet.quota, { BAT: 1, WK: 1, AR: 0, BOWL: 1 });
+    assert.equal(MODES.bullet.squadSize, 3);
+    assert.equal(MODES.bullet.purse, 30);
+    assert.equal(getMode("Rapid").id, "rapid");
+    assert.equal(publicMode("bullet").compositionLabel, "1 BAT · 1 WK · 1 BOWL");
+    assert.equal(isSquadComplete(fakeSquad(["BAT", "BAT", "WK", "BOWL", "BOWL"]), "rapid"), true);
+    assert.equal(isSquadComplete(fakeSquad(["BAT", "WK", "BOWL", "BOWL"]), "rapid"), false);
+    assert.equal(pendingSlots(fakeSquad(["BAT", "WK"]), "bullet"), 1);
+    assert.equal(isSquadComplete(fakeSquad(["BAT", "WK", "BOWL"]), "bullet"), true);
+    assert.equal(isSquadComplete(fakeSquad(["BAT", "WK", "BOWL"]), "classical"), false);
+    const rapidRoom = roomWith(["Ashutosh", "Priya"], null, { mode: "rapid" });
+    assert.equal(rapidRoom.mode.id, "rapid");
+    assert.equal(rapidRoom.purseLakhs, 50);
+    const snap = rapidRoom.getState("Ashutosh");
+    assert.equal(snap.mode.id, "rapid");
+    assert.equal(snap.squadSize, 5);
+    assert.deepEqual(snap.quotas, { BAT: 2, WK: 1, AR: 0, BOWL: 2 });
+  });
+
+  test("rapid auction ends only when every active team has a complete 5-player squad", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { soldRevealMs: 0 }, { mode: "rapid" });
+    giveSquad(room, "Priya", { BAT: 2, WK: 1, BOWL: 2 });
+    giveSquad(room, "Ashutosh", { BAT: 2, WK: 0, BOWL: 2 });
+    assert.equal(isSquadComplete(room.findByName("Priya").squad, "rapid"), true);
+    assert.equal(isSquadComplete(room.findByName("Ashutosh").squad, "rapid"), false);
+    const wk = players.find((p) => p.role === "WK" && !room.soldIds.has(p.id));
+    room.queue = [wk];
+    room.phase = "auction";
+    room.rrIndex = 0;
+    room.nominateNext();
+    assert.ok(room.findByName("Ashutosh").squad.some((s) => s.player.id === wk.id));
+    assert.equal(isSquadComplete(room.findByName("Ashutosh").squad, "rapid"), true);
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+  });
+
+  test("bullet auction ends only when every active team has a complete 3-player squad", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { soldRevealMs: 0 }, { mode: "bullet" });
+    assert.equal(room.purseLakhs, 30);
+    giveSquad(room, "Priya", { BAT: 1, WK: 1, BOWL: 1 });
+    giveSquad(room, "Ashutosh", { BAT: 1, WK: 0, BOWL: 1 });
+    assert.equal(isSquadComplete(room.findByName("Priya").squad, "bullet"), true);
+    const wk = players.find((p) => p.role === "WK" && !room.soldIds.has(p.id));
+    room.queue = [wk];
+    room.phase = "auction";
+    room.rrIndex = 0;
+    room.nominateNext();
+    assert.ok(room.findByName("Ashutosh").squad.some((s) => s.player.id === wk.id));
+    assert.equal(isSquadComplete(room.findByName("Ashutosh").squad, "bullet"), true);
+    assert.equal(room.findByName("Ashutosh").squad.length, 3);
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+  });
+
+  test("simulation runs for rapid 5-player sides", () => {
+    const roles = ["BAT", "BAT", "WK", "BOWL", "BOWL"];
+    const teams = [simTeam("A", roles, 0), simTeam("B", roles, 2), simTeam("C", roles, 4)];
+    teams.forEach((t) => assert.equal(t.squad.length, 5, t.name));
+    const result = simulateTournament(teams, 21, { mode: "rapid" });
+    assert.ok(result.champion);
+    assert.equal(result.leagueMatches.length, 3);
+    assert.equal(result.positions.length, 3);
+    for (const m of result.leagueMatches) {
+      if (m.noResult) continue;
+      assert.ok(m.firstInnings.balls <= 60, m.firstInnings.balls);
+      assert.ok(m.secondInnings.balls <= 60);
+      assert.ok(m.firstInnings.wickets <= 4);
+      assert.ok(m.secondInnings.wickets <= 4);
+    }
+  });
+
+  test("simulation runs for bullet 3-player sides", () => {
+    const roles = ["BAT", "WK", "BOWL"];
+    const teams = [simTeam("A", roles, 0), simTeam("B", roles, 2), simTeam("C", roles, 4)];
+    teams.forEach((t) => assert.equal(t.squad.length, 3, t.name));
+    const result = simulateTournament(teams, 8, { mode: "bullet" });
+    assert.ok(result.champion);
+    assert.equal(result.leagueMatches.length, 3);
+    for (const m of result.leagueMatches) {
+      if (m.noResult) continue;
+      assert.ok(m.firstInnings.balls <= 36, m.firstInnings.balls);
+      assert.ok(m.secondInnings.balls <= 36);
+      assert.ok(m.firstInnings.wickets <= 2);
+      assert.ok(m.secondInnings.wickets <= 2);
+    }
   });
 });

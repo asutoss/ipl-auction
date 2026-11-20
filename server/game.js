@@ -3,18 +3,16 @@ const { overallRating } = require("./players");
 const { simulateTournament, pickCaptainIfMissing } = require("./simulate");
 const {
   ROLES,
-  QUOTA,
-  SQUAD_SIZE,
-  DEFAULT_PURSE_LAKHS,
   MIN_PLAYERS,
   MAX_PLAYERS,
   FRANCHISES,
   roleCounts,
   overseasCount,
   remainingQuota,
-  hasMinSquad,
   isSquadComplete,
   pendingSlots,
+  resolveMode,
+  publicMode,
   bidIncrement,
   nextBidAmount,
   isLegalRaise,
@@ -73,10 +71,14 @@ function defaultTimers() {
 }
 
 class GameRoom extends EventEmitter {
-  constructor({ code, purseLakhs, timers, allPlayers, meta }) {
+  constructor({ code, purseLakhs, timers, allPlayers, meta, mode }) {
     super();
     this.code = code;
-    this.purseLakhs = purseLakhs || DEFAULT_PURSE_LAKHS;
+    this.mode = resolveMode(mode);
+    this.modeId = this.mode.id;
+    this.purseLakhs = purseLakhs != null && Number.isFinite(Number(purseLakhs))
+      ? Math.round(Number(purseLakhs))
+      : this.mode.purse;
     this.timers = { ...defaultTimers(), ...(timers || {}) };
     this.allPlayers = allPlayers;
     this.meta = meta || {};
@@ -217,9 +219,9 @@ class GameRoom extends EventEmitter {
       color2: (f.franchise && f.franchise.color2) || null,
       text: (f.franchise && (f.franchise.text || f.franchise.color)) || null,
       purseLakhs: f.purseLakhs,
-      pending: pendingSlots(f.squad),
+      pending: pendingSlots(f.squad, this.mode),
       squadSize: (f.squad || []).length,
-      complete: isSquadComplete(f.squad),
+      complete: isSquadComplete(f.squad, this.mode),
       eliminated: Boolean(f.eliminated),
     }));
   }
@@ -528,17 +530,17 @@ class GameRoom extends EventEmitter {
   allTeamsFull() {
     const active = this.activeFranchises();
     if (active.length === 0) return true;
-    return active.every((f) => isSquadComplete(f.squad));
+    return active.every((f) => isSquadComplete(f.squad, this.mode));
   }
 
   incompleteTeams() {
-    return this.activeFranchises().filter((f) => !isSquadComplete(f.squad));
+    return this.activeFranchises().filter((f) => !isSquadComplete(f.squad, this.mode));
   }
 
   neededRoles() {
     const roles = new Set();
     for (const f of this.incompleteTeams()) {
-      const left = remainingQuota(f.squad);
+      const left = remainingQuota(f.squad, this.mode);
       for (const role of ROLES) {
         if ((left[role] || 0) > 0) roles.add(role);
       }
@@ -600,7 +602,7 @@ class GameRoom extends EventEmitter {
 
   isEligible(team, player, amountLakhs) {
     if (!team || team.eliminated) return false;
-    return canBidFor(team, player, amountLakhs, this.remainingPool(player.id)).ok;
+    return canBidFor(team, player, amountLakhs, this.remainingPool(player.id), { mode: this.mode }).ok;
   }
 
   eliminate(team) {
@@ -635,7 +637,7 @@ class GameRoom extends EventEmitter {
     for (let i = 0; i < n; i++) {
       const idx = (start + i) % n;
       const team = this.franchises[idx];
-      if (team.eliminated || isSquadComplete(team.squad)) continue;
+      if (team.eliminated || isSquadComplete(team.squad, this.mode)) continue;
       if (team.purseLakhs < cost) {
         this.eliminate(team);
         continue;
@@ -805,7 +807,7 @@ class GameRoom extends EventEmitter {
       identityId: characterIdOf(winner.franchise),
       purseLakhs: winner.purseLakhs,
       squadSize: winner.squad.length,
-      complete: isSquadComplete(winner.squad),
+      complete: isSquadComplete(winner.squad, this.mode),
       revealMs: this.revealDelayMs(),
       revealUntil: this.revealUntil,
     };
@@ -910,7 +912,7 @@ class GameRoom extends EventEmitter {
       return { ok: false, error: `Minimum bid is ${minBid} points.` };
     }
 
-    const check = canBidFor(team, this.auction.nominee, amount, this.remainingPool(this.auction.nominee.id));
+    const check = canBidFor(team, this.auction.nominee, amount, this.remainingPool(this.auction.nominee.id), { mode: this.mode });
     if (!check.ok) return { ok: false, error: check.reason };
 
     this.auction.currentBidLakhs = amount;
@@ -983,10 +985,10 @@ class GameRoom extends EventEmitter {
     let progress = true;
     while (progress) {
       progress = false;
-      const needy = this.activeFranchises().filter((f) => !isSquadComplete(f.squad));
+      const needy = this.activeFranchises().filter((f) => !isSquadComplete(f.squad, this.mode));
       if (needy.length === 0) break;
       for (const team of needy) {
-        const left = remainingQuota(team.squad);
+        const left = remainingQuota(team.squad, this.mode);
         const pick = leftover.find((p) => (left[p.role] || 0) > 0 && team.purseLakhs >= fillPrice);
         if (!pick) continue;
         team.squad.push({ player: pick, priceLakhs: fillPrice });
@@ -1103,7 +1105,7 @@ class GameRoom extends EventEmitter {
     this.captainEndsAt = null;
     const seed = (Date.now() ^ (Math.floor(Math.random() * 0xffffffff) >>> 0)) >>> 0;
     const active = this.activeFranchises();
-    const result = simulateTournament(active, seed);
+    const result = simulateTournament(active, seed, { mode: this.mode });
     const placed = new Set(result.positions.map((p) => p.name));
     for (const f of this.franchises.filter((x) => x.eliminated)) {
       if (placed.has(f.name)) continue;
@@ -1145,8 +1147,8 @@ class GameRoom extends EventEmitter {
       })),
       roleCounts: roleCounts(f.squad),
       overseasCount: overseasCount(f.squad),
-      remainingQuota: remainingQuota(f.squad),
-      complete: isSquadComplete(f.squad),
+      remainingQuota: remainingQuota(f.squad, this.mode),
+      complete: isSquadComplete(f.squad, this.mode),
       captainId: f.captainId,
       boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
       eliminated: Boolean(f.eliminated),
@@ -1275,7 +1277,8 @@ class GameRoom extends EventEmitter {
             you,
             this.auction.nominee,
             auction.minBidLakhs,
-            this.remainingPool(this.auction.nominee.id)
+            this.remainingPool(this.auction.nominee.id),
+            { mode: this.mode }
           );
           youCanBid = check.ok;
           youCanOptOut = auction.stillIn.some((s) => s.isYou);
@@ -1315,8 +1318,9 @@ class GameRoom extends EventEmitter {
         : [],
       eliminationLog: this.eliminationLog,
       tournament: this.summarizeTournament(includeMatches),
-      quotas: QUOTA,
-      squadSize: SQUAD_SIZE,
+      mode: publicMode(this.mode),
+      quotas: this.mode.quota,
+      squadSize: this.mode.squadSize,
       maxOverseas: null,
       maxPlayers: MAX_PLAYERS,
       minPlayers: MIN_PLAYERS,

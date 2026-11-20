@@ -11,6 +11,116 @@ const DEFAULT_PURSE_LAKHS = DEFAULT_PURSE_POINTS; // amounts are in points
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 10;
 
+const MODES = {
+  classical: {
+    id: "classical",
+    name: "Classical",
+    blurb: "Full IPL-style auction",
+    quota: { BAT: 4, WK: 1, AR: 2, BOWL: 4 },
+    squadSize: 11,
+    purse: 100,
+    purseOptions: [50, 75, 100, 120, 150],
+    overs: 20,
+    expectedBatters: 7, // 4 BAT + 1 WK + 2 AR
+    expectedBowlers: 6, // 2 AR + 4 BOWL
+    maxOversPerBowler: 4,
+  },
+  rapid: {
+    id: "rapid",
+    name: "Rapid",
+    blurb: "Five-player sprint",
+    quota: { BAT: 2, WK: 1, AR: 0, BOWL: 2 },
+    squadSize: 5,
+    purse: 50,
+    purseOptions: [30, 40, 50, 65, 80],
+    overs: 10,
+    expectedBatters: 3, // 2 BAT + 1 WK
+    expectedBowlers: 2,
+    maxOversPerBowler: 5,
+  },
+  bullet: {
+    id: "bullet",
+    name: "Bullet",
+    blurb: "Three-player dash",
+    quota: { BAT: 1, WK: 1, AR: 0, BOWL: 1 },
+    squadSize: 3,
+    purse: 30,
+    purseOptions: [20, 25, 30, 40, 50],
+    overs: 6,
+    expectedBatters: 2, // 1 BAT + 1 WK
+    expectedBowlers: 1,
+    maxOversPerBowler: 6,
+  },
+};
+const DEFAULT_MODE = "classical";
+
+function compositionLabel(mode) {
+  const m = resolveMode(mode);
+  return ["BAT", "WK", "AR", "BOWL"]
+    .filter((r) => (m.quota[r] || 0) > 0)
+    .map((r) => `${m.quota[r]} ${r}`)
+    .join(" · ");
+}
+
+function getMode(id) {
+  const key = String(id || "").toLowerCase().trim();
+  return MODES[key] || null;
+}
+
+function resolveModeId(mode) {
+  if (typeof mode === "string" && MODES[mode]) return mode;
+  if (mode && typeof mode === "object") {
+    if (mode.id && MODES[mode.id]) return mode.id;
+  }
+  return DEFAULT_MODE;
+}
+
+function resolveMode(mode) {
+  if (mode && typeof mode === "object" && mode.quota && mode.squadSize) return mode;
+  return getMode(typeof mode === "string" ? mode : resolveModeId(mode)) || MODES[DEFAULT_MODE];
+}
+
+function publicMode(mode) {
+  const m = resolveMode(mode);
+  return {
+    id: m.id,
+    name: m.name,
+    blurb: m.blurb,
+    squadSize: m.squadSize,
+    quota: { ...m.quota },
+    purse: m.purse,
+    purseOptions: [...m.purseOptions],
+    overs: m.overs,
+    compositionLabel: compositionLabel(m),
+    summary: `${m.name} · ${m.squadSize}-player squad`,
+  };
+}
+
+function listModes() {
+  return ["classical", "rapid", "bullet"].map((id) => publicMode(id));
+}
+
+function inningsFormat(mode) {
+  const m = resolveMode(mode);
+  const overs = m.overs;
+  const scale = overs / 20;
+  return {
+    id: m.id,
+    overs,
+    balls: overs * 6,
+    maxWickets: Math.max(1, m.squadSize - 1),
+    maxOversPerBowler: m.maxOversPerBowler,
+    maxBallsPerBowler: m.maxOversPerBowler * 6,
+    expectedBatters: m.expectedBatters,
+    expectedBowlers: m.expectedBowlers,
+    expectedRuns: Math.round(155 * scale),
+    sd: Math.max(6, Math.round(16 * Math.sqrt(scale))),
+    edgeScale: 0.85 * scale,
+    minScore: Math.round(95 * scale),
+    maxScore: Math.round(265 * scale),
+  };
+}
+
 const { IDENTITIES } = require("../public/identities");
 const FRANCHISES = IDENTITIES;
 
@@ -27,29 +137,31 @@ function overseasCount(squad) {
   return squad.filter((s) => s.player.overseas).length;
 }
 
-function remainingQuota(squad) {
+function remainingQuota(squad, mode) {
   const have = roleCounts(squad);
   const left = {};
-  for (const role of ROLES) left[role] = Math.max(0, QUOTA[role] - have[role]);
+  const quota = resolveMode(mode).quota;
+  for (const role of ROLES) left[role] = Math.max(0, (quota[role] || 0) - have[role]);
   return left;
 }
 
-function hasMinSquad(squad) {
-  return (squad || []).length >= SQUAD_SIZE;
+function hasMinSquad(squad, mode) {
+  return (squad || []).length >= resolveMode(mode).squadSize;
 }
 
-function slotsLeft(squad) {
-  return SQUAD_SIZE - squad.length;
+function slotsLeft(squad, mode) {
+  return resolveMode(mode).squadSize - (squad || []).length;
 }
 
-function isSquadComplete(squad) {
+function isSquadComplete(squad, mode) {
   const have = roleCounts(squad || []);
-  return ROLES.every((r) => (have[r] || 0) >= QUOTA[r]);
+  const quota = resolveMode(mode).quota;
+  return ROLES.every((r) => (have[r] || 0) >= (quota[r] || 0));
 }
 
-/** Remaining role slots a team still needs to complete the 4-1-2-4 squad. */
-function pendingSlots(squad) {
-  const left = remainingQuota(squad || []);
+/** Remaining role slots a team still needs to complete the mode's squad. */
+function pendingSlots(squad, mode) {
+  const left = remainingQuota(squad || [], mode);
   return ROLES.reduce((s, r) => s + (left[r] || 0), 0);
 }
 
@@ -165,8 +277,8 @@ function minCostBestEffort(needed, overseasLeft, available) {
   return cost;
 }
 
-function neededAfterPurchase(squad, player) {
-  const needed = remainingQuota(squad);
+function neededAfterPurchase(squad, player, mode) {
+  const needed = remainingQuota(squad, mode);
   if ((needed[player.role] || 0) <= 0) return null;
   needed[player.role] -= 1;
   return { needed };
@@ -181,30 +293,31 @@ function minCostToReachSize(available, count) {
   return sorted.slice(0, n).reduce((s, p) => s + p.basePriceLakhs, 0);
 }
 
-function reserveToReachSize(squadSizeAfterPurchase) {
-  const slotsAfter = Math.max(0, SQUAD_SIZE - squadSizeAfterPurchase);
+function reserveToReachSize(squadSizeAfterPurchase, mode) {
+  const slotsAfter = Math.max(0, resolveMode(mode).squadSize - squadSizeAfterPurchase);
   return slotsAfter * BASE_PRICE_POINTS;
 }
 
-function canTakeRole(squad, player) {
+function canTakeRole(squad, player, mode) {
   if (!player) return false;
-  return Boolean(neededAfterPurchase(squad, player));
+  return Boolean(neededAfterPurchase(squad, player, mode));
 }
 
 /**
  * Whether a franchise can legally bid `amountLakhs` (points) for `player`.
- * Voluntary bids must leave 1 point per remaining slot to reach 11.
+ * Voluntary bids must leave 1 point per remaining role slot to complete the squad.
  * The automatic default bid only checks role quota and purse >= bid.
  */
 function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
+  const mode = opts.mode || franchise.mode;
   if (!player) return { ok: false, reason: "No player on the block." };
   if (franchise.eliminated) {
     return { ok: false, reason: "Your franchise has been eliminated." };
   }
-  if (isSquadComplete(franchise.squad)) {
+  if (isSquadComplete(franchise.squad, mode)) {
     return { ok: false, reason: "Your squad is already complete." };
   }
-  const after = neededAfterPurchase(franchise.squad, player);
+  const after = neededAfterPurchase(franchise.squad, player, mode);
   if (!after) {
     return { ok: false, reason: `Your ${player.role} quota is full.` };
   }
@@ -242,6 +355,15 @@ module.exports = {
   BID_STEPS,
   MIN_PLAYERS,
   MAX_PLAYERS,
+  MODES,
+  DEFAULT_MODE,
+  getMode,
+  resolveMode,
+  resolveModeId,
+  publicMode,
+  listModes,
+  compositionLabel,
+  inningsFormat,
   FRANCHISES,
   roleCounts,
   overseasCount,

@@ -5,7 +5,7 @@ const { Server } = require("socket.io");
 const { loadPlayers } = require("./players");
 const { GameRoom, normalizeName } = require("./game");
 const { RoomManager, makeRoomCode, ROOM_CODE_LENGTH } = require("./manager");
-const { DEFAULT_PURSE_LAKHS, DEFAULT_PURSE_POINTS, MIN_PLAYERS, MAX_PLAYERS } = require("./rules");
+const { DEFAULT_PURSE_LAKHS, DEFAULT_PURSE_POINTS, MIN_PLAYERS, MAX_PLAYERS, getMode, DEFAULT_MODE, listModes } = require("./rules");
 
 const PORT = Number(process.env.PORT) || 3000;
 const DEFLATE_THRESHOLD = Number(process.env.DEFLATE_THRESHOLD) || 256;
@@ -123,6 +123,8 @@ app.get("/api/health", (_req, res) => {
     maxRooms: manager.maxRooms,
     defaultPurseLakhs: DEFAULT_PURSE_LAKHS,
     defaultPursePoints: DEFAULT_PURSE_POINTS,
+    modes: listModes(),
+    defaultMode: DEFAULT_MODE,
     roomCodeLength: ROOM_CODE_LENGTH,
   });
 });
@@ -150,8 +152,11 @@ io.on("connection", (socket) => {
     if (!manager.canAcceptRoom()) return cb && cb(manager.roomCapError());
 
     const code = makeRoomCode(rooms);
+    const modeId = payload.mode != null && payload.mode !== "" ? payload.mode : DEFAULT_MODE;
+    const mode = getMode(modeId);
+    if (!mode) return cb && cb({ ok: false, error: "Unknown game type. Choose Classical, Rapid, or Bullet." });
     const rawPurse = payload.pursePoints != null ? payload.pursePoints : payload.purseCrore;
-    const purseLakhs = Number.isFinite(Number(rawPurse)) ? Math.round(Number(rawPurse)) : DEFAULT_PURSE_POINTS;
+    const purseLakhs = Number.isFinite(Number(rawPurse)) ? Math.round(Number(rawPurse)) : mode.purse;
     const timers = {};
     if (process.env.ALLOW_TEST_TIMERS === "1" && payload.testTimers) {
       if (payload.testTimers.lotStartMs) timers.lotStartMs = Number(payload.testTimers.lotStartMs);
@@ -167,6 +172,7 @@ io.on("connection", (socket) => {
       timers,
       allPlayers: players,
       meta,
+      mode: mode.id,
     });
     manager.add(room);
     bindRoom(room);

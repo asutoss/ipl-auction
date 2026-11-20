@@ -1,5 +1,5 @@
 const { overallRating } = require("./players");
-const { ROLES, QUOTA, formatPoints } = require("./rules");
+const { ROLES, QUOTA, formatPoints, resolveMode, inningsFormat } = require("./rules");
 const { hasBooster } = require("./boosters");
 
 function mulberry32(seed) {
@@ -69,8 +69,9 @@ function teamStrength(franchise) {
       bowlN += 1;
     }
   }
-  const batting = batSum / Math.max(batN, EXPECTED_BATTERS);
-  const bowling = bowlSum / Math.max(bowlN, EXPECTED_BOWLERS);
+  const mode = resolveMode(franchise.mode);
+  const batting = batSum / Math.max(batN, mode.expectedBatters);
+  const bowling = bowlSum / Math.max(bowlN, mode.expectedBowlers);
   const strength = 0.52 * batting + 0.48 * bowling;
   return { batting, bowling, strength, batN, bowlN };
 }
@@ -104,44 +105,70 @@ function matchStrength(team, { chasing = false, nerfed = false } = {}) {
   return { batting, bowling, strength: 0.52 * batting + 0.48 * bowling, batN: s.batN, bowlN: s.bowlN };
 }
 
-function inningsBallsAndWickets(rng, bowling, allOutLikely) {
-  const wickets = clamp(Math.round(gauss(rng, 4.5 + (bowling - 75) * 0.06, 1.6)), 1, 10);
-  let balls = 120;
-  if (wickets === 10 || allOutLikely) {
-    balls = clamp(Math.round(gauss(rng, 110, 10)), 72, 120);
+function inningsBallsAndWickets(rng, bowling, allOutLikely, format) {
+  const maxBalls = format.balls;
+  const maxWkts = format.maxWickets;
+  const wicketMean = Math.max(1, maxWkts * 0.45 + (bowling - 75) * 0.06);
+  const wicketSd = Math.max(0.5, 1.6 * Math.sqrt(format.overs / 20));
+  const wickets = clamp(Math.round(gauss(rng, wicketMean, wicketSd)), 0, maxWkts);
+  let balls = maxBalls;
+  if (wickets === maxWkts || allOutLikely) {
+    const earlyMean = Math.round(maxBalls * (110 / 120));
+    const earlyMin = Math.round(maxBalls * (72 / 120));
+    balls = clamp(Math.round(gauss(rng, earlyMean, Math.max(4, 10 * format.overs / 20))), earlyMin, maxBalls);
   }
   return { balls, wickets };
 }
 
-function playInnings({ rng, batting, bowling, target }) {
-  const expected = 155 + (batting - bowling) * 0.85;
+function playInnings({ rng, batting, bowling, target, format }) {
+  const fmt = format || inningsFormat("classical");
+  const expected = fmt.expectedRuns + (batting - bowling) * fmt.edgeScale;
   let mean = expected;
   if (target != null) {
-    const pressure = Math.max(0, (target - 180) * 0.15);
+    const par = Math.round(fmt.expectedRuns * (180 / 155));
+    const pressure = Math.max(0, (target - par) * 0.15);
     mean = expected - pressure;
   }
-  const raw = gauss(rng, mean, 16);
+  const raw = gauss(rng, mean, fmt.sd);
 
   if (target == null) {
-    const score = Math.round(clamp(raw, 95, 265));
-    const { balls, wickets } = inningsBallsAndWickets(rng, bowling, score < 130);
+    const score = Math.round(clamp(raw, fmt.minScore, fmt.maxScore));
+    const collapse = Math.round(fmt.expectedRuns * (130 / 155));
+    const { balls, wickets } = inningsBallsAndWickets(rng, bowling, score < collapse, fmt);
     return { score, wickets, balls };
   }
 
   if (raw >= target) {
     const margin = raw - target;
-    const early = margin > 25;
+    const earlyCut = Math.round(25 * (fmt.overs / 20));
+    const early = margin > earlyCut;
+    const earlyMean = Math.round(fmt.balls * (100 / 120));
+    const lateMean = Math.round(fmt.balls * (114 / 120));
+    const earlyMin = Math.round(fmt.balls * (70 / 120));
+    const earlyMax = Math.max(earlyMin + 1, fmt.balls - 2);
+    const lateMin = Math.round(fmt.balls * (100 / 120));
     const balls = early
-      ? clamp(Math.round(gauss(rng, 100, 10)), 70, 118)
-      : clamp(Math.round(gauss(rng, 114, 5)), 100, 120);
-    const wickets = clamp(Math.round(gauss(rng, early ? 3 : 5, 1.5)), 0, 8);
+      ? clamp(Math.round(gauss(rng, earlyMean, Math.max(3, 10 * fmt.overs / 20))), earlyMin, earlyMax)
+      : clamp(Math.round(gauss(rng, lateMean, Math.max(2, 5 * fmt.overs / 20))), lateMin, fmt.balls);
+    const wicketMean = early ? maxWktsMean(fmt, 0.3) : maxWktsMean(fmt, 0.5);
+    const wickets = clamp(Math.round(gauss(rng, wicketMean, Math.max(0.5, 1.5 * Math.sqrt(fmt.overs / 20)))), 0, Math.max(0, fmt.maxWickets - 1));
     return { score: target, wickets, balls, chased: true };
   }
 
-  const score = Math.round(clamp(raw, 80, target - 1));
-  const allOut = score < target - 15 && rng() < 0.45;
-  const { balls, wickets } = inningsBallsAndWickets(rng, bowling, allOut);
-  return { score, wickets: allOut ? 10 : Math.min(wickets, 9), balls: allOut ? Math.min(balls, 119) : 120, chased: false };
+  const score = Math.round(clamp(raw, Math.round(fmt.minScore * 0.85), target - 1));
+  const deficitCut = Math.round(15 * (fmt.overs / 20));
+  const allOut = score < target - deficitCut && rng() < 0.45;
+  const { balls, wickets } = inningsBallsAndWickets(rng, bowling, allOut, fmt);
+  return {
+    score,
+    wickets: allOut ? fmt.maxWickets : Math.min(wickets, Math.max(0, fmt.maxWickets - 1)),
+    balls: allOut ? Math.min(balls, fmt.balls - 1) : fmt.balls,
+    chased: false,
+  };
+}
+
+function maxWktsMean(format, frac) {
+  return Math.max(0, format.maxWickets * frac);
 }
 
 function splitByWeights(total, weights, rng, { minEach = 0 } = {}) {
@@ -220,17 +247,21 @@ function allocateBatting(team, inn, rng) {
   }));
 }
 
-function allocateBowling(team, inn, rng) {
+function allocateBowling(team, inn, rng, format) {
   const ordered = bowlersOf(team)
     .map((s) => ({ slot: s, rating: playerRatings(s, s.player.id === team.captainId).bowling }))
     .sort((a, b) => b.rating - a.rating);
   if (!ordered.length || inn.balls <= 0) return [];
-  const maxBalls = 24;
-  const nBowlers = clamp(Math.round(gauss(rng, 5, 0.6)), 3, Math.min(7, ordered.length));
+  const fmt = format || inningsFormat(team && team.mode);
+  const maxBalls = fmt.maxBallsPerBowler;
+  const prefer = Math.max(1, fmt.expectedBowlers);
+  const nBowlers = ordered.length <= prefer
+    ? ordered.length
+    : clamp(Math.round(gauss(rng, prefer + 2, 0.6)), prefer, Math.min(ordered.length, prefer + 3));
   const used = ordered.slice(0, Math.max(1, nBowlers));
   const weights = used.map((u) => u.rating);
   let balls = splitByWeights(inn.balls, weights, rng, { minEach: 6 });
-  // Cap at 4 overs and redistribute.
+  // Cap at the mode's overs-per-bowler and redistribute.
   let overflow = 0;
   for (let i = 0; i < balls.length; i++) {
     if (balls[i] > maxBalls) {
@@ -261,13 +292,15 @@ function allocateBowling(team, inn, rng) {
   }));
 }
 
-function isCloseMatch(match) {
+function isCloseMatch(match, format) {
   if (!match || match.noResult) return false;
   const first = match.firstInnings;
   const second = match.secondInnings;
   if (!first || !second) return false;
-  if (match.chased) return 10 - second.wickets <= 2;
-  return first.score - second.score <= 8;
+  const fmt = format || inningsFormat("classical");
+  if (match.chased) return fmt.maxWickets - second.wickets <= Math.min(2, fmt.maxWickets);
+  const closeRuns = Math.max(3, Math.round(8 * (fmt.overs / 20)));
+  return first.score - second.score <= closeRuns;
 }
 
 function addMoment(ctx, team, boosterId, text, match) {
@@ -409,12 +442,14 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     }
   }
 
-  const inn1 = playInnings({ rng, batting: firstS.batting, bowling: secondS.bowling, target: null });
+  const format = (ctx && ctx.format) || inningsFormat((teamA && teamA.mode) || (ctx && ctx.mode));
+  const inn1 = playInnings({ rng, batting: firstS.batting, bowling: secondS.bowling, target: null, format });
   const inn2 = playInnings({
     rng,
     batting: secondS.batting,
     bowling: firstS.bowling,
     target: inn1.score + 1,
+    format,
   });
 
   let chased = inn2.score >= inn1.score + 1;
@@ -422,7 +457,7 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
   let loser = chased ? first : second;
 
   const provisionalId = `${label}-${teamA.name}-${teamB.name}`;
-  const close = chased ? 10 - inn2.wickets <= 2 : inn1.score - inn2.score <= 8;
+  const close = chased ? format.maxWickets - inn2.wickets <= Math.min(2, format.maxWickets) : inn1.score - inn2.score <= Math.max(3, Math.round(8 * (format.overs / 20)));
 
   function tryFlip(boosterId, chance, text) {
     if (!hasBooster(loser, boosterId)) return false;
@@ -485,7 +520,7 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
   if (noResult) {
     resultText = "No result — rain stopped play";
   } else if (chased) {
-    const wkts = 10 - inn2.wickets;
+    const wkts = format.maxWickets - inn2.wickets;
     resultText = `${second.name} won by ${wkts} wicket${wkts === 1 ? "" : "s"}`;
   } else {
     const runs = inn1.score - inn2.score;
@@ -514,8 +549,8 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
 
   const batting1 = allocateBatting(first, inn1, rng);
   const batting2 = allocateBatting(second, inn2, rng);
-  const bowling1 = allocateBowling(second, inn1, rng);
-  const bowling2 = allocateBowling(first, inn2, rng);
+  const bowling1 = allocateBowling(second, inn1, rng, format);
+  const bowling2 = allocateBowling(first, inn2, rng, format);
   match.performances = {
     [first.name]: { batting: batting1, bowling: bowling2 },
     [second.name]: { batting: batting2, bowling: bowling1 },
@@ -710,9 +745,12 @@ function assignBusVictims(teams, rng) {
   return { victims, saboteurs };
 }
 
-function simulateTournament(franchises, seed) {
+function simulateTournament(franchises, seed, opts = {}) {
+  const mode = resolveMode((opts && opts.mode) || (franchises[0] && franchises[0].mode));
+  const format = inningsFormat(mode);
   const teams = franchises.map((f) => ({
     ...f,
+    mode: mode.id,
     captainId: pickCaptainIfMissing(f),
     boosters: Array.isArray(f.boosters) ? f.boosters : [],
   }));
@@ -734,6 +772,8 @@ function simulateTournament(franchises, seed) {
     statBook,
     teamsByName,
     _busNoted: new Set(),
+    mode,
+    format,
   };
 
   const leagueMatches = [];
@@ -868,6 +908,7 @@ module.exports = {
   simulateTournament,
   pickCaptainIfMissing,
   overallForAwards: awards,
+  inningsFormat,
   QUOTA,
   ROLES,
 };
