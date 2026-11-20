@@ -853,7 +853,7 @@ describe("end game and leave", () => {
 
 
 describe("team names and logo catalog", () => {
-  test("catalog has 20 cartoon logos with unique colours and no food-theme team names", () => {
+  test("catalog has 20 logos with unique colours and no food-theme team names", () => {
     const fs = require("fs");
     const path = require("path");
     const { IDENTITIES, logoUrl, logoImg } = require("../public/identities");

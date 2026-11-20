@@ -1,5 +1,5 @@
 /**
- * Cartoon character logo themes and local image URLs.
+ * Team logo themes and local image URLs.
  * Images live in /logos/*.webp (see /logos/SOURCES.md). Shared by server and client.
  */
 (function (root, factory) {
@@ -7,26 +7,26 @@
   else root.IplIdentities = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const IDENTITIES = [
-    { id: "mickey-mouse", character: "Mickey Mouse", color: "#DC143C", color2: "#FFE6EA", ink: "#2A070A", text: "#FF6B7A" },
-    { id: "donald-duck", character: "Donald Duck", color: "#3A9FDB", color2: "#E5F5FF", ink: "#083049", text: "#7EC8F0" },
-    { id: "spongebob", character: "SpongeBob", color: "#F5D000", color2: "#FFF6BF", ink: "#3D2E00", text: "#F5D000" },
-    { id: "patrick", character: "Patrick", color: "#FF6B8B", color2: "#FFE4EB", ink: "#4A1020", text: "#FF8FA6" },
-    { id: "tom", character: "Tom", color: "#5D7A8A", color2: "#E3EDF2", ink: "#1C2A32", text: "#9CB8C6" },
-    { id: "jerry", character: "Jerry", color: "#A15A2C", color2: "#F3E0C9", ink: "#2E1608", text: "#D4925A" },
-    { id: "bugs-bunny", character: "Bugs Bunny", color: "#B0B7C3", color2: "#F3F5F8", ink: "#2A2E36", text: "#C5CAD3" },
-    { id: "pikachu", character: "Pikachu", color: "#E8A100", color2: "#FFF3C6", ink: "#3A2A00", text: "#F0B429" },
-    { id: "doraemon", character: "Doraemon", color: "#2A6DFF", color2: "#D9E6FF", ink: "#0A2060", text: "#7AA3FF" },
-    { id: "shin-chan", character: "Shin-chan", color: "#FF451A", color2: "#FFD8CE", ink: "#3A0C08", text: "#FF6A52" },
-    { id: "popeye", character: "Popeye", color: "#163A5F", color2: "#D5E5F4", ink: "#071422", text: "#8FB3D4" },
-    { id: "scooby-doo", character: "Scooby-Doo", color: "#0F8A7A", color2: "#D4F0EB", ink: "#04302B", text: "#3DD1BE" },
-    { id: "homer-simpson", character: "Homer Simpson", color: "#B8860B", color2: "#FFF0C4", ink: "#3A2A00", text: "#E0B13A" },
-    { id: "shrek", character: "Shrek", color: "#4A8A1E", color2: "#E3F4C8", ink: "#1A3008", text: "#8ED44A" },
-    { id: "minion", character: "Minion", color: "#1D4ED8", color2: "#FFE45C", ink: "#0A1E5C", text: "#6B8CFF" },
-    { id: "pink-panther", character: "Pink Panther", color: "#C4006E", color2: "#FFD6EC", ink: "#3A0020", text: "#FF5AA8" },
-    { id: "chhota-bheem", character: "Chhota Bheem", color: "#F06A00", color2: "#FFE3C4", ink: "#3A1A00", text: "#FF8A33" },
-    { id: "motu-patlu", character: "Motu Patlu", color: "#6D28D9", color2: "#EDE4FF", ink: "#2A0A5C", text: "#A78BFA" },
-    { id: "johnny-bravo", character: "Johnny Bravo", color: "#141414", color2: "#1C1810", ink: "#E8C547", text: "#E8C547" },
-    { id: "garfield", character: "Garfield", color: "#C45C12", color2: "#FFE6C8", ink: "#3A1A08", text: "#E08A3A" },
+    { id: "mickey-mouse", character: "Mickey Mouse", color: "#DC143C", color2: "#F9D5DC", ink: "#30040D", text: "#E65673" },
+    { id: "spongebob", character: "SpongeBob", color: "#F5D000", color2: "#FDF7D1", ink: "#362E00", text: "#F5D000" },
+    { id: "bugs-bunny", character: "Bugs Bunny", color: "#B0B7C3", color2: "#F1F2F4", ink: "#27282B", text: "#B0B7C3" },
+    { id: "pikachu", character: "Pikachu", color: "#E8A100", color2: "#FBEED1", ink: "#332300", text: "#E8A100" },
+    { id: "doraemon", character: "Doraemon", color: "#2A6DFF", color2: "#D9E5FF", ink: "#091838", text: "#6696FF" },
+    { id: "shin-chan", character: "Shin-chan", color: "#FF451A", color2: "#FFDED6", ink: "#380F06", text: "#FF795A" },
+    { id: "shrek", character: "Shrek", color: "#4A8A1E", color2: "#DEEAD6", ink: "#101E07", text: "#8ED44A" },
+    { id: "minion", character: "Minion", color: "#163A7A", color2: "#FFE45C", ink: "#0A1E5C", text: "#6B8CFF" },
+    { id: "chhota-bheem", character: "Chhota Bheem", color: "#E85D00", color2: "#FBE2D1", ink: "#331400", text: "#FF8A33" },
+    { id: "narendra-modi", character: "Narendra Modi", color: "#FF9933", color2: "#FFEDDA", ink: "#38220B", text: "#FF9933" },
+    { id: "prabhas", character: "Prabhas", color: "#A32112", color2: "#EED7D4", ink: "#240704", text: "#BD5F54" },
+    { id: "orry", character: "Orry", color: "#8BCF17", color2: "#EAF6D5", ink: "#1F2E05", text: "#8BCF17" },
+    { id: "dolly-chaiwala", character: "Dolly Chaiwala", color: "#6B3F14", color2: "#F0E0C8", ink: "#2A1608", text: "#D4A574" },
+    { id: "amitabh-bachchan", character: "Amitabh Bachchan", color: "#4A0D1C", color2: "#1C0A10", ink: "#F3D38A", text: "#E8C547" },
+    { id: "jay-shah", character: "Jay Shah", color: "#0E7490", color2: "#D4E6EB", ink: "#031A20", text: "#519BAF" },
+    { id: "samay-raina", character: "Samay Raina", color: "#C026D3", color2: "#F4D8F7", ink: "#2A082E", text: "#D263DF" },
+    { id: "elvish-yadav", character: "Elvish Yadav", color: "#047857", color2: "#D2E7E1", ink: "#011A13", text: "#4A9E86" },
+    { id: "puneet-superstar", character: "Puneet Superstar", color: "#DB2777", color2: "#F9D8E7", ink: "#30091A", text: "#E5639D" },
+    { id: "ranveer-allahbadia", character: "Ranveer Allahbadia", color: "#6D28D9", color2: "#E5D8F8", ink: "#180930", text: "#9664E4" },
+    { id: "salman-khan", character: "Salman Khan", color: "#2C3E50", color2: "#1A2530", ink: "#0B1220", text: "#8FA4B8" },
   ];
 
   const byId = Object.fromEntries(IDENTITIES.map((t) => [t.id, t]));
@@ -78,7 +78,7 @@
     const opt = attrs || {};
     const alt = esc(opt.alt != null ? opt.alt : pack.character || "");
     const cls = esc(opt.className || "team-mark-img");
-    return `<img src="${esc(logoUrl(pack))}" alt="${alt}" class="${cls}" width="160" height="160" decoding="async" draggable="false" />`;
+    return `<img src="${esc(logoUrl(pack))}" alt="${alt}" class="${cls}" width="256" height="256" decoding="async" draggable="false" />`;
   }
 
   return {

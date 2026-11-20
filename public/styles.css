@@ -170,13 +170,13 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .team-mark-wrap.sm { width: 28px; height: 28px; }
 .team-mark-wrap.lg { width: 56px; height: 56px; }
 
-.logo-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; margin: 12px 0 8px; }
+.logo-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin: 12px 0 8px; }
 .logo-choice {
   background: #0c1324; border: 1px solid #334169; border-radius: 16px; padding: 10px;
   color: var(--text); display: grid; justify-items: center; gap: 8px; text-align: center;
   transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
-.logo-choice .team-mark, .logo-choice svg { width: 56px; height: 56px; }
+.logo-choice .team-mark, .logo-choice svg { width: 96px; height: 96px; }
 .logo-choice span { font-size: 12px; font-weight: 700; line-height: 1.3; }
 .logo-choice:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-2px); }
 .logo-choice.selected { border-color: var(--c, var(--gold)); box-shadow: 0 0 0 2px var(--c, var(--gold)); }
@@ -202,9 +202,9 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .ring-timer { transition: stroke 200ms linear, stroke-dashoffset 200ms linear; }
 .ring-timer.low { stroke: #ff5d6c; }
 .ring-timer.paused { stroke: #9aa6c3; }
-.ring-logo-inner { width: 26px; height: 26px; }
-.ring-logo-inner svg, .ring-logo-inner .team-mark { width: 26px; height: 26px; border-radius: 6px; overflow: hidden; }
-.ring-emoji { font-size: 14px; line-height: 26px; display: block; text-align: center; }
+.ring-logo-inner { width: 30px; height: 30px; }
+.ring-logo-inner svg, .ring-logo-inner .team-mark { width: 30px; height: 30px; border-radius: 7px; overflow: hidden; }
+.ring-emoji { font-size: 14px; line-height: 30px; display: block; text-align: center; }
 .ring-logo-scale { transform-box: fill-box; transform-origin: center; }
 .ring-logo-scale.is-leader { animation: ring-pulse 900ms ease-in-out infinite; }
 
@@ -262,14 +262,14 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 
 @media (max-width: 700px) {
   .hub { inset: 20%; padding: 8px; }
-  .logo-picker { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .logo-picker { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
 }
 
 
 .logo-choice { padding: 8px; }
 .logo-choice .team-mark-img, .team-mark-img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
 .team-mark-wrap .team-mark-img { width: 100%; height: 100%; }
-.logo-choice .team-mark-img { width: 72px; height: 72px; }
+.logo-choice .team-mark-img { width: 96px; height: 96px; }
 
 .ring-seg { transition: filter 280ms ease, opacity 280ms ease; }
 .ring-seg.is-dim { filter: saturate(0.35) brightness(0.62); }
@@ -281,7 +281,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .ring-pointer-head { filter: drop-shadow(0 0 4px rgba(245, 197, 24, 0.9)); }
 .ring-marks.is-dim, .ring-logo-scale { transition: opacity 280ms ease, filter 280ms ease; }
 .ring-marks .is-dim { opacity: 0.72; filter: saturate(0.55); }
-.ring-logo-img { width: 26px; height: 26px; object-fit: contain; display: block; }
+.ring-logo-img { width: 30px; height: 30px; object-fit: contain; display: block; }
 
 .team-strip {
   display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden;
@@ -291,14 +291,14 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 }
 .team-chip {
   flex: 0 0 auto;
-  display: grid; grid-template-columns: 28px auto; grid-template-rows: auto auto;
+  display: grid; grid-template-columns: 32px auto; grid-template-rows: auto auto;
   grid-template-areas: "mark name" "mark meta";
   align-items: center; column-gap: 6px; row-gap: 0;
   background: #0c1324; border: 1px solid #334169; border-radius: 12px;
   padding: 5px 8px 5px 5px; color: var(--text); min-width: 0;
   transition: border-color 200ms ease, opacity 200ms ease, filter 200ms ease;
 }
-.team-chip .team-mark-wrap { grid-area: mark; width: 28px; height: 28px; }
+.team-chip .team-mark-wrap { grid-area: mark; width: 32px; height: 32px; }
 .team-chip .chip-name {
   grid-area: name; font-size: 11px; font-weight: 700; line-height: 1.15;
   max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -312,7 +312,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .team-chip.is-eliminated { opacity: 0.4; filter: grayscale(0.7); }
 .team-chip.is-done { opacity: 0.72; }
 @media (max-width: 700px) {
-  .logo-choice .team-mark-img { width: 56px; height: 56px; }
+  .logo-choice .team-mark, .logo-choice svg, .logo-choice .team-mark-img { width: 92px; height: 92px; }
   .team-chip .chip-name { max-width: 64px; }
 }
 

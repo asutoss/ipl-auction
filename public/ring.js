@@ -197,9 +197,9 @@
 
   function logoNode(team) {
     const g = el("g", { class: "ring-logo" });
-    const disc = el("circle", { r: 18, fill: team.color2 || "#0b1220", stroke: team.color, "stroke-width": 2 });
+    const disc = el("circle", { r: 20, fill: team.color2 || "#0b1220", stroke: team.color, "stroke-width": 2 });
     g.appendChild(disc);
-    const fo = el("foreignObject", { x: -13, y: -13, width: 26, height: 26 });
+    const fo = el("foreignObject", { x: -15, y: -15, width: 30, height: 30 });
     const wrap = document.createElement("div");
     wrap.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
     wrap.className = "ring-logo-inner";
