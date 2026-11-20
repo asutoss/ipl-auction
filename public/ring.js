@@ -74,7 +74,10 @@
   function syncScale(svg) {
     const w = (svg.clientWidth || (svg.getBoundingClientRect && svg.getBoundingClientRect().width) || 400);
     const u = w / 400;
-    svg.style.setProperty("--u", `${u}px`);
+    const px = `${u}px`;
+    svg.style.setProperty("--u", px);
+    const host = svg.parentElement;
+    if (host) host.style.setProperty("--u", px);
   }
 
   function observeScale(svg) {
@@ -306,6 +309,7 @@
     if (on && item.root && item.root.parentNode) {
       item.root.parentNode.appendChild(item.root);
     }
+    if (item.svg) syncPin(item.svg, item);
   }
 
   function setPath(item, a0, a1) {
@@ -315,9 +319,6 @@
     item.path.setAttribute("d", d);
     if (item.extrude) item.extrude.setAttribute("d", d);
     if (item.bevel) item.bevel.setAttribute("d", d);
-    const mid = midAngle(a0, a1);
-    const [lx, ly] = polar(CX, CY, R_LOGO, mid);
-    item.mark.setAttribute("transform", `translate(${lx.toFixed(1)} ${ly.toFixed(1)})`);
     applyLift(item);
   }
 
@@ -325,9 +326,6 @@
     const on = Boolean(item.team && item.team.isLeader && !item.leaving);
     item.path.classList.toggle("is-leader", on);
     item.path.classList.toggle("is-dim", !on);
-    if (item.scale) item.scale.classList.toggle("is-leader", on);
-    item.mark.classList.toggle("is-leader", on);
-    item.mark.classList.toggle("is-dim", !on);
     if (item.extrude) item.extrude.classList.toggle("is-leader", on);
     applyLift(item);
   }
@@ -392,24 +390,75 @@
     ring._pointerAnim = requestAnimationFrame(frame);
   }
 
-  function logoNode(team) {
-    const g = el("g", { class: "ring-logo" });
-    const disc = el("circle", { r: 16, fill: team.color2 || "#0b1220", stroke: team.color, "stroke-width": 1.8 });
-    g.appendChild(disc);
-    const fo = el("foreignObject", { x: -13, y: -13, width: 26, height: 26 });
-    const wrap = document.createElement("div");
-    wrap.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-    wrap.className = "ring-logo-inner";
-    const img = (typeof IplIdentities !== "undefined" && team.identityId)
-      ? IplIdentities.logoImg(team.identityId, { alt: "", className: "ring-logo-img" })
-      : "";
-    wrap.innerHTML = img || `<span class="ring-emoji">${team.short || ""}</span>`;
-    fo.appendChild(wrap);
-    g.appendChild(fo);
-    return g;
+  function ensureLogoLayer(svg) {
+    const host = svg && svg.parentElement;
+    if (!host) return null;
+    let layer = host.querySelector(":scope > .ring-logo-layer");
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.className = "ring-logo-layer";
+      layer.setAttribute("aria-hidden", "true");
+      host.appendChild(layer);
+    }
+    return layer;
   }
 
-  function makeItem(team, a0, a1) {
+  function pinFaceHtml(team) {
+    const color = (team && (team.color || team.text)) || "#f5c518";
+    const color2 = (team && team.color2) || "#0b1220";
+    const name = (team && (team.name || team.short)) || "";
+    const img = (typeof IplIdentities !== "undefined" && team && team.identityId)
+      ? IplIdentities.logoImg(team.identityId, { alt: name, className: "ring-logo-img" })
+      : "";
+    const face = img || `<span class="ring-logo-fallback">${(name || "?").slice(0, 1)}</span>`;
+    return { color, color2, html: `<div class="ring-logo-bob"><div class="ring-logo-face">${face}</div></div>` };
+  }
+
+  function syncPin(svg, item) {
+    if (!item || item.leaving) {
+      if (item && item.pin) item.pin.classList.add("is-leaving");
+      return item && item.pin;
+    }
+    const layer = ensureLogoLayer(svg);
+    if (!layer) return null;
+    const team = item.team || {};
+    const mid = midAngle(item.a0, item.a1);
+    const [x, y] = polar(CX, CY, R_LOGO, mid);
+    let pin = item.pin;
+    const teamKey = team.identityId || team.name || item.key;
+    if (!pin || !pin.isConnected || pin._teamKey !== teamKey) {
+      if (pin && pin.isConnected) pin.remove();
+      pin = document.createElement("div");
+      pin.className = "ring-logo-pin";
+      const built = pinFaceHtml(team);
+      pin.style.setProperty("--c", built.color);
+      pin.style.setProperty("--c2", built.color2);
+      pin.innerHTML = built.html;
+      pin._teamKey = teamKey;
+      layer.appendChild(pin);
+      item.pin = pin;
+    }
+    pin.style.left = `${((x / 400) * 100).toFixed(3)}%`;
+    pin.style.top = `${((y / 400) * 100).toFixed(3)}%`;
+    const on = Boolean(team.isLeader);
+    pin.classList.toggle("is-leader", on);
+    pin.classList.remove("is-leaving");
+    pin.style.setProperty("--lift-x", (item.lift && item.lift.style.getPropertyValue("--lift-x")) || "0");
+    pin.style.setProperty("--lift-y", (item.lift && item.lift.style.getPropertyValue("--lift-y")) || "0");
+    pin.style.setProperty("--bob-x", (item.root && item.root.style.getPropertyValue("--bob-x")) || "0");
+    pin.style.setProperty("--bob-y", (item.root && item.root.style.getPropertyValue("--bob-y")) || "0");
+    if (on) layer.appendChild(pin);
+    return pin;
+  }
+
+  function removePin(item) {
+    if (item && item.pin) {
+      item.pin.remove();
+      item.pin = null;
+    }
+  }
+
+  function makeItem(svg, team, a0, a1) {
     const root = el("g", { class: "ring-item", "data-key": keyOf(team), "data-name": team.name || "" });
     const extrude = el("path", {
       class: "ring-seg-extrude",
@@ -429,15 +478,12 @@
       fill: "url(#ring-bevel)",
       "pointer-events": "none",
     });
-    const mark = el("g", { "data-key": keyOf(team), "data-name": team.name || "" });
-    const scale = logoNode(team);
-    scale.classList.add("ring-logo-scale");
-    mark.appendChild(scale);
-    lift.append(path, bevel, mark);
+    lift.append(path, bevel);
     root.append(extrude, lift);
-    const item = { key: keyOf(team), team, root, lift, path, bevel, extrude, mark, scale, a0, a1, leaving: false };
+    const item = { key: keyOf(team), team, root, lift, path, bevel, extrude, svg, pin: null, a0, a1, leaving: false };
     setPath(item, a0, a1);
     paintLeader(item);
+    syncPin(svg, item);
     return item;
   }
 
@@ -450,7 +496,7 @@
     for (const spec of toSpec) {
       let item = fromMap.get(spec.key);
       if (!item) {
-        item = makeItem(spec.team, spec.a0, spec.a1);
+        item = makeItem(svg, spec.team, spec.a0, spec.a1);
         item.root.style.opacity = "0";
         ring.segs.appendChild(item.root);
         requestAnimationFrame(() => {
@@ -476,6 +522,7 @@
       item.team = item.team ? { ...item.team, isLeader: false } : item.team;
       item.path.classList.add("is-leaving");
       item.root.classList.add("is-leaving");
+      if (item.pin) item.pin.classList.add("is-leaving");
       applyLift(item);
       item._t0 = { a0: item.a0, a1: item.a1 };
       const mid = midAngle(item.a0, item.a1);
@@ -501,6 +548,7 @@
       else {
         for (const item of leaving) {
           item.root.remove();
+          removePin(item);
         }
         ring.items = nextItems;
         pointToLeader(svg, true);
@@ -516,7 +564,7 @@
     const spec = segmentTarget(stillIn || []);
     if (!ring.items.length) {
       for (const s of spec) {
-        const item = makeItem(s.team, s.a0, s.a1);
+        const item = makeItem(svg, s.team, s.a0, s.a1);
         ring.segs.appendChild(item.root);
         ring.items.push(item);
       }
