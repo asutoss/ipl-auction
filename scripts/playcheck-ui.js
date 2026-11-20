@@ -91,15 +91,15 @@ async function main() {
     }
     await waitFor(ash, async () => (await ash.evaluate(() => (IplApp.state.franchises || []).length)) >= 4, 15000, "all joined");
 
-    // Pick a couple of distinct logos so the lobby picker looks used.
+    // Pick a distinct character so the lobby picker looks used.
     await priyaPick(others[0]);
-    await waitFor(ash, async () => Boolean(await ash.$(".logo-picker")), 8000, "logo picker");
+    await waitFor(ash, async () => Boolean(await ash.$(".character-picker, .logo-picker")), 8000, "character picker");
     await sleep(300);
-    await shot(ash, "lobby-logos.png");
+    await shot(ash, "lobby-characters.png");
     await shot(ash, "lobby.png");
     await ash.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
     await sleep(200);
-    await shot(ash, "lobby-logos-mobile.png");
+    await shot(ash, "lobby-characters-mobile.png");
     await ash.setViewport({ width: 1400, height: 900, deviceScaleFactor: 1 });
 
     await ash.click("#start");
@@ -250,8 +250,8 @@ async function main() {
 
 async function priyaPick(page) {
   try {
-    await page.waitForSelector(".logo-choice:not(.taken):not(.selected)", { timeout: 8000 });
-    const handle = await page.$(".logo-choice:not(.taken):not(.selected)");
+    await page.waitForSelector(".character-choice:not(.taken):not(.selected), .logo-choice:not(.taken):not(.selected)", { timeout: 8000 });
+    const handle = await page.$(".character-choice:not(.taken):not(.selected)") || await page.$(".logo-choice:not(.taken):not(.selected)");
     if (handle) await handle.click();
   } catch (_) {}
 }

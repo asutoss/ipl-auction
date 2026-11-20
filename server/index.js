@@ -242,12 +242,15 @@ io.on("connection", (socket) => {
   });
 
 
-  socket.on("selectIdentity", (payload = {}, cb) => {
+  function pickCharacter(payload = {}, cb) {
     const room = getRoom(socket.data.code);
     if (!room) return cb && cb({ ok: false, error: "Join a room first." });
-    const result = room.selectIdentity(socket.data.name, payload.identityId);
+    const id = (payload && (payload.characterId || payload.identityId)) || null;
+    const result = room.selectCharacter(socket.data.name, id);
     cb && cb(result);
-  });
+  }
+  socket.on("selectCharacter", pickCharacter);
+  socket.on("selectIdentity", pickCharacter);
 
   socket.on("pause", (_payload, cb) => {
     const room = getRoom(socket.data.code);

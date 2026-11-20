@@ -256,12 +256,12 @@ describe("e2e: 3 clients through a full game", () => {
   });
 });
 
-describe("identities, pause, start bid and end game over sockets", () => {
+describe("characters, pause, start bid and end game over sockets", () => {
   let ctx;
   let url;
   const sockets = [];
 
-  test("unique logos, random start bid, single-team close, pause, and host end game", async () => {
+  test("unique characters, random start bid, single-team close, pause, and host end game", async () => {
     ctx = await start({ port: 0 });
     url = `http://127.0.0.1:${ctx.server.address().port}`;
     const ash = await connect(url, "Ashutosh");
@@ -279,7 +279,7 @@ describe("identities, pause, start bid and end game over sockets", () => {
     assert.equal((await ack(rohan, "joinRoom", { code, name: "Rohan" })).ok, true);
 
     await waitState(ash, (s) => s.franchises && s.franchises.length === 3);
-    const catalog = ash.state.identities || [];
+    const catalog = ash.state.characters || ash.state.identities || [];
     assert.equal(catalog.length, 20);
     assert.equal(new Set(catalog.map((t) => t.color.toLowerCase())).size, 20);
     assert.ok(catalog.every((t) => t.character && t.id));
@@ -296,8 +296,8 @@ describe("identities, pause, start bid and end game over sockets", () => {
     const fail = await ack(priya, "selectIdentity", { identityId: taken });
     assert.equal(fail.ok, false);
     const free = catalog.find((t) => !ids.includes(t.id));
-    assert.ok(free, "need a free logo");
-    const picked = await ack(priya, "selectIdentity", { identityId: free.id });
+    assert.ok(free, "need a free character");
+    const picked = await ack(priya, "selectCharacter", { characterId: free.id });
     assert.equal(picked.ok, true);
     await waitState(priya, (s) => s.you && s.you.franchise.id === free.id);
     assert.notEqual(ash.state.you.franchise.id, priya.state.you.franchise.id);
@@ -312,7 +312,8 @@ describe("identities, pause, start bid and end game over sockets", () => {
     for (const row of lot.auction.lotSnapshot) {
       assert.equal(typeof row.purseLakhs, "number");
       assert.equal(typeof row.pending, "number");
-      assert.ok(row.identityId);
+      assert.ok(row.characterId || row.identityId);
+      assert.equal(row.characterId, row.identityId);
     }
     const nomineeId = lot.auction.nominee.id;
     const defaultName = lot.auction.currentBidderName;

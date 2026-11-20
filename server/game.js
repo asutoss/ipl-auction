@@ -26,7 +26,18 @@ const {
   MAX_START_BID,
 } = require("./rules");
 const { getBooster, canAffordAny, publicCatalog } = require("./boosters");
-const { IDENTITIES, getIdentity, nextIdentity, publicIdentity } = require("../public/identities");
+const {
+  CHARACTERS,
+  getCharacter,
+  nextCharacter,
+  publicCharacter,
+} = require("../public/characters");
+
+function characterIdOf(pack) {
+  if (!pack) return null;
+  return pack.characterId || pack.id || null;
+}
+
 const { isValidEmoteId, EMOTE_COOLDOWN_MS } = require("../public/emotes");
 
 function normalizeName(name) {
@@ -106,34 +117,47 @@ class GameRoom extends EventEmitter {
     return MIN_START_BID + Math.floor(Math.random() * (MAX_START_BID - MIN_START_BID + 1));
   }
 
-  takenIdentityIds(exceptKey) {
+  takenCharacterIds(exceptKey) {
     return new Set(
       this.franchises
-        .filter((f) => f.key !== exceptKey && f.franchise && f.franchise.id)
-        .map((f) => f.franchise.id)
+        .filter((f) => f.key !== exceptKey && f.franchise && characterIdOf(f.franchise))
+        .map((f) => characterIdOf(f.franchise))
     );
   }
 
-  assignIdentity(team, id) {
-    const pack = publicIdentity(id);
+  takenIdentityIds(exceptKey) {
+    return this.takenCharacterIds(exceptKey);
+  }
+
+  assignCharacter(team, id) {
+    const pack = publicCharacter(id);
     if (!pack) return false;
     team.franchise = pack;
     return true;
   }
 
-  autoAssignIdentities() {
+  assignIdentity(team, id) {
+    return this.assignCharacter(team, id);
+  }
+
+  autoAssignCharacters() {
     const taken = new Set();
     for (const f of this.franchises) {
-      if (f.franchise && getIdentity(f.franchise.id) && !taken.has(f.franchise.id)) {
-        taken.add(f.franchise.id);
+      const id = characterIdOf(f.franchise);
+      if (id && getCharacter(id) && !taken.has(id)) {
+        taken.add(id);
         continue;
       }
-      const next = nextIdentity(taken);
+      const next = nextCharacter(taken);
       if (next) {
-        this.assignIdentity(f, next.id);
+        this.assignCharacter(f, next.id);
         taken.add(next.id);
       }
     }
+  }
+
+  autoAssignIdentities() {
+    return this.autoAssignCharacters();
   }
 
   requireUnpaused() {
@@ -174,7 +198,8 @@ class GameRoom extends EventEmitter {
       short: f.name,
       color: f.franchise.color,
       franchiseName: f.name,
-      identityId: f.franchise.id,
+      characterId: characterIdOf(f.franchise),
+      identityId: characterIdOf(f.franchise),
       color2: f.franchise.color2 || null,
       emoji: f.franchise.emoji || null,
       purseLakhs: f.purseLakhs,
@@ -186,7 +211,8 @@ class GameRoom extends EventEmitter {
   packLotSnapshot() {
     return this.franchises.map((f) => ({
       name: f.name,
-      identityId: f.franchise && f.franchise.id,
+      characterId: characterIdOf(f.franchise),
+      identityId: characterIdOf(f.franchise),
       color: f.franchise && f.franchise.color,
       color2: (f.franchise && f.franchise.color2) || null,
       text: (f.franchise && (f.franchise.text || f.franchise.color)) || null,
@@ -281,8 +307,8 @@ class GameRoom extends EventEmitter {
       return { ok: false, error: "This room is full (10 franchises)." };
     }
 
-    const pack = publicIdentity(nextIdentity(this.takenIdentityIds()));
-    if (!pack) return { ok: false, error: "No team logos left to assign." };
+    const pack = publicCharacter(nextCharacter(this.takenCharacterIds()));
+    if (!pack) return { ok: false, error: "No characters left to assign." };
     const franchise = {
       key: nameKey(name),
       name,
@@ -337,18 +363,22 @@ class GameRoom extends EventEmitter {
     return { ok: true };
   }
 
-  selectIdentity(byName, identityId) {
+  selectCharacter(byName, characterId) {
     if (this.ended) return { ok: false, error: "This game has ended." };
-    if (this.phase !== "lobby") return { ok: false, error: "Team logos are locked once the auction starts." };
+    if (this.phase !== "lobby") return { ok: false, error: "Characters are locked once the auction starts." };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
-    const pack = publicIdentity(identityId);
-    if (!pack) return { ok: false, error: "Unknown team logo." };
-    const taken = this.takenIdentityIds(team.key);
-    if (taken.has(pack.id)) return { ok: false, error: "That logo is already taken." };
-    this.assignIdentity(team, pack.id);
+    const pack = publicCharacter(characterId);
+    if (!pack) return { ok: false, error: "Unknown character." };
+    const taken = this.takenCharacterIds(team.key);
+    if (taken.has(pack.id)) return { ok: false, error: "That character is already taken." };
+    this.assignCharacter(team, pack.id);
     this.bump("lobby");
     return { ok: true };
+  }
+
+  selectIdentity(byName, identityId) {
+    return this.selectCharacter(byName, identityId);
   }
 
   leave(byName) {
@@ -468,7 +498,7 @@ class GameRoom extends EventEmitter {
     if (this.franchises.length < MIN_PLAYERS) {
       return { ok: false, error: "Need at least 2 franchises to start." };
     }
-    this.autoAssignIdentities();
+    this.autoAssignCharacters();
     this.phase = "auction";
     this.queue = shuffle(this.allPlayers);
     this.unsold = [];
@@ -771,7 +801,8 @@ class GameRoom extends EventEmitter {
       color: winner.franchise.color,
       color2: winner.franchise.color2 || null,
       text: winner.franchise.text || winner.franchise.color,
-      identityId: winner.franchise.id,
+      characterId: characterIdOf(winner.franchise),
+      identityId: characterIdOf(winner.franchise),
       purseLakhs: winner.purseLakhs,
       squadSize: winner.squad.length,
       complete: isSquadComplete(winner.squad),
@@ -813,6 +844,7 @@ class GameRoom extends EventEmitter {
       color: winner.franchise.color,
       color2: packed.color2,
       text: packed.text,
+      characterId: packed.characterId,
       identityId: packed.identityId,
     });
     this.lastEvent = packed;
@@ -1082,7 +1114,8 @@ class GameRoom extends EventEmitter {
         color: f.franchise.color,
         color2: f.franchise.color2 || null,
         text: f.franchise.text || f.franchise.color,
-        identityId: f.franchise.id,
+        characterId: characterIdOf(f.franchise),
+        identityId: characterIdOf(f.franchise),
         franchiseName: f.name,
         title: "Eliminated - insufficient purse",
         eliminated: true,
@@ -1165,7 +1198,8 @@ class GameRoom extends EventEmitter {
         color: f.franchise.color,
         color2: f.franchise.color2 || null,
         text: f.franchise.text || f.franchise.color,
-        identityId: f.franchise.id,
+        characterId: characterIdOf(f.franchise),
+        identityId: characterIdOf(f.franchise),
         franchiseName: f.name,
         captainId: f.captainId,
         purseLakhs: f.purseLakhs,
@@ -1261,7 +1295,8 @@ class GameRoom extends EventEmitter {
       pausedBy: this.pausedBy,
       pauseRemainingMs: this.paused ? this.pauseRemainingMs : null,
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
-      identities: IDENTITIES.map((t) => publicIdentity(t.id)),
+      characters: CHARACTERS.map((t) => publicCharacter(t.id)),
+      identities: CHARACTERS.map((t) => publicCharacter(t.id)),
       ratingsNote: this.meta.ratingsNote || null,
       hostName: this.host ? this.host.name : null,
       you: you ? this.publicFranchise(you, forKey) : null,

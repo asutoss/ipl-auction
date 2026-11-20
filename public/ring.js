@@ -60,7 +60,7 @@
   }
 
   function keyOf(team) {
-    return team.identityId || team.short || team.name;
+    return team.characterId || team.identityId || team.short || team.name;
   }
 
   function prefersReducedMotion() {
@@ -407,9 +407,10 @@
     const color = (team && (team.color || team.text)) || "#f5c518";
     const color2 = (team && team.color2) || "#0b1220";
     const name = (team && (team.name || team.short)) || "";
-    const img = (typeof IplIdentities !== "undefined" && team && team.identityId)
-      ? IplIdentities.logoImg(team.identityId, { alt: name, className: "ring-logo-img" })
-      : "";
+    const api = (typeof IplCharacters !== "undefined" && IplCharacters) || (typeof IplIdentities !== "undefined" && IplIdentities);
+    const cid = team && (team.characterId || team.identityId);
+    const imgFn = api && (api.characterImg || api.logoImg);
+    const img = (imgFn && cid) ? imgFn(cid, { alt: name, className: "ring-logo-img" }) : "";
     const face = img || `<span class="ring-logo-fallback">${(name || "?").slice(0, 1)}</span>`;
     return { color, color2, html: `<div class="ring-logo-bob"><div class="ring-logo-face">${face}</div></div>` };
   }
@@ -425,7 +426,7 @@
     const mid = midAngle(item.a0, item.a1);
     const [x, y] = polar(CX, CY, R_LOGO, mid);
     let pin = item.pin;
-    const teamKey = team.identityId || team.name || item.key;
+    const teamKey = team.characterId || team.identityId || team.name || item.key;
     if (!pin || !pin.isConnected || pin._teamKey !== teamKey) {
       if (pin && pin.isConnected) pin.remove();
       pin = document.createElement("div");
@@ -599,7 +600,7 @@
     if (!item || !name) return false;
     const want = String(name).toLowerCase();
     const team = item.team || {};
-    return [team.name, team.short, team.identityId, item.key]
+    return [team.name, team.short, team.characterId, team.identityId, item.key]
       .filter(Boolean)
       .some((v) => String(v).toLowerCase() === want);
   }

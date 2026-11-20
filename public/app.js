@@ -62,10 +62,22 @@ function remainingMs(endsAt) {
   return Math.max(0, (endsAt || 0) - Date.now());
 }
 
+function characterIdOf(obj) {
+  if (!obj) return "";
+  return obj.characterId || obj.identityId || obj.id || "";
+}
+
+function characterApi() {
+  return window.IplCharacters || window.IplIdentities;
+}
+
 function teamMark(franchise, size = "", title = "") {
   if (!franchise) return "";
-  const img = (window.IplIdentities && franchise.id)
-    ? IplIdentities.logoImg(franchise, { alt: title || franchise.character || "", className: "team-mark-img" })
+  const api = characterApi();
+  const pack = { ...franchise, id: characterIdOf(franchise) };
+  const imgFn = api && (api.characterImg || api.logoImg);
+  const img = (imgFn && pack.id)
+    ? imgFn(pack, { alt: title || pack.character || pack.name || "", className: "team-mark-img" })
     : "";
   const inner = img || esc(franchise.character || "");
   const label = title || franchise.character || "";
@@ -197,7 +209,8 @@ function fillSoldModal(evt) {
   if (kicker) kicker.textContent = unsold ? "Unsold" : "Sold";
   const logo = document.getElementById("sold-logo");
   if (logo) {
-    const fr = evt.identityId ? { id: evt.identityId, color, color2: evt.color2, text: textColor, character: evt.buyerName } : null;
+    const cid = characterIdOf(evt);
+    const fr = cid ? { id: cid, characterId: cid, color, color2: evt.color2, text: textColor, character: evt.buyerName } : null;
     logo.innerHTML = (!unsold && fr) ? teamMark(fr, "lg", evt.buyerName || "") : "";
   }
   const playerEl = document.getElementById("sold-player");
@@ -337,17 +350,28 @@ function homeView() {
 function lobbyView() {
   const isHost = state.you && state.you.isHost;
   const ready = state.franchises.length >= state.minPlayers;
-  const catalog = (window.IplIdentities && IplIdentities.IDENTITIES) || state.identities || [];
-  const mine = state.you && state.you.franchise && state.you.franchise.id;
-  const taken = new Set((state.franchises || []).map((f) => f.franchise && f.franchise.id).filter(Boolean));
+  const api = characterApi();
+  const catalog = (api && (api.CHARACTERS || api.IDENTITIES)) || state.characters || state.identities || [];
+  const mine = characterIdOf(state.you && state.you.franchise);
+  const ownerById = new Map();
+  for (const f of state.franchises || []) {
+    const id = characterIdOf(f.franchise);
+    if (id) ownerById.set(id, f.name);
+  }
+  const getPack = api && (api.getCharacter || api.getIdentity);
+  const imgFn = api && (api.characterImg || api.logoImg);
   const picker = catalog
     .map((id) => {
-      const pack = id.id ? id : (IplIdentities.getIdentity(id) || {});
-      const selected = mine && pack.id === mine;
-      const used = taken.has(pack.id) && !selected;
+      const pack = id && id.id ? id : ((getPack && getPack(id)) || {});
+      const selected = Boolean(mine && pack.id === mine);
+      const used = ownerById.has(pack.id) && !selected;
       const label = characterName(pack);
-      return `<button type="button" class="logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""} aria-label="${esc(label)}" title="${esc(label)}">
-        ${IplIdentities.logoImg(pack, { alt: label, className: "team-mark-img" })}
+      const owner = used ? (ownerById.get(pack.id) || "") : "";
+      const aria = used && owner ? `Taken by ${owner}` : label;
+      const img = imgFn ? imgFn(pack, { alt: label, className: "team-mark-img" }) : "";
+      return `<button type="button" class="character-choice logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-character="${esc(pack.id)}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""} aria-label="${esc(aria)}">
+        ${img}
+        ${used && owner ? `<span class="character-owner">${esc(owner)}</span>` : ""}
       </button>`;
     })
     .join("");
@@ -367,9 +391,9 @@ function lobbyView() {
     <section class="panel">
       <p class="lede">Share this code</p>
       <p class="room-code">${esc(state.code)}</p>
-      <p class="lede">${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Pick a unique character logo before the host starts. Team names were set on the start page and cannot be edited here. Unpicked logos are auto-assigned. Need at least ${state.minPlayers} to start.</p>
-      <h3>Choose a logo</h3>
-      <div class="logo-picker">${picker}</div>
+      <p class="lede">${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Choose a unique character before the host starts. Team names were set on the start page and cannot be edited here. Unpicked characters are auto-assigned. Taken characters are greyed out and show the team that chose them. Need at least ${state.minPlayers} to start.</p>
+      <h3>Choose your character</h3>
+      <div class="character-picker logo-picker">${picker}</div>
       ${
         isHost
           ? `<div class="row row-2" style="max-width:420px">
@@ -446,7 +470,7 @@ function teamStripHtml(a) {
       const tip = `${row.name} · ${row.purseLakhs} pts at start of this lot · ${
         row.eliminated ? "eliminated" : done ? "squad complete" : out ? "opted out of this player" : `${pending} slot${pending === 1 ? "" : "s"} left`
       }`;
-      const fr = { id: row.identityId, color: row.color, color2: row.color2, text: row.text };
+      const fr = { id: characterIdOf(row), characterId: characterIdOf(row), color: row.color, color2: row.color2, text: row.text };
       return `<button type="button" class="${cls}" data-team-id="${esc((row.name || "").toLowerCase())}" data-team-name="${esc(row.name)}" title="${esc(tip)}" style="--c:${esc(row.color)};--c2:${esc(row.color2 || "")};--ct:${esc(row.text || row.color)}">
         ${teamMark(fr, "sm", row.name)}
         <span class="chip-name">${esc(row.name)}</span>
@@ -468,7 +492,8 @@ function leaderFranchise(a) {
   }
   if (row.franchise) return { ...row.franchise, character: name };
   return {
-    id: row.identityId,
+    id: characterIdOf(row),
+    characterId: characterIdOf(row),
     color: row.color || a.currentBidderColor,
     color2: row.color2,
     text: row.text || row.color || a.currentBidderColor,
@@ -822,7 +847,7 @@ function teamReportCard(team) {
   return `
     <article class="team-report" style="--c:${esc(team.color)}">
       <header>
-        ${teamMark({ id: team.identityId, color: team.color, color2: team.color2, text: team.text }, "lg", team.name)}
+        ${teamMark({ id: characterIdOf(team), characterId: characterIdOf(team), color: team.color, color2: team.color2, text: team.text }, "lg", team.name)}
         <div>
           <h3 style="color:${esc(team.text || team.color)}">${esc(team.name || team.short)}</h3>
           <p class="lede">${team.title ? esc(team.title) : ""}${team.eliminated ? (team.title ? " · " : "") + "eliminated" : ""}</p>
@@ -854,7 +879,7 @@ function resultsView() {
         champ
           ? `<div class="panel champion">
               <h2>Champion</h2>
-              ${teamMark({ id: champ.identityId || (state.franchises || []).find((f) => f.name === champ.name)?.franchise?.id, color: champ.color, color2: champ.color2, text: champ.text }, "lg", champ.name)}
+              ${teamMark({ id: characterIdOf(champ) || characterIdOf((state.franchises || []).find((f) => f.name === champ.name)?.franchise), color: champ.color, color2: champ.color2, text: champ.text }, "lg", champ.name)}
               <p class="name" style="color:${esc(champ.text || champ.color)}">${esc(champ.name || champ.short)}</p>
               <p class="lede">${champ.title ? esc(champ.title) : "Champion"}</p>
             </div>`
@@ -1011,7 +1036,7 @@ function findEmoteTeam(teamId) {
   for (const list of lists) {
     const hit = list.find((t) => {
       const name = (t.name || "").toLowerCase();
-      const key = (t.key || t.identityId || "").toLowerCase();
+      const key = (t.key || t.characterId || t.identityId || "").toLowerCase();
       return name === id || key === id;
     });
     if (hit) return hit;
@@ -1166,9 +1191,10 @@ function wireGlobal() {
     if (emotePickerOpen && !e.target.closest("#emote-dock")) {
       closeEmotePicker();
     }
-    const ident = e.target.closest("[data-identity]");
+    const ident = e.target.closest("[data-character], [data-identity]");
     if (ident) {
-      await emitOrToast("selectIdentity", { identityId: ident.getAttribute("data-identity") }, "Could not pick that logo.");
+      const characterId = ident.getAttribute("data-character") || ident.getAttribute("data-identity");
+      await emitOrToast("selectCharacter", { characterId, identityId: characterId }, "Could not pick that character.");
       return;
     }
     if (e.target.closest("#pause")) {

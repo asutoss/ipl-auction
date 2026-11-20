@@ -6,7 +6,7 @@ This is a local MVP. Nothing is deployed, and no accounts are required.
 
 ## Rules
 
-- **Room:** 2–10 players. On the start page you enter a **team name** (unique in the room). Create or join with a 6-character code; rejoin later with the same team name and code. In the lobby you only pick a logo — team names cannot be edited there. There are 20 logos (cartoon characters and well-known public figures), each with a distinct colour theme, served as small local head cut-outs (the lobby picker shows the picture only, with no names). Logos are unique in the room; anything unpicked is auto-assigned when the host starts. The team name is used everywhere (lobby, auction ring, top bar, squads, results, and the "Game paused by [team]" modal). The host can **End game** (with a confirm) to close the room and send everyone back to the start page; anyone else can **Leave**.
+- **Room:** 2–10 players. On the start page you enter a **team name** (unique in the room). Create or join with a 6-character code; rejoin later with the same team name and code. In the lobby you only choose a character — team names cannot be edited there. There are 20 characters (cartoon characters and well-known public figures), each with a distinct colour theme and a local head-cut-out image (the lobby picker shows the picture only, with no character names). A taken character is greyed out and shows the team that chose it. Characters are unique in the room; anything unpicked is auto-assigned when the host starts. The character image is used as the team's logo on the auction ring, team strip, sold modal, and results. Per-character emotes and powers are reserved in the catalogue for later. The team name is used everywhere (lobby, auction ring, top bar, squads, results, and the "Game paused by [team]" modal). The host can **End game** (with a confirm) to close the room and send everyone back to the start page; anyone else can **Leave**.
 - **Purse:** 100 points each (host can change this in the lobby).
 - **Squad:** the auction runs until **every remaining (non-eliminated) team has a complete squad** — 4 BAT, 1 WK, 2 AR and 4 BOWL. If one team finishes early, the auction continues for everyone else. Finished teams are marked done: they drop out of the default-bid rotation and cannot bid. The **whole squad counts** in the tournament — there is no trimming back to an XI. A default bid can still push an unfinished team past a role quota or past 11 (for example 5 batters while they still need a keeper); that team is done only once every required role count is met.
 - **Role quotas (voluntary bids only):** 4 batters (BAT), 1 wicket-keeper (WK), 2 all-rounders (AR), 4 bowlers (BOWL). You cannot *choose* to bid on a role that is already full, or bid at all once your squad is complete. Default-bid assignments can exceed those quotas if the default team is not yet complete. There is **no overseas cap**. If the live queue runs out before every team is complete, the server only nominates players in roles still needed by some unfinished team and re-nominates unsold players. Remaining gaps are auto-filled at 1 point from that needed-role pool where the team can afford it.
@@ -27,7 +27,7 @@ Player ratings in `data/players.json` are **informal estimates** for game balanc
 
 The bundled pool has 192 well-known current and recent IPL names (at least 60 batters, 15 keepers, 30 all-rounders and 55 bowlers), including stars and recognisable weaker or average players, enough for 10 teams to fill a 4-1-2-4 split with margin. Ratings are informal estimates and vary realistically.
 
-The server pushes compact auction **deltas** (bid, opt-out, lot start, sale, elimination, phase changes). A full state snapshot is sent only on join/reconnect and phase transitions. Match scorecards, full squads with per-player tournament stats, and booster moments are fetched on demand (`getMatches` or `GET /api/rooms/:code/matches`) rather than pushed to every client. The results screen shows every team's logo, squad, record (W/L/NR, points, NRR, playoff finish) and those player stats. WebSocket payloads use `perMessageDeflate` compression above 256 bytes.
+The server pushes compact auction **deltas** (bid, opt-out, lot start, sale, elimination, phase changes). A full state snapshot is sent only on join/reconnect and phase transitions. Match scorecards, full squads with per-player tournament stats, and booster moments are fetched on demand (`getMatches` or `GET /api/rooms/:code/matches`) rather than pushed to every client. The results screen shows every team's character, squad, record (W/L/NR, points, NRR, playoff finish) and those player stats. WebSocket payloads use `perMessageDeflate` compression above 256 bytes.
 
 Finished rooms are evicted 30 minutes after results. Any room where every player has been disconnected for 10 minutes is evicted too. Live rooms are capped (default 20). Room creation is rate-limited to 3 per 10 minutes per IP/socket.
 
@@ -60,9 +60,11 @@ server/manager.js     Room cap, rate limit, eviction
 server/rules.js       Quotas, point increments, purse-reserve checks
 server/boosters.js    Booster catalogue and purchase helpers
 public/state.js       Shared client delta-apply helper
+data/characters.json  Character catalogue (id, image, colours, future emotes/power)
+public/characters.js  Shared character helpers (loads the catalogue)
+public/identities.js  Backward-compatible aliases for the character catalogue
 public/emotes.js      Shared emoji and phrase emote catalogue
-public/identities.js  Shared character logo themes and local image URLs
-public/logos/         Cached 256px WebP head-cut-out marks (see SOURCES.md)
+public/logos/         Cached 256px WebP head-cut-outs used as character images (see SOURCES.md)
 public/ring.js        Auction ring (SVG segments + timer)
 server/simulate.js    League + playoffs + awards
 server/players.js     Load the player pool

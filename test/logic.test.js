@@ -789,8 +789,8 @@ describe("booster shop", () => {
 });
 
 
-describe("team identities", () => {
-  test("assigns unique logos on join and rejects a taken logo", () => {
+describe("team characters", () => {
+  test("assigns unique characters on join and rejects a taken character", () => {
     const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
     const ids = room.franchises.map((f) => f.franchise.id);
     assert.equal(new Set(ids).size, 3);
@@ -798,33 +798,45 @@ describe("team identities", () => {
     const taken = ids[0];
     const fail = room.selectIdentity("Priya", taken);
     assert.equal(fail.ok, false);
-    const { unusedIdentities } = require("../public/identities");
-    const free = unusedIdentities(new Set(ids))[0];
+    const { unusedCharacters } = require("../public/characters");
+    const free = unusedCharacters(new Set(ids))[0];
     const ok = room.selectIdentity("Priya", free.id);
     assert.equal(ok.ok, true);
     assert.equal(room.findByName("Priya").franchise.id, free.id);
     assert.notEqual(room.findByName("Ashutosh").franchise.id, room.findByName("Priya").franchise.id);
   });
 
-  test("auto-assigns unique logos for anyone who has not picked before start", () => {
+  test("auto-assigns unique characters for anyone who has not picked before start", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
     room.findByName("Priya").franchise = { id: "unknown" };
     room.startAuction("Ashutosh");
     const ids = room.franchises.map((f) => f.franchise.id);
     assert.equal(new Set(ids).size, 2);
-    const { getIdentity } = require("../public/identities");
-    for (const id of ids) assert.ok(getIdentity(id));
+    const { getCharacter } = require("../public/characters");
+    for (const id of ids) assert.ok(getCharacter(id));
   });
 
-  test("keeps logos that were picked in the lobby", () => {
+  test("keeps characters that were picked in the lobby", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
-    const { unusedIdentities } = require("../public/identities");
-    const free = unusedIdentities(room.franchises.map((f) => f.franchise.id))[0];
-    assert.equal(room.selectIdentity("Priya", free.id).ok, true);
+    const { unusedCharacters } = require("../public/characters");
+    const free = unusedCharacters(room.franchises.map((f) => f.franchise.id))[0];
+    assert.equal(room.selectCharacter("Priya", free.id).ok, true);
     const ash = room.findByName("Ashutosh").franchise.id;
     room.startAuction("Ashutosh");
     assert.equal(room.findByName("Ashutosh").franchise.id, ash);
     assert.equal(room.findByName("Priya").franchise.id, free.id);
+    assert.equal(room.findByName("Priya").franchise.characterId, free.id);
+  });
+
+  test("selectIdentity remains a working alias of selectCharacter", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const { unusedCharacters } = require("../public/characters");
+    const free = unusedCharacters(room.franchises.map((f) => f.franchise.id))[0];
+    assert.equal(room.selectIdentity("Priya", free.id).ok, true);
+    assert.equal(room.findByName("Priya").franchise.characterId, free.id);
+    const clash = room.selectCharacter("Ashutosh", free.id);
+    assert.equal(clash.ok, false);
+    assert.match(clash.error, /already taken/i);
   });
 });
 
@@ -957,27 +969,39 @@ describe("end game and leave", () => {
 });
 
 
-describe("team names and logo catalog", () => {
-  test("catalog has 20 logos with unique colours and no food-theme team names", () => {
+describe("team names and character catalog", () => {
+  test("catalog has 20 characters with unique colours, images, and placeholder emotes/power", () => {
     const fs = require("fs");
     const path = require("path");
-    const { IDENTITIES, logoUrl, logoImg } = require("../public/identities");
+    const { CHARACTERS, IDENTITIES, imageUrl, logoUrl, characterImg, logoImg } = require("../public/characters");
+    const catalogPath = path.join(__dirname, "../data/characters.json");
+    const fromFile = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
+    assert.equal(CHARACTERS.length, 20);
     assert.equal(IDENTITIES.length, 20);
-    const ids = IDENTITIES.map((t) => t.id);
-    const characters = IDENTITIES.map((t) => t.character);
-    const colors = IDENTITIES.map((t) => t.color.toLowerCase());
+    assert.equal(fromFile.length, 20);
+    assert.deepEqual(CHARACTERS.map((t) => t.id), fromFile.map((t) => t.id));
+    const ids = CHARACTERS.map((t) => t.id);
+    const characters = CHARACTERS.map((t) => t.character);
+    const colors = CHARACTERS.map((t) => t.color.toLowerCase());
     assert.equal(new Set(ids).size, 20);
     assert.equal(new Set(characters).size, 20);
     assert.equal(new Set(colors).size, 20);
     const logoDir = path.join(__dirname, "../public/logos");
     let total = 0;
-    for (const t of IDENTITIES) {
+    for (const t of CHARACTERS) {
       assert.ok(t.character && t.character.length > 1, t.id);
+      assert.equal(t.name, t.character);
       assert.match(t.color, /^#[0-9A-Fa-f]{6}$/);
       assert.match(t.color2, /^#[0-9A-Fa-f]{6}$/);
       assert.match(t.text, /^#[0-9A-Fa-f]{6}$/);
-      assert.equal(logoUrl(t.id), `/logos/${t.id}.webp`);
-      const img = logoImg(t.id);
+      assert.equal(t.image, `/logos/${t.id}.webp`);
+      assert.equal(t.logo, t.image);
+      assert.ok(Array.isArray(t.emotes) && t.emotes.length === 0, t.id);
+      assert.equal(t.power, null);
+      assert.equal(imageUrl(t.id), `/logos/${t.id}.webp`);
+      assert.equal(logoUrl(t.id), imageUrl(t.id));
+      const img = characterImg(t.id);
+      assert.equal(logoImg(t.id), img);
       assert.match(img, /<img /);
       assert.match(img, new RegExp(`alt="${t.character}"`));
       const file = path.join(logoDir, `${t.id}.webp`);
@@ -985,7 +1009,7 @@ describe("team names and logo catalog", () => {
       total += fs.statSync(file).size;
       assert.doesNotMatch(t.character, /chargers|sloths|punchers|rockets|smashers|mavericks|blasters|jaguars|jammers|dynamos|lions|vikings/i);
     }
-    assert.ok(total < 600 * 1024, `logo payload ${total} bytes`);
+    assert.ok(total < 600 * 1024, `character image payload ${total} bytes`);
     // Colours should be visually spread (ignore near-neutrals).
     function hexRgb(hex) {
       const n = parseInt(hex.slice(1), 16);
@@ -998,7 +1022,7 @@ describe("team names and logo catalog", () => {
     }
     for (let i = 0; i < colors.length; i++) {
       for (let j = i + 1; j < colors.length; j++) {
-        assert.ok(dist(colors[i], colors[j]) >= 28, `${IDENTITIES[i].character} vs ${IDENTITIES[j].character} too close`);
+        assert.ok(dist(colors[i], colors[j]) >= 28, `${CHARACTERS[i].character} vs ${CHARACTERS[j].character} too close`);
       }
     }
   });
