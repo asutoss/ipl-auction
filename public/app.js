@@ -14,6 +14,8 @@ let reveal = null; // { startedAt, skipped }
 let tickTimer = null;
 let lastNomineeId = null;
 let lastBidShown = null;
+let soldModalTimer = null;
+let soldModalKey = null;
 
 function money(points) {
   const n = Number(points) || 0;
@@ -84,6 +86,7 @@ function goHome() {
   state = null;
   lastError = "";
   lastNomineeId = null;
+  hideSoldModal(true);
   render();
 }
 
@@ -107,20 +110,106 @@ async function confirmAction(message) {
   });
 }
 
+function hideSoldModal(force) {
+  if (soldModalTimer) {
+    clearTimeout(soldModalTimer);
+    soldModalTimer = null;
+  }
+  const modal = document.getElementById("sold-modal");
+  if (modal) {
+    modal.hidden = true;
+    modal.classList.remove("is-in", "is-unsold");
+  }
+  if (force) soldModalKey = null;
+}
+
+function fillSoldModal(evt) {
+  const modal = document.getElementById("sold-modal");
+  if (!modal || !evt) return null;
+  const unsold = evt.type === "unsold" || evt.type === "skipped";
+  modal.classList.toggle("is-unsold", unsold);
+  const color = evt.color || "#f5c518";
+  const textColor = evt.text || color;
+  const card = document.getElementById("sold-card");
+  if (card) {
+    card.style.setProperty("--c", color);
+    card.style.setProperty("--ct", textColor);
+    card.style.setProperty("--c2", evt.color2 || "");
+  }
+  const kicker = document.getElementById("sold-kicker");
+  if (kicker) kicker.textContent = unsold ? "Unsold" : "Sold";
+  const logo = document.getElementById("sold-logo");
+  if (logo) {
+    const fr = evt.identityId ? { id: evt.identityId, color, color2: evt.color2, text: textColor, character: evt.buyerName } : null;
+    logo.innerHTML = (!unsold && fr) ? teamMark(fr, "lg", evt.buyerName || "") : "";
+  }
+  const playerEl = document.getElementById("sold-player");
+  if (playerEl) playerEl.textContent = (evt.player && evt.player.name) || "";
+  const line = document.getElementById("sold-line");
+  if (line) {
+    if (unsold) {
+      line.innerHTML = `${esc((evt.player && evt.player.name) || "This player")} went unsold.`;
+    } else {
+      line.innerHTML = `SOLD to <strong>${esc(evt.buyerName || evt.short || "a team")}</strong> for ${money(evt.priceLakhs)}`;
+    }
+  }
+  return modal;
+}
+
+function showSoldModal(evt) {
+  if (!evt || !evt.player) return;
+  if (evt.type !== "sold" && evt.type !== "unsold" && evt.type !== "skipped") return;
+  const key = `${evt.type}:${evt.player.id}:${evt.buyerName || ""}:${evt.priceLakhs || ""}`;
+  if (soldModalKey === key) return;
+  soldModalKey = key;
+  const modal = fillSoldModal(evt);
+  if (!modal) return;
+  modal.hidden = false;
+  modal.classList.remove("is-in");
+  void modal.offsetWidth;
+  modal.classList.add("is-in");
+  if (soldModalTimer) clearTimeout(soldModalTimer);
+  let ms = 1000;
+  if (evt.revealUntil) ms = Math.max(200, evt.revealUntil - Date.now());
+  else if (evt.revealMs != null) ms = Math.max(200, Number(evt.revealMs) || 1000);
+  const hide = () => {
+    soldModalTimer = null;
+    if (state && state.paused && state.soldRevealUntil) return;
+    modal.hidden = true;
+    modal.classList.remove("is-in", "is-unsold");
+  };
+  soldModalTimer = setTimeout(hide, ms);
+}
+
+function syncSoldModal() {
+  if (!state || state.phase === "ended") {
+    hideSoldModal(true);
+    return;
+  }
+  const until = state.soldRevealUntil;
+  const evt = state.lastEvent;
+  if (until && until > Date.now() && evt && (evt.type === "sold" || evt.type === "unsold" || evt.type === "skipped")) {
+    showSoldModal({ ...evt, revealUntil: until });
+    return;
+  }
+}
+
 function syncOverlays() {
   const modal = document.getElementById("pause-modal");
-  if (!modal) return;
-  const paused = Boolean(state && state.paused && state.phase && state.phase !== "ended");
-  modal.hidden = !paused;
-  const msg = document.getElementById("pause-msg");
-  if (msg) msg.textContent = paused ? `Game paused by ${state.pausedBy || "a team"}.` : "";
-  const btn = document.getElementById("resume");
-  if (btn) {
-    const you = state && state.you;
-    const can = you && (you.isHost || (state.pausedBy && you.name === state.pausedBy));
-    btn.hidden = !paused;
-    btn.disabled = !can;
+  if (modal) {
+    const paused = Boolean(state && state.paused && state.phase && state.phase !== "ended");
+    modal.hidden = !paused;
+    const msg = document.getElementById("pause-msg");
+    if (msg) msg.textContent = paused ? `Game paused by ${state.pausedBy || "a team"}.` : "";
+    const btn = document.getElementById("resume");
+    if (btn) {
+      const you = state && state.you;
+      const can = you && (you.isHost || (state.pausedBy && you.name === state.pausedBy));
+      btn.hidden = !paused;
+      btn.disabled = !can;
+    }
   }
+  syncSoldModal();
 }
 
 function meter(value) {
@@ -292,16 +381,18 @@ function teamStripHtml(a) {
   return snap
     .map((row) => {
       const pending = row.pending != null ? row.pending : Math.max(0, 11 - (row.squadSize || 0));
-      const out = !row.eliminated && !still.has(row.name);
+      const done = Boolean(row.complete) || pending === 0;
+      const out = !row.eliminated && !done && !still.has(row.name);
       const cls = [
         "team-chip",
         row.eliminated ? "is-eliminated" : "",
+        done && !row.eliminated ? "is-done" : "",
         out ? "is-out" : "",
         leader && row.name === leader ? "is-leader" : "",
       ].filter(Boolean).join(" ");
-      const need = row.eliminated ? "out" : pending === 0 ? "full" : `need ${pending}`;
+      const need = row.eliminated ? "out" : done ? "done" : `need ${pending}`;
       const tip = `${row.name} · ${row.purseLakhs} pts at start of this lot · ${
-        row.eliminated ? "eliminated" : out ? "opted out of this player" : pending === 0 ? "minimum 11 reached" : `${pending} slot${pending === 1 ? "" : "s"} left to 11`
+        row.eliminated ? "eliminated" : done ? "squad complete" : out ? "opted out of this player" : `${pending} slot${pending === 1 ? "" : "s"} left`
       }`;
       const fr = { id: row.identityId, color: row.color, color2: row.color2, text: row.text };
       return `<button type="button" class="${cls}" title="${esc(tip)}" style="--c:${esc(row.color)};--c2:${esc(row.color2 || "")};--ct:${esc(row.text || row.color)}">
@@ -393,7 +484,7 @@ function auctionView() {
       </div>
       <aside class="panel side">
         <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm", you.name) : ""}${you ? esc(you.name) : "Squad"}</h3>
-        ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede">${you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.squad.length < 11 ? ` · need ${11 - you.squad.length} more` : you.squad.length > 11 ? " · full squad+" : " · min 11 reached"}</p>` : ""}
+        ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede">${you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.complete ? " · squad complete" : (() => { const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0); return n ? ` · need ${n} more` : ""; })()}</p>` : ""}
         ${you ? squadSlots(you) : ""}
       </aside>
     </section>

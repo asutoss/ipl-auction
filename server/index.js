@@ -150,6 +150,9 @@ io.on("connection", (socket) => {
       if (payload.testTimers.lotStartMs) timers.lotStartMs = Number(payload.testTimers.lotStartMs);
       if (payload.testTimers.bidMs) timers.bidMs = Number(payload.testTimers.bidMs);
       if (payload.testTimers.captainMs) timers.captainMs = Number(payload.testTimers.captainMs);
+      if (payload.testTimers.soldRevealMs != null && Number.isFinite(Number(payload.testTimers.soldRevealMs))) {
+        timers.soldRevealMs = Math.max(0, Number(payload.testTimers.soldRevealMs));
+      }
     }
     const room = new GameRoom({
       code,

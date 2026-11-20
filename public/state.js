@@ -42,7 +42,8 @@
     team.overseasCount = overseas;
     team.remainingQuota = {};
     for (const k of Object.keys(q)) team.remainingQuota[k] = Math.max(0, q[k] - (have[k] || 0));
-    team.complete = (team.squad || []).length >= (squadSize || 11);
+    const need = Object.keys(q).reduce((s, k) => s + Math.max(0, q[k] - (have[k] || 0)), 0);
+    team.complete = need === 0;
     return team;
   }
 
@@ -88,6 +89,7 @@
         const next = { ...evt };
         delete next.type;
         state.auction = next;
+        state.soldRevealUntil = null;
         decorateAuctionYou(state);
         break;
       }
@@ -102,6 +104,7 @@
         syncYou(state);
         state.lastEvent = evt;
         state.auction = null;
+        state.soldRevealUntil = evt.revealUntil || null;
         state.soldLog = state.soldLog || [];
         state.soldLog.push(evt);
         break;
@@ -110,6 +113,7 @@
       case "skipped":
         state.lastEvent = evt;
         state.auction = null;
+        if (evt.revealUntil) state.soldRevealUntil = evt.revealUntil;
         break;
       case "eliminated": {
         const team = findTeam(state, evt.name);

@@ -111,7 +111,7 @@ async function playAuction(sockets) {
     return null;
   }
 
-  const stop = Date.now() + 25000;
+  const stop = Date.now() + 35000;
   while (Date.now() < stop) {
     const sample = sockets.map((s) => s.state).find((st) => st && ["captains", "results", "simulating"].includes(st.phase));
     if (sample) return sample;
@@ -146,7 +146,7 @@ describe("e2e: 3 clients through a full game", () => {
     const created = await ack(ash, "createRoom", {
       name: "Ashutosh",
       pursePoints: 100,
-      testTimers: { lotStartMs: 80, bidMs: 80, captainMs: 300 },
+      testTimers: { lotStartMs: 80, bidMs: 80, captainMs: 300, soldRevealMs: 0 },
     });
     assert.equal(created.ok, true);
     assert.match(created.code, /^[A-Z0-9]{6}$/);
@@ -271,7 +271,7 @@ describe("identities, pause, start bid and end game over sockets", () => {
 
     const created = await ack(ash, "createRoom", {
       name: "Ashutosh",
-      testTimers: { lotStartMs: 800, bidMs: 800, captainMs: 800 },
+      testTimers: { lotStartMs: 800, bidMs: 800, captainMs: 800, soldRevealMs: 0 },
     });
     assert.equal(created.ok, true);
     const code = created.code;

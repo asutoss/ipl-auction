@@ -8,6 +8,8 @@ const {
   minCostToFill,
   QUOTA,
   MAX_OVERSEAS,
+  isSquadComplete,
+  pendingSlots,
 } = require("../server/rules");
 const { GameRoom } = require("../server/game");
 const { simulateTournament, teamStrength } = require("../server/simulate");
@@ -18,13 +20,35 @@ function roomWith(names, timers) {
   const room = new GameRoom({
     code: "TEST",
     purseLakhs: 100,
-    timers: timers || { lotStartMs: 15_000, bidMs: 10_000, captainMs: 45_000 },
+    timers: { lotStartMs: 15_000, bidMs: 10_000, captainMs: 45_000, soldRevealMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
   });
   names.forEach((n, i) => room.addPlayer(n, `sock-${i}`));
   room.forcedStartBid = 2; // keep existing tests stable; start-bid range is tested separately
   return room;
+}
+
+function takeForQuota(room, need) {
+  const picked = [];
+  const left = { ...need };
+  for (const p of players) {
+    if ((left[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+      picked.push(p);
+      room.soldIds.add(p.id);
+      left[p.role] -= 1;
+    }
+  }
+  return picked;
+}
+
+function giveSquad(room, name, need, price = 2) {
+  const team = room.findByName(name);
+  for (const p of takeForQuota(room, need)) {
+    team.squad.push({ player: p, priceLakhs: price });
+    team.purseLakhs -= price;
+  }
+  return team;
 }
 
 describe("player pool", () => {
@@ -264,54 +288,52 @@ describe("default bid, round-robin and elimination", () => {
     assert.ok(!room.stillInTeams().some((f) => f.name === "Ashutosh"));
   });
 
-  test("still assigns a default bid when every team already has that role filled", () => {
+  test("skips a player whose role no incomplete team still needs", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
     const wks = players.filter((p) => p.role === "WK");
-    room.findByName("Ashutosh").squad.push({ player: wks[0], priceLakhs: 200 });
-    room.findByName("Priya").squad.push({ player: wks[1], priceLakhs: 200 });
+    room.findByName("Ashutosh").squad.push({ player: wks[0], priceLakhs: 2 });
+    room.findByName("Priya").squad.push({ player: wks[1], priceLakhs: 2 });
     room.soldIds.add(wks[0].id);
     room.soldIds.add(wks[1].id);
     const leftover = wks[2];
-    room.queue = [leftover, players.find((p) => p.id === "karun-nair")];
+    const bat = players.find((p) => p.id === "karun-nair");
+    room.queue = [leftover, bat];
     room.phase = "auction";
     room.nominateNext();
-    // Priya cannot bid voluntarily (WK quota full), so the default bid locks immediately.
-    const wksOnA = room.findByName("Ashutosh").squad.filter((s) => s.player.role === "WK");
-    assert.equal(wksOnA.length, 2);
-    assert.equal(wksOnA[1].player.id, leftover.id);
-    assert.equal(room.lastEvent.type, "sold");
-    assert.equal(room.lastEvent.player.id, leftover.id);
+    // Both teams already have their WK, so the extra keeper is skipped and a batter comes up.
+    assert.equal(room.auction.nominee.id, bat.id);
+    assert.ok(!room.findByName("Ashutosh").squad.some((s) => s.player.id === leftover.id));
   });
 
-  test("auction ends once every active team has at least 11 players, keeping extras on the squad", () => {
-    const room = roomWith(["Ashutosh", "Priya"]);
-    const pool = players.filter((p) => !room.soldIds.has(p.id));
-    // Give Priya 11 already; Ashutosh has 10. One more default to Ashutosh should end the auction.
+  test("auction continues after one team completes its squad and ends only when every active team is complete", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    // Priya is already a full 4-1-2-4. Ashutosh needs one more batter. Rohan is also complete.
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Rohan", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
     const a = room.findByName("Ashutosh");
     const b = room.findByName("Priya");
-    for (let i = 0; i < 10; i++) {
-      a.squad.push({ player: pool[i], priceLakhs: 20 });
-      room.soldIds.add(pool[i].id);
-    }
-    for (let i = 10; i < 21; i++) {
-      b.squad.push({ player: pool[i], priceLakhs: 20 });
-      room.soldIds.add(pool[i].id);
-    }
-    const next = pool[21];
-    const after = pool[22];
-    room.queue = [next, after];
+    const c = room.findByName("Rohan");
+    assert.equal(isSquadComplete(b.squad), true);
+    assert.equal(isSquadComplete(a.squad), false);
+    const nextBat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    const after = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id) && p.id !== nextBat.id);
+    room.queue = [nextBat, after];
     room.phase = "auction";
     room.rrIndex = 0;
+    const events = [];
+    room.on("delta", (e) => events.push(e));
     room.nominateNext();
-    if (room.auction) {
-      assert.equal(room.auction.currentBidderKey, "ashutosh");
-      if (room.stillInTeams().some((f) => f.name === "Priya")) room.optOut("Priya");
-    }
-    assert.ok(a.squad.length >= 11);
-    assert.ok(b.squad.length >= 11);
+    // Complete teams are excluded, so only Ashutosh is in and the lot locks immediately.
+    assert.ok(a.squad.some((s) => s.player.id === nextBat.id));
+    assert.equal(isSquadComplete(a.squad), true);
     assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
-    assert.ok(a.squad.some((s) => s.player.id === next.id));
-    assert.ok(!a.squad.some((s) => s.player.id === after.id), "auction should have stopped after both reached 11");
+    assert.equal(b.squad.length, 11);
+    assert.equal(c.squad.length, 11);
+    assert.ok(!b.squad.some((s) => s.player.id === nextBat.id));
+    assert.ok(!c.squad.some((s) => s.player.id === nextBat.id));
+    assert.ok(!a.squad.some((s) => s.player.id === after.id), "auction should stop once every squad is complete");
+    assert.ok(events.some((e) => e.type === "sold" && e.buyerName === "Ashutosh" && e.player.id === nextBat.id));
   });
 
   test("default bid is awarded even when a voluntary reserve check would block it", () => {
@@ -377,6 +399,103 @@ describe("default bid, round-robin and elimination", () => {
     assert.equal(back.ok, true);
     assert.equal(room.auction.currentBidderKey, "ashutosh");
     assert.equal(room.auction.currentBidLakhs, 9);
+  });
+});
+
+describe("squad completion and sold reveal", () => {
+  test("a team is complete when every role quota is met, even with overflow players", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    const a = room.findByName("Ashutosh");
+    const extraBat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    a.squad.push({ player: extraBat, priceLakhs: 2 });
+    assert.equal(isSquadComplete(a.squad), true);
+    assert.equal(pendingSlots(a.squad), 0);
+    assert.equal(a.squad.length, 12);
+  });
+
+  test("eleven players missing a required role are not a complete squad", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Ashutosh", { BAT: 5, WK: 0, AR: 2, BOWL: 4 });
+    const a = room.findByName("Ashutosh");
+    assert.equal(a.squad.length, 11);
+    assert.equal(isSquadComplete(a.squad), false);
+    assert.equal(pendingSlots(a.squad), 1);
+  });
+
+  test("complete teams are skipped in the default-bid rotation while the auction continues", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    // Priya and Rohan still need players
+    const bats = players.filter((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.queue = [bats[0], bats[1]];
+    room.phase = "auction";
+    room.rrIndex = 0; // Ashutosh's slot — must skip to Priya
+    room.nominateNext();
+    assert.equal(room.phase, "auction");
+    assert.equal(room.auction.currentBidderKey, "priya");
+    assert.equal(room.auction.nominee.id, bats[0].id);
+    const names = room.stillInTeams().map((f) => f.name).sort();
+    assert.deepEqual(names, ["Priya", "Rohan"]);
+    assert.equal(room.bid("Ashutosh", room.auction.currentBidLakhs + 1).ok, false);
+    room.optOut("Rohan");
+    assert.equal(room.findByName("Priya").squad[0].player.id, bats[0].id);
+    assert.equal(room.findByName("Ashutosh").squad.length, 11);
+    assert.equal(room.phase, "auction");
+    assert.equal(room.auction.currentBidderKey, "rohan");
+  });
+
+  test("default bid still lands on a team whose role is full if their squad is not complete", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
+    const nextBat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.queue = [nextBat];
+    room.phase = "auction";
+    room.rrIndex = 0;
+    room.nominateNext();
+    // Priya still needs BAT, so this batter is nominated; Ashutosh is default even with 4 BAT.
+    assert.equal(room.auction.nominee.id, nextBat.id);
+    assert.equal(room.auction.currentBidderKey, "ashutosh");
+    assert.equal(room.optOut("Priya").ok, true);
+    assert.equal(room.findByName("Ashutosh").squad.filter((s) => s.player.role === "BAT").length, 5);
+    assert.equal(isSquadComplete(room.findByName("Ashutosh").squad), false);
+    assert.equal(room.phase, "auction");
+  });
+
+  test("re-nominates leftover needed-role players when the queue runs out before every team is full", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
+    const wk = players.find((p) => p.role === "WK" && !room.soldIds.has(p.id));
+    // Queue is empty; the leftover keeper is only in unsold / the pool.
+    room.queue = [];
+    room.unsold = [wk];
+    room.pass = 2;
+    room.phase = "auction";
+    room.rrIndex = 0;
+    room.nominateNext();
+    assert.ok(room.findByName("Ashutosh").squad.some((s) => s.player.id === wk.id));
+    assert.equal(isSquadComplete(room.findByName("Ashutosh").squad), true);
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+  });
+
+  test("sold reveal delays the next lot without skipping it", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { soldRevealMs: 40 });
+    const bats = players.filter((p) => p.role === "BAT");
+    room.queue = [bats[0], bats[1]];
+    room.phase = "auction";
+    room.nominateNext();
+    const firstId = room.auction.nominee.id;
+    room.optOut("Priya");
+    assert.equal(room.lastEvent.type, "sold");
+    assert.equal(room.lastEvent.player.id, firstId);
+    assert.equal(room.phase, "auction");
+    assert.equal(room.auction, null);
+    assert.ok(room.revealUntil && room.revealUntil > Date.now());
+    await new Promise((r) => setTimeout(r, 80));
+    assert.ok(room.auction, "next lot should start after the reveal");
+    assert.equal(room.auction.nominee.id, bats[1].id);
+    assert.equal(room.phase, "auction");
   });
 });
 

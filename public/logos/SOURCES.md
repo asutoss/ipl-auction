@@ -1,6 +1,6 @@
 # Logo sources
 
-Processed locally to 160×160 WebP and served from `/logos/`. No hotlinking.
+Processed locally to 160×160 WebP, then re-cropped tightly around each character's face/head so the logos stay bold on phone screens. Served from `/logos/`. No hotlinking. Motu Patlu is a composite of the two faces from the individual character renders.
 
 | Id | Character | Source | Page |
 | --- | --- | --- | --- |

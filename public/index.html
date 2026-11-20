@@ -35,6 +35,17 @@
         <button class="btn" id="resume" type="button">Resume</button>
       </div>
     </div>
+    <div id="sold-modal" class="sold-modal" hidden>
+      <div class="sold-card" id="sold-card">
+        <div class="sold-claps" aria-hidden="true">
+          <span>👏</span><span>👏</span><span>👏</span><span>👏</span><span>👏</span>
+        </div>
+        <p class="kicker" id="sold-kicker">Sold</p>
+        <div class="sold-logo" id="sold-logo"></div>
+        <h2 id="sold-player"></h2>
+        <p id="sold-line" class="lede"></p>
+      </div>
+    </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/identities.js"></script>
     <script src="/state.js"></script>

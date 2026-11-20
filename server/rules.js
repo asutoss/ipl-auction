@@ -43,9 +43,14 @@ function slotsLeft(squad) {
 }
 
 function isSquadComplete(squad) {
-  if (squad.length !== SQUAD_SIZE) return false;
-  const have = roleCounts(squad);
-  return ROLES.every((r) => have[r] === QUOTA[r]);
+  const have = roleCounts(squad || []);
+  return ROLES.every((r) => (have[r] || 0) >= QUOTA[r]);
+}
+
+/** Remaining role slots a team still needs to complete the 4-1-2-4 squad. */
+function pendingSlots(squad) {
+  const left = remainingQuota(squad || []);
+  return ROLES.reduce((s, r) => s + (left[r] || 0), 0);
 }
 
 /** Minimum raise is +1 point. Buttons offer +1, +2 or +5. */
@@ -196,6 +201,9 @@ function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
   if (franchise.eliminated) {
     return { ok: false, reason: "Your franchise has been eliminated." };
   }
+  if (isSquadComplete(franchise.squad)) {
+    return { ok: false, reason: "Your squad is already complete." };
+  }
   const after = neededAfterPurchase(franchise.squad, player);
   if (!after) {
     return { ok: false, reason: `Your ${player.role} quota is full.` };
@@ -205,11 +213,11 @@ function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
   }
   const requireReserve = opts.requireReserve !== false;
   if (requireReserve) {
-    const reserve = reserveToReachSize((franchise.squad || []).length + 1);
+    const reserve = ROLES.reduce((s, r) => s + (after.needed[r] || 0), 0) * BASE_PRICE_POINTS;
     if (franchise.purseLakhs - amountLakhs < reserve) {
       return {
         ok: false,
-        reason: "Bid would leave too little purse to reach 11 players (1 point per remaining slot).",
+        reason: "Bid would leave too little purse to complete your squad (1 point per remaining slot).",
       };
     }
   }
@@ -240,6 +248,7 @@ module.exports = {
   remainingQuota,
   hasMinSquad,
   slotsLeft,
+  pendingSlots,
   isSquadComplete,
   bidIncrement,
   nextBidAmount,

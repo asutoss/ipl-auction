@@ -310,7 +310,73 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .team-chip.is-leader { border-color: var(--c, var(--gold)); box-shadow: 0 0 0 1px var(--c, var(--gold)); }
 .team-chip.is-out { opacity: 0.55; }
 .team-chip.is-eliminated { opacity: 0.4; filter: grayscale(0.7); }
+.team-chip.is-done { opacity: 0.72; }
 @media (max-width: 700px) {
   .logo-choice .team-mark-img { width: 56px; height: 56px; }
   .team-chip .chip-name { max-width: 64px; }
+}
+
+.sold-modal {
+  position: fixed; inset: 0; z-index: 75;
+  background: rgba(4, 8, 16, 0.86); backdrop-filter: blur(10px);
+  display: grid; place-items: center; padding: 20px;
+}
+.sold-modal[hidden] { display: none !important; }
+.sold-card {
+  position: relative;
+  background: var(--card);
+  border: 2px solid var(--c, var(--gold));
+  border-radius: 28px;
+  padding: 28px 24px 26px;
+  max-width: 420px; width: min(420px, 100%);
+  text-align: center;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 18px 50px rgba(0,0,0,0.45), 0 0 40px color-mix(in srgb, var(--c, var(--gold)) 35%, transparent);
+  overflow: hidden;
+}
+.sold-modal.is-in .sold-card { animation: sold-pop 420ms cubic-bezier(0.18, 1.4, 0.32, 1) both; }
+.sold-card .kicker {
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold); font-size: 13px; font-weight: 700; margin: 0 0 10px;
+}
+.sold-logo { display: grid; place-items: center; margin: 4px auto 10px; }
+.sold-logo .team-mark-wrap { width: 88px; height: 88px; }
+.sold-logo .team-mark-img { width: 88px; height: 88px; object-fit: cover; }
+.sold-card h2 { margin: 0 0 8px; font-size: clamp(28px, 8vw, 42px); line-height: 1; }
+.sold-card #sold-line { margin: 0; font-size: 16px; color: var(--text); }
+.sold-card #sold-line strong { color: var(--ct, var(--c, var(--gold))); }
+.sold-claps {
+  pointer-events: none; position: absolute; inset: 0;
+}
+.sold-claps span {
+  position: absolute; font-size: 28px; opacity: 0;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+}
+.sold-modal.is-in:not(.is-unsold) .sold-claps span { animation: clap-pop 900ms ease-out both; }
+.sold-claps span:nth-child(1) { left: 8%; top: 10%; animation-delay: 40ms; }
+.sold-claps span:nth-child(2) { right: 10%; top: 16%; animation-delay: 120ms; font-size: 34px; }
+.sold-claps span:nth-child(3) { left: 14%; bottom: 14%; animation-delay: 80ms; font-size: 22px; }
+.sold-claps span:nth-child(4) { right: 12%; bottom: 12%; animation-delay: 200ms; }
+.sold-claps span:nth-child(5) { left: 46%; top: 4%; animation-delay: 160ms; font-size: 24px; }
+.sold-modal.is-unsold .sold-card {
+  border-color: #6b2f2f;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+}
+.sold-modal.is-unsold .sold-card .kicker { color: #f0a0a0; }
+.sold-modal.is-unsold .sold-logo { display: none; }
+
+@keyframes sold-pop {
+  0% { transform: scale(0.72) rotate(-3deg); opacity: 0; }
+  55% { transform: scale(1.08) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes clap-pop {
+  0% { transform: scale(0.4) translateY(12px) rotate(-20deg); opacity: 0; }
+  35% { transform: scale(1.25) translateY(-6px) rotate(8deg); opacity: 1; }
+  70% { transform: scale(1) translateY(-14px) rotate(-6deg); opacity: 1; }
+  100% { transform: scale(0.9) translateY(-22px) rotate(4deg); opacity: 0; }
+}
+
+@media (max-width: 700px) {
+  .sold-card { padding: 22px 16px 20px; border-radius: 22px; }
+  .sold-logo .team-mark-wrap, .sold-logo .team-mark-img { width: 76px; height: 76px; }
 }

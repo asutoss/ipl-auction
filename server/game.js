@@ -13,6 +13,8 @@ const {
   overseasCount,
   remainingQuota,
   hasMinSquad,
+  isSquadComplete,
+  pendingSlots,
   bidIncrement,
   nextBidAmount,
   isLegalRaise,
@@ -43,11 +45,18 @@ function shuffle(arr, rng = Math.random) {
   return a;
 }
 
+function envMs(name, fallback) {
+  if (process.env[name] == null || process.env[name] === "") return fallback;
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function defaultTimers() {
   return {
     lotStartMs: Number(process.env.LOT_START_MS) || 15000,
     bidMs: Number(process.env.BID_TIMER_MS) || 10000,
     captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 45000,
+    soldRevealMs: envMs("SOLD_REVEAL_MS", 1000),
   };
 }
 
@@ -83,6 +92,8 @@ class GameRoom extends EventEmitter {
     this.ended = false;
     this.forcedStartBid = null;
     this.startBidFn = null;
+    this.revealUntil = null;
+    this.unaffordableIds = new Set();
   }
 
   rollStartBid() {
@@ -179,8 +190,9 @@ class GameRoom extends EventEmitter {
       color2: (f.franchise && f.franchise.color2) || null,
       text: (f.franchise && (f.franchise.text || f.franchise.color)) || null,
       purseLakhs: f.purseLakhs,
-      pending: Math.max(0, 11 - ((f.squad || []).length)),
+      pending: pendingSlots(f.squad),
       squadSize: (f.squad || []).length,
+      complete: isSquadComplete(f.squad),
       eliminated: Boolean(f.eliminated),
     }));
   }
@@ -210,7 +222,7 @@ class GameRoom extends EventEmitter {
       stillIn: this.packStillIn(),
       pass: this.pass,
       soldCount: this.soldLog.length,
-      remainingLots: this.queue.length + (this.pass === 1 ? this.unsold.length : 0),
+      remainingLots: this.countRemainingLots(),
       defaultBidderName: def ? def.name : null,
       defaultBidderShort: def ? def.name : null,
       isDefaultBidLeading: this.auction.currentBidderKey === this.auction.defaultBidderKey
@@ -386,6 +398,9 @@ class GameRoom extends EventEmitter {
     if (this.phase === "auction" && this.auction) {
       this.pauseRemainingMs = Math.max(0, (this.auction.endsAt || Date.now()) - Date.now());
       this.pauseTimerKind = "lot";
+    } else if (this.phase === "auction" && this.revealUntil) {
+      this.pauseRemainingMs = Math.max(0, this.revealUntil - Date.now());
+      this.pauseTimerKind = "reveal";
     } else if (this.phase === "captains" && this.captainEndsAt) {
       this.pauseRemainingMs = Math.max(0, this.captainEndsAt - Date.now());
       this.pauseTimerKind = "captain";
@@ -424,6 +439,14 @@ class GameRoom extends EventEmitter {
       this.auction.endsAt = Date.now() + remaining;
       endsAt = this.auction.endsAt;
       this.armTimer(() => this.onLotTimeout(lotId), remaining);
+    } else if (kind === "reveal" && this.phase === "auction" && remaining != null) {
+      this.revealUntil = Date.now() + remaining;
+      endsAt = this.revealUntil;
+      this.armTimer(() => {
+        if (this.paused || this.ended) return;
+        this.revealUntil = null;
+        this.nominateNext();
+      }, remaining);
     } else if (kind === "captain" && this.phase === "captains" && remaining != null) {
       this.captainEndsAt = Date.now() + remaining;
       endsAt = this.captainEndsAt;
@@ -456,6 +479,8 @@ class GameRoom extends EventEmitter {
     this.soldLog = [];
     this.rrIndex = 0;
     this.eliminationLog = [];
+    this.revealUntil = null;
+    this.unaffordableIds = new Set();
     this.nominateNext();
     return { ok: true };
   }
@@ -475,7 +500,74 @@ class GameRoom extends EventEmitter {
   allTeamsFull() {
     const active = this.activeFranchises();
     if (active.length === 0) return true;
-    return active.every((f) => hasMinSquad(f.squad));
+    return active.every((f) => isSquadComplete(f.squad));
+  }
+
+  incompleteTeams() {
+    return this.activeFranchises().filter((f) => !isSquadComplete(f.squad));
+  }
+
+  neededRoles() {
+    const roles = new Set();
+    for (const f of this.incompleteTeams()) {
+      const left = remainingQuota(f.squad);
+      for (const role of ROLES) {
+        if ((left[role] || 0) > 0) roles.add(role);
+      }
+    }
+    return roles;
+  }
+
+  takeNeededFrom(list) {
+    const needed = this.neededRoles();
+    const out = [];
+    const rest = [];
+    for (const p of list) {
+      if (!p || this.soldIds.has(p.id) || this.unaffordableIds.has(p.id)) continue;
+      if (needed.has(p.role)) out.push(p);
+      else rest.push(p);
+    }
+    return { out, rest };
+  }
+
+  refillQueue() {
+    const needed = this.neededRoles();
+    if (needed.size === 0) return false;
+
+    const fromUnsold = this.takeNeededFrom(this.unsold);
+    this.unsold = fromUnsold.rest;
+    if (fromUnsold.out.length) {
+      this.queue = shuffle(fromUnsold.out);
+      if (this.pass < 2) this.pass = 2;
+      return true;
+    }
+
+    const seen = new Set([...this.soldIds, ...this.unaffordableIds]);
+    const out = [];
+    for (const p of this.allPlayers) {
+      if (seen.has(p.id)) continue;
+      if (needed.has(p.role)) {
+        seen.add(p.id);
+        out.push(p);
+      }
+    }
+    if (out.length === 0) return false;
+    this.queue = shuffle(out);
+    if (this.pass < 2) this.pass = 2;
+    return true;
+  }
+
+  countRemainingLots() {
+    const needed = this.neededRoles();
+    if (needed.size === 0) return 0;
+    const seen = new Set([...this.soldIds, ...this.unaffordableIds]);
+    let n = 0;
+    for (const p of [...this.queue, ...this.unsold, ...this.allPlayers]) {
+      if (!p || seen.has(p.id)) continue;
+      seen.add(p.id);
+      if (needed.has(p.role)) n += 1;
+    }
+    return n;
   }
 
   isEligible(team, player, amountLakhs) {
@@ -501,8 +593,11 @@ class GameRoom extends EventEmitter {
 
   /**
    * Assign the automatic base-price bid in join-order round-robin.
-   * Skip only eliminated teams. Quota-full or already-11+ teams still get the default bid.
-   * If the chosen team cannot afford the base price, eliminate them and continue.
+   * Skip eliminated teams and teams whose squad is already complete (every
+   * required role count is met). A team that still needs players can be the
+   * default even if this player's role quota is already full, and must keep
+   * the player if nobody outbids. If the chosen team cannot afford the
+   * starting bid, eliminate them and continue.
    */
   pickDefaultTeam(player, startBid) {
     const cost = startBid != null ? startBid : MIN_START_BID;
@@ -512,7 +607,7 @@ class GameRoom extends EventEmitter {
     for (let i = 0; i < n; i++) {
       const idx = (start + i) % n;
       const team = this.franchises[idx];
-      if (team.eliminated) continue;
+      if (team.eliminated || isSquadComplete(team.squad)) continue;
       if (team.purseLakhs < cost) {
         this.eliminate(team);
         continue;
@@ -572,63 +667,104 @@ class GameRoom extends EventEmitter {
 
   nominateNext() {
     this.clearTimer();
-    if (this.allTeamsFull()) {
+    this.revealUntil = null;
+    if (this.allTeamsFull() || this.activeFranchises().length === 0) {
       this.beginCaptainPhase();
       return;
     }
 
-    while (this.queue.length === 0) {
-      if (this.pass === 1 && this.unsold.length > 0) {
-        this.queue = this.unsold;
-        this.unsold = [];
-        this.pass = 2;
-      } else {
-        this.autoFill();
+    for (;;) {
+      if (this.allTeamsFull()) {
         this.beginCaptainPhase();
         return;
       }
-    }
+      if (this.queue.length === 0) {
+        if (!this.refillQueue()) {
+          this.autoFill();
+          this.beginCaptainPhase();
+          return;
+        }
+      }
+      const player = this.queue.shift();
+      if (!player || this.soldIds.has(player.id) || this.unaffordableIds.has(player.id)) continue;
+      if (!this.neededRoles().has(player.role)) continue;
 
-    const player = this.queue.shift();
-    if (!player || this.soldIds.has(player.id)) {
-      this.nominateNext();
-      return;
-    }
+      const startBid = this.rollStartBid();
+      const defaultTeam = this.pickDefaultTeam(player, startBid);
+      if (!defaultTeam) {
+        this.unaffordableIds.add(player.id);
+        this.lastEvent = {
+          type: "skipped",
+          player,
+          reason: "No remaining team can afford this player.",
+        };
+        this.emitDelta({ type: "skipped", player, reason: this.lastEvent.reason });
+        continue;
+      }
 
-    const startBid = this.rollStartBid();
-    const defaultTeam = this.pickDefaultTeam(player, startBid);
-    if (!defaultTeam) {
-      this.lastEvent = {
-        type: "skipped",
-        player,
-        reason: "No remaining team can afford this player.",
+      this.lotId += 1;
+      this.auction = {
+        nominee: player,
+        startBidLakhs: startBid,
+        currentBidLakhs: startBid,
+        currentBidderKey: defaultTeam.key,
+        defaultBidderKey: defaultTeam.key,
+        optedOut: new Set(),
+        endsAt: Date.now() + this.timers.lotStartMs,
+        timerMs: this.timers.lotStartMs,
+        lotSnapshot: this.packLotSnapshot(),
       };
-      this.emitDelta({ type: "skipped", player, reason: this.lastEvent.reason });
+      this.startLotTimer(false);
+      if (!this.maybeResolveLot()) {
+        this.emitDelta({ type: "lotStart", ...this.packAuctionPublic() });
+      }
+      return;
+    }
+  }
+
+  revealDelayMs() {
+    const n = Number(this.timers.soldRevealMs);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  scheduleNominateNext() {
+    const ms = this.revealDelayMs();
+    this.clearTimer();
+    if (ms <= 0 || this.ended) {
+      this.revealUntil = null;
       this.nominateNext();
       return;
     }
+    this.revealUntil = Date.now() + ms;
+    this.armTimer(() => {
+      if (this.paused || this.ended) return;
+      this.revealUntil = null;
+      this.nominateNext();
+    }, ms);
+  }
 
-    this.lotId += 1;
-    this.auction = {
-      nominee: player,
-      startBidLakhs: startBid,
-      currentBidLakhs: startBid,
-      currentBidderKey: defaultTeam.key,
-      defaultBidderKey: defaultTeam.key,
-      optedOut: new Set(),
-      endsAt: Date.now() + this.timers.lotStartMs,
-      timerMs: this.timers.lotStartMs,
-      lotSnapshot: this.packLotSnapshot(),
+  soldPack(winner, player, price) {
+    return {
+      type: "sold",
+      player,
+      priceLakhs: price,
+      buyerName: winner.name,
+      short: winner.name,
+      color: winner.franchise.color,
+      color2: winner.franchise.color2 || null,
+      text: winner.franchise.text || winner.franchise.color,
+      identityId: winner.franchise.id,
+      purseLakhs: winner.purseLakhs,
+      squadSize: winner.squad.length,
+      complete: isSquadComplete(winner.squad),
+      revealMs: this.revealDelayMs(),
+      revealUntil: this.revealUntil,
     };
-    this.startLotTimer(false);
-    if (!this.maybeResolveLot()) {
-      this.emitDelta({ type: "lotStart", ...this.packAuctionPublic() });
-    }
   }
 
   sellCurrent() {
     if (!this.auction) {
-      this.nominateNext();
+      this.scheduleNominateNext();
       return;
     }
     const key = this.auction.currentBidderKey || this.auction.defaultBidderKey;
@@ -646,38 +782,31 @@ class GameRoom extends EventEmitter {
     winner.squad.push({ player, priceLakhs: price });
     winner.purseLakhs -= price;
     this.soldIds.add(player.id);
+    const packed = this.soldPack(winner, player, price);
+    // revealUntil is filled in after schedule sets it; compute now so the delta carries it
+    const revealMs = this.revealDelayMs();
+    packed.revealMs = revealMs;
+    packed.revealUntil = revealMs > 0 ? Date.now() + revealMs : null;
     this.soldLog.push({
       player,
       priceLakhs: price,
       buyerName: winner.name,
       short: winner.name,
       color: winner.franchise.color,
+      color2: packed.color2,
+      text: packed.text,
+      identityId: packed.identityId,
     });
-    this.lastEvent = {
-      type: "sold",
-      player,
-      priceLakhs: price,
-      buyerName: winner.name,
-      short: winner.name,
-      color: winner.franchise.color,
-    };
+    this.lastEvent = packed;
     this.auction = null;
-    this.emitDelta({
-      type: "sold",
-      player,
-      priceLakhs: price,
-      buyerName: winner.name,
-      short: winner.name,
-      color: winner.franchise.color,
-      purseLakhs: winner.purseLakhs,
-      squadSize: winner.squad.length,
-    });
-    this.nominateNext();
+    this.revealUntil = packed.revealUntil;
+    this.emitDelta(packed);
+    this.scheduleNominateNext();
   }
 
   unsoldCurrent() {
     if (!this.auction) {
-      this.nominateNext();
+      this.scheduleNominateNext();
       return;
     }
     // Default bid guarantee: if a default (or leading) bidder exists, lock the player there.
@@ -687,10 +816,19 @@ class GameRoom extends EventEmitter {
     }
     const player = this.auction.nominee;
     if (!this.unsold.some((p) => p.id === player.id)) this.unsold.push(player);
-    this.lastEvent = { type: "unsold", player, reason: "No bids — went unsold." };
+    const revealMs = this.revealDelayMs();
+    const revealUntil = revealMs > 0 ? Date.now() + revealMs : null;
+    this.lastEvent = {
+      type: "unsold",
+      player,
+      reason: "No bids — went unsold.",
+      revealMs,
+      revealUntil,
+    };
     this.auction = null;
-    this.emitDelta({ type: "unsold", player, reason: this.lastEvent.reason });
-    this.nominateNext();
+    this.revealUntil = revealUntil;
+    this.emitDelta({ type: "unsold", player, reason: this.lastEvent.reason, revealMs, revealUntil });
+    this.scheduleNominateNext();
   }
 
   bid(byName, amountLakhs) {
@@ -795,10 +933,11 @@ class GameRoom extends EventEmitter {
     let progress = true;
     while (progress) {
       progress = false;
-      const needy = this.activeFranchises().filter((f) => !hasMinSquad(f.squad));
+      const needy = this.activeFranchises().filter((f) => !isSquadComplete(f.squad));
       if (needy.length === 0) break;
       for (const team of needy) {
-        const pick = leftover.find((p) => team.purseLakhs >= fillPrice);
+        const left = remainingQuota(team.squad);
+        const pick = leftover.find((p) => (left[p.role] || 0) > 0 && team.purseLakhs >= fillPrice);
         if (!pick) continue;
         team.squad.push({ player: pick, priceLakhs: fillPrice });
         team.purseLakhs -= fillPrice;
@@ -956,7 +1095,7 @@ class GameRoom extends EventEmitter {
       roleCounts: roleCounts(f.squad),
       overseasCount: overseasCount(f.squad),
       remainingQuota: remainingQuota(f.squad),
-      complete: hasMinSquad(f.squad),
+      complete: isSquadComplete(f.squad),
       captainId: f.captainId,
       boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
       eliminated: Boolean(f.eliminated),
@@ -1085,6 +1224,7 @@ class GameRoom extends EventEmitter {
       paused: Boolean(this.paused),
       pausedBy: this.pausedBy,
       pauseRemainingMs: this.paused ? this.pauseRemainingMs : null,
+      soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
       identities: IDENTITIES.map((t) => publicIdentity(t.id)),
       ratingsNote: this.meta.ratingsNote || null,
       hostName: this.host ? this.host.name : null,

@@ -11,6 +11,7 @@ fs.mkdirSync(OUT, { recursive: true });
 process.env.LOT_START_MS = process.env.LOT_START_MS || "60000";
 process.env.BID_TIMER_MS = process.env.BID_TIMER_MS || "60000";
 process.env.CAPTAIN_TIMER_MS = process.env.CAPTAIN_TIMER_MS || "30000";
+process.env.SOLD_REVEAL_MS = process.env.SOLD_REVEAL_MS || "1200";
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -96,6 +97,10 @@ async function main() {
     await sleep(300);
     await shot(ash, "lobby-logos.png");
     await shot(ash, "lobby.png");
+    await ash.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+    await sleep(200);
+    await shot(ash, "lobby-logos-mobile.png");
+    await ash.setViewport({ width: 1400, height: 900, deviceScaleFactor: 1 });
 
     await ash.click("#start");
     await waitFor(ash, async () => (await phase(ash)) === "auction" && Boolean(await ash.$("#auction-ring")), 15000, "auction ring");
@@ -128,6 +133,31 @@ async function main() {
     await sleep(450);
     await shot(ash, "auction-ring-optouts.png");
 
+    // Force a sale so the SOLD modal can be captured.
+    await Promise.all(
+      pages.map((page) =>
+        page.evaluate(async () => {
+          if (IplApp.state && IplApp.state.auction && IplApp.state.auction.youCanOptOut) {
+            await IplApp.emit("optOut");
+          }
+        })
+      )
+    );
+    await waitFor(ash, async () => {
+      return ash.evaluate(() => {
+        const m = document.getElementById("sold-modal");
+        return Boolean(m && !m.hidden);
+      });
+    }, 8000, "sold modal");
+    await sleep(180);
+    await shot(ash, "sold-modal.png");
+    await waitFor(ash, async () => {
+      return ash.evaluate(() => {
+        const m = document.getElementById("sold-modal");
+        return Boolean(IplApp.state && IplApp.state.phase === "auction" && IplApp.state.auction && (!m || m.hidden));
+      });
+    }, 8000, "next lot after sold reveal");
+
     await ash.click("#pause");
     await waitFor(ash, async () => {
       return ash.evaluate(() => {
@@ -145,7 +175,7 @@ async function main() {
       pages.map((page) =>
         page.evaluate(async () => {
           const start = Date.now();
-          while (Date.now() - start < 50000) {
+          while (Date.now() - start < 90000) {
             const st = IplApp.state;
             if (!st) {
               await new Promise((r) => setTimeout(r, 20));
@@ -161,7 +191,7 @@ async function main() {
       )
     );
 
-    await waitFor(ash, async () => (await phase(ash)) === "captains", 20000, "captains/shop");
+    await waitFor(ash, async () => (await phase(ash)) === "captains", 90000, "captains/shop");
     await waitFor(ash, async () => Boolean(await ash.$(".booster-grid")), 8000, "booster grid");
     await sleep(200);
     await shot(ash, "boosters.png");
