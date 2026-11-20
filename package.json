@@ -1,0 +1,21 @@
+{
+  "name": "ipl-auction",
+  "version": "1.0.0",
+  "description": "Multiplayer IPL auction + tournament simulation game",
+  "private": true,
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test test/e2e.test.js test/logic.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}

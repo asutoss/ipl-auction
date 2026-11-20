@@ -1,0 +1,829 @@
+{
+  "meta": {
+    "ratingsNote": "batting and bowling ratings are informal estimates (0-100) for game balance, not official IPL or ICC ratings. Swap this file to use your own pool.",
+    "updated": "2026-11",
+    "currency": "All basePriceLakhs values are in \u20b9 lakh (100 lakh = \u20b91 crore)."
+  },
+  "players": [
+    {
+      "id": "virat-kohli",
+      "name": "Virat Kohli",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 93,
+      "bowling": 12
+    },
+    {
+      "id": "rohit-sharma",
+      "name": "Rohit Sharma",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 88,
+      "bowling": 15
+    },
+    {
+      "id": "shubman-gill",
+      "name": "Shubman Gill",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 90,
+      "bowling": 14
+    },
+    {
+      "id": "suryakumar-yadav",
+      "name": "Suryakumar Yadav",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 91,
+      "bowling": 16
+    },
+    {
+      "id": "ruturaj-gaikwad",
+      "name": "Ruturaj Gaikwad",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 86,
+      "bowling": 10
+    },
+    {
+      "id": "shreyas-iyer",
+      "name": "Shreyas Iyer",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 85,
+      "bowling": 22
+    },
+    {
+      "id": "yashasvi-jaiswal",
+      "name": "Yashasvi Jaiswal",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 89,
+      "bowling": 14
+    },
+    {
+      "id": "sai-sudharsan",
+      "name": "Sai Sudharsan",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 85,
+      "bowling": 18
+    },
+    {
+      "id": "tilak-varma",
+      "name": "Tilak Varma",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 84,
+      "bowling": 32
+    },
+    {
+      "id": "rinku-singh",
+      "name": "Rinku Singh",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 150,
+      "batting": 83,
+      "bowling": 18
+    },
+    {
+      "id": "faf-du-plessis",
+      "name": "Faf du Plessis",
+      "role": "BAT",
+      "overseas": true,
+      "country": "SA",
+      "basePriceLakhs": 200,
+      "batting": 84,
+      "bowling": 16
+    },
+    {
+      "id": "travis-head",
+      "name": "Travis Head",
+      "role": "BAT",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 200,
+      "batting": 88,
+      "bowling": 38
+    },
+    {
+      "id": "harry-brook",
+      "name": "Harry Brook",
+      "role": "BAT",
+      "overseas": true,
+      "country": "ENG",
+      "basePriceLakhs": 200,
+      "batting": 84,
+      "bowling": 15
+    },
+    {
+      "id": "tim-david",
+      "name": "Tim David",
+      "role": "BAT",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 150,
+      "batting": 81,
+      "bowling": 20
+    },
+    {
+      "id": "tristan-stubbs",
+      "name": "Tristan Stubbs",
+      "role": "BAT",
+      "overseas": true,
+      "country": "SA",
+      "basePriceLakhs": 150,
+      "batting": 82,
+      "bowling": 24
+    },
+    {
+      "id": "jake-fraser-mcgurk",
+      "name": "Jake Fraser-McGurk",
+      "role": "BAT",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 150,
+      "batting": 80,
+      "bowling": 8
+    },
+    {
+      "id": "david-miller",
+      "name": "David Miller",
+      "role": "BAT",
+      "overseas": true,
+      "country": "SA",
+      "basePriceLakhs": 100,
+      "batting": 80,
+      "bowling": 12
+    },
+    {
+      "id": "shimron-hetmyer",
+      "name": "Shimron Hetmyer",
+      "role": "BAT",
+      "overseas": true,
+      "country": "WI",
+      "basePriceLakhs": 100,
+      "batting": 78,
+      "bowling": 8
+    },
+    {
+      "id": "rovman-powell",
+      "name": "Rovman Powell",
+      "role": "BAT",
+      "overseas": true,
+      "country": "WI",
+      "basePriceLakhs": 75,
+      "batting": 77,
+      "bowling": 18
+    },
+    {
+      "id": "rajat-patidar",
+      "name": "Rajat Patidar",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 100,
+      "batting": 80,
+      "bowling": 10
+    },
+    {
+      "id": "devdutt-padikkal",
+      "name": "Devdutt Padikkal",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 75,
+      "batting": 76,
+      "bowling": 10
+    },
+    {
+      "id": "ajinkya-rahane",
+      "name": "Ajinkya Rahane",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 150,
+      "batting": 75,
+      "bowling": 8
+    },
+    {
+      "id": "mayank-agarwal",
+      "name": "Mayank Agarwal",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 75,
+      "batting": 74,
+      "bowling": 10
+    },
+    {
+      "id": "prithvi-shaw",
+      "name": "Prithvi Shaw",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 50,
+      "batting": 73,
+      "bowling": 8
+    },
+    {
+      "id": "nitish-rana",
+      "name": "Nitish Rana",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 75,
+      "batting": 76,
+      "bowling": 42
+    },
+    {
+      "id": "angkrish-raghuvanshi",
+      "name": "Angkrish Raghuvanshi",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 30,
+      "batting": 74,
+      "bowling": 12
+    },
+    {
+      "id": "vaibhav-suryavanshi",
+      "name": "Vaibhav Suryavanshi",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 30,
+      "batting": 75,
+      "bowling": 8
+    },
+    {
+      "id": "karun-nair",
+      "name": "Karun Nair",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 50,
+      "batting": 72,
+      "bowling": 14
+    },
+    {
+      "id": "priyansh-arya",
+      "name": "Priyansh Arya",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 40,
+      "batting": 73,
+      "bowling": 10
+    },
+    {
+      "id": "ashutosh-sharma",
+      "name": "Ashutosh Sharma",
+      "role": "BAT",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 40,
+      "batting": 74,
+      "bowling": 16
+    },
+    {
+      "id": "rishabh-pant",
+      "name": "Rishabh Pant",
+      "role": "WK",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 88,
+      "bowling": 8
+    },
+    {
+      "id": "jos-buttler",
+      "name": "Jos Buttler",
+      "role": "WK",
+      "overseas": true,
+      "country": "ENG",
+      "basePriceLakhs": 200,
+      "batting": 90,
+      "bowling": 8
+    },
+    {
+      "id": "sanju-samson",
+      "name": "Sanju Samson",
+      "role": "WK",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 86,
+      "bowling": 8
+    },
+    {
+      "id": "kl-rahul",
+      "name": "KL Rahul",
+      "role": "WK",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 87,
+      "bowling": 8
+    },
+    {
+      "id": "ms-dhoni",
+      "name": "MS Dhoni",
+      "role": "WK",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 70,
+      "bowling": 8
+    },
+    {
+      "id": "heinrich-klaasen",
+      "name": "Heinrich Klaasen",
+      "role": "WK",
+      "overseas": true,
+      "country": "SA",
+      "basePriceLakhs": 200,
+      "batting": 86,
+      "bowling": 12
+    },
+    {
+      "id": "nicholas-pooran",
+      "name": "Nicholas Pooran",
+      "role": "WK",
+      "overseas": true,
+      "country": "WI",
+      "basePriceLakhs": 200,
+      "batting": 85,
+      "bowling": 10
+    },
+    {
+      "id": "phil-salt",
+      "name": "Phil Salt",
+      "role": "WK",
+      "overseas": true,
+      "country": "ENG",
+      "basePriceLakhs": 200,
+      "batting": 83,
+      "bowling": 8
+    },
+    {
+      "id": "ishan-kishan",
+      "name": "Ishan Kishan",
+      "role": "WK",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 150,
+      "batting": 80,
+      "bowling": 8
+    },
+    {
+      "id": "dhruv-jurel",
+      "name": "Dhruv Jurel",
+      "role": "WK",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 100,
+      "batting": 77,
+      "bowling": 8
+    },
+    {
+      "id": "hardik-pandya",
+      "name": "Hardik Pandya",
+      "role": "AR",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 80,
+      "bowling": 82
+    },
+    {
+      "id": "ravindra-jadeja",
+      "name": "Ravindra Jadeja",
+      "role": "AR",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 80,
+      "bowling": 86
+    },
+    {
+      "id": "axar-patel",
+      "name": "Axar Patel",
+      "role": "AR",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 76,
+      "bowling": 84
+    },
+    {
+      "id": "andre-russell",
+      "name": "Andre Russell",
+      "role": "AR",
+      "overseas": true,
+      "country": "WI",
+      "basePriceLakhs": 200,
+      "batting": 85,
+      "bowling": 78
+    },
+    {
+      "id": "sunil-narine",
+      "name": "Sunil Narine",
+      "role": "AR",
+      "overseas": true,
+      "country": "WI",
+      "basePriceLakhs": 200,
+      "batting": 74,
+      "bowling": 87
+    },
+    {
+      "id": "glenn-maxwell",
+      "name": "Glenn Maxwell",
+      "role": "AR",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 200,
+      "batting": 83,
+      "bowling": 70
+    },
+    {
+      "id": "cameron-green",
+      "name": "Cameron Green",
+      "role": "AR",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 200,
+      "batting": 81,
+      "bowling": 78
+    },
+    {
+      "id": "abhishek-sharma",
+      "name": "Abhishek Sharma",
+      "role": "AR",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 85,
+      "bowling": 64
+    },
+    {
+      "id": "nitish-kumar-reddy",
+      "name": "Nitish Kumar Reddy",
+      "role": "AR",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 150,
+      "batting": 79,
+      "bowling": 74
+    },
+    {
+      "id": "liam-livingstone",
+      "name": "Liam Livingstone",
+      "role": "AR",
+      "overseas": true,
+      "country": "ENG",
+      "basePriceLakhs": 200,
+      "batting": 81,
+      "bowling": 72
+    },
+    {
+      "id": "mitchell-marsh",
+      "name": "Mitchell Marsh",
+      "role": "AR",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 200,
+      "batting": 81,
+      "bowling": 70
+    },
+    {
+      "id": "shivam-dube",
+      "name": "Shivam Dube",
+      "role": "AR",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 150,
+      "batting": 80,
+      "bowling": 64
+    },
+    {
+      "id": "washington-sundar",
+      "name": "Washington Sundar",
+      "role": "AR",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 150,
+      "batting": 70,
+      "bowling": 79
+    },
+    {
+      "id": "will-jacks",
+      "name": "Will Jacks",
+      "role": "AR",
+      "overseas": true,
+      "country": "ENG",
+      "basePriceLakhs": 150,
+      "batting": 80,
+      "bowling": 66
+    },
+    {
+      "id": "rachin-ravindra",
+      "name": "Rachin Ravindra",
+      "role": "AR",
+      "overseas": true,
+      "country": "NZ",
+      "basePriceLakhs": 150,
+      "batting": 80,
+      "bowling": 68
+    },
+    {
+      "id": "krunal-pandya",
+      "name": "Krunal Pandya",
+      "role": "AR",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 100,
+      "batting": 72,
+      "bowling": 74
+    },
+    {
+      "id": "jasprit-bumrah",
+      "name": "Jasprit Bumrah",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 18,
+      "bowling": 97
+    },
+    {
+      "id": "rashid-khan",
+      "name": "Rashid Khan",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "AFG",
+      "basePriceLakhs": 200,
+      "batting": 42,
+      "bowling": 93
+    },
+    {
+      "id": "jofra-archer",
+      "name": "Jofra Archer",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "ENG",
+      "basePriceLakhs": 200,
+      "batting": 32,
+      "bowling": 91
+    },
+    {
+      "id": "kagiso-rabada",
+      "name": "Kagiso Rabada",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "SA",
+      "basePriceLakhs": 200,
+      "batting": 20,
+      "bowling": 90
+    },
+    {
+      "id": "pat-cummins",
+      "name": "Pat Cummins",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 200,
+      "batting": 36,
+      "bowling": 90
+    },
+    {
+      "id": "mitchell-starc",
+      "name": "Mitchell Starc",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 200,
+      "batting": 24,
+      "bowling": 89
+    },
+    {
+      "id": "trent-boult",
+      "name": "Trent Boult",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "NZ",
+      "basePriceLakhs": 200,
+      "batting": 20,
+      "bowling": 88
+    },
+    {
+      "id": "josh-hazlewood",
+      "name": "Josh Hazlewood",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "AUS",
+      "basePriceLakhs": 200,
+      "batting": 14,
+      "bowling": 88
+    },
+    {
+      "id": "kuldeep-yadav",
+      "name": "Kuldeep Yadav",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 24,
+      "bowling": 88
+    },
+    {
+      "id": "varun-chakravarthy",
+      "name": "Varun Chakravarthy",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 14,
+      "bowling": 87
+    },
+    {
+      "id": "yuzvendra-chahal",
+      "name": "Yuzvendra Chahal",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 16,
+      "bowling": 86
+    },
+    {
+      "id": "mohammed-siraj",
+      "name": "Mohammed Siraj",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 14,
+      "bowling": 85
+    },
+    {
+      "id": "mohammed-shami",
+      "name": "Mohammed Shami",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 18,
+      "bowling": 86
+    },
+    {
+      "id": "arshdeep-singh",
+      "name": "Arshdeep Singh",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 200,
+      "batting": 16,
+      "bowling": 84
+    },
+    {
+      "id": "matheesha-pathirana",
+      "name": "Matheesha Pathirana",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "SL",
+      "basePriceLakhs": 150,
+      "batting": 12,
+      "bowling": 86
+    },
+    {
+      "id": "mayank-yadav",
+      "name": "Mayank Yadav",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 150,
+      "batting": 10,
+      "bowling": 85
+    },
+    {
+      "id": "t-natarajan",
+      "name": "T Natarajan",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 100,
+      "batting": 8,
+      "bowling": 83
+    },
+    {
+      "id": "ravi-bishnoi",
+      "name": "Ravi Bishnoi",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 100,
+      "batting": 14,
+      "bowling": 82
+    },
+    {
+      "id": "bhuvneshwar-kumar",
+      "name": "Bhuvneshwar Kumar",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 100,
+      "batting": 22,
+      "bowling": 82
+    },
+    {
+      "id": "harshal-patel",
+      "name": "Harshal Patel",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 100,
+      "batting": 26,
+      "bowling": 80
+    },
+    {
+      "id": "avesh-khan",
+      "name": "Avesh Khan",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 75,
+      "batting": 14,
+      "bowling": 80
+    },
+    {
+      "id": "harshit-rana",
+      "name": "Harshit Rana",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 100,
+      "batting": 22,
+      "bowling": 81
+    },
+    {
+      "id": "noor-ahmad",
+      "name": "Noor Ahmad",
+      "role": "BOWL",
+      "overseas": true,
+      "country": "AFG",
+      "basePriceLakhs": 100,
+      "batting": 14,
+      "bowling": 83
+    },
+    {
+      "id": "khaleel-ahmed",
+      "name": "Khaleel Ahmed",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 50,
+      "batting": 10,
+      "bowling": 79
+    },
+    {
+      "id": "sai-kishore",
+      "name": "R Sai Kishore",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 50,
+      "batting": 18,
+      "bowling": 78
+    },
+    {
+      "id": "yash-dayal",
+      "name": "Yash Dayal",
+      "role": "BOWL",
+      "overseas": false,
+      "country": "IND",
+      "basePriceLakhs": 40,
+      "batting": 10,
+      "bowling": 76
+    }
+  ]
+}
