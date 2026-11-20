@@ -248,6 +248,12 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .team-mark-wrap.sm { width: 28px; height: 28px; }
 .team-mark-wrap.lg { width: 56px; height: 56px; }
 
+.character-nudge { margin: -4px 0 16px; }
+.character-nudge a { color: var(--gold-2); text-decoration: none; font-weight: 600; font-size: 13px; }
+.character-nudge a:hover { text-decoration: underline; }
+.character-section { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); }
+.character-section h3 { margin-top: 0; }
+.character-section .hint { margin: 0 0 8px; }
 .character-picker, .logo-picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));

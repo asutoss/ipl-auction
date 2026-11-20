@@ -428,9 +428,8 @@ function lobbyView() {
     <section class="panel">
       <p class="lede">Share this code</p>
       <p class="room-code">${esc(state.code)}</p>
-      <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · ${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Choose a unique character before the host starts. Team names were set on the start page and cannot be edited here. Unpicked characters are auto-assigned. Taken characters are greyed out and show the team that chose them. Need at least ${state.minPlayers} to start.</p>
-      <h3>Choose your character</h3>
-      <div class="character-picker logo-picker">${picker}</div>
+      <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · ${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Team names were set on the start page and cannot be edited here. Need at least ${state.minPlayers} to start.</p>
+      <p class="hint character-nudge"><a href="#choose-character">Pick your character below</a></p>
       ${
         isHost
           ? `<div class="row row-2" style="max-width:420px">
@@ -453,6 +452,11 @@ function lobbyView() {
         ${isHost ? `<button class="btn" id="start" ${ready ? "" : "disabled"}>Start auction</button>` : `<p class="hint">Waiting for the host to start…</p>`}
       </div>
       <p class="error">${esc(lastError)}</p>
+      <div class="character-section" id="choose-character">
+        <h3>Choose your character</h3>
+        <p class="hint">Taken characters are greyed out and show the team that chose them. Unpicked characters are auto-assigned when the host starts.</p>
+        <div class="character-picker logo-picker">${picker}</div>
+      </div>
     </section>
   `;
 }
