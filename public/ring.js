@@ -15,8 +15,9 @@
   const R_LOGO = 170;
   const GAP = 2.2;
   const DURATION = 320;
-  const LIFT = 12;
-  const EXTRUDE_Y = 5;
+  const LIFT = 20;
+  const LIFT_UP = -8;
+  const EXTRUDE_Y = 14;
 
   function polar(cx, cy, r, angle) {
     const a = ((angle - 90) * Math.PI) / 180;
@@ -146,24 +147,57 @@
       x: "-45%", y: "-45%", width: "190%", height: "200%",
     });
     shadow.innerHTML = `
-      <feDropShadow dx="1" dy="8" stdDeviation="3.6" flood-color="#000000" flood-opacity="0.62"/>
+      <feOffset in="SourceAlpha" dx="1.4" dy="14" result="off"/>
+      <feGaussianBlur in="off" stdDeviation="2.8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.58 0" result="soft"/>
+      <feOffset in="SourceAlpha" dx="0.8" dy="5" result="off2"/>
+      <feGaussianBlur in="off2" stdDeviation="1.05" result="blur2"/>
+      <feColorMatrix in="blur2" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.72 0" result="contact"/>
+      <feMerge>
+        <feMergeNode in="soft"/>
+        <feMergeNode in="contact"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     `;
     defs.appendChild(shadow);
 
-    const thickness = el("g", { class: "ring-thickness", transform: `translate(0 ${EXTRUDE_Y})`, "aria-hidden": "true" });
-    const thickBand = el("circle", {
-      cx: CX, cy: CY, r: (R_INNER + R_OUTER) / 2,
-      fill: "none",
-      stroke: "#05070f",
-      "stroke-width": String(R_OUTER - R_INNER + 6),
+    const wallGrad = el("linearGradient", {
+      id: "ring-wall-grad",
+      gradientUnits: "userSpaceOnUse",
+      x1: "200", y1: String(CY + R_INNER - 4),
+      x2: "200", y2: String(CY + R_OUTER + EXTRUDE_Y + 2),
     });
-    const thickFace = el("circle", {
-      cx: CX, cy: CY, r: (R_INNER + R_OUTER) / 2,
+    wallGrad.innerHTML = `
+      <stop offset="0%" stop-color="#1c2438"/>
+      <stop offset="45%" stop-color="#0c101c"/>
+      <stop offset="100%" stop-color="#05070f"/>
+    `;
+    defs.appendChild(wallGrad);
+
+    const thickness = el("g", { class: "ring-thickness", "aria-hidden": "true" });
+    const midR = (R_INNER + R_OUTER) / 2;
+    const band = R_OUTER - R_INNER + 6;
+    // Stacked copies build a solid side wall a few px tall; the bottom face sits at EXTRUDE_Y.
+    for (let i = 2; i < EXTRUDE_Y; i += 2) {
+      thickness.appendChild(el("circle", {
+        cx: CX, cy: CY + i, r: midR,
+        fill: "none",
+        stroke: i < EXTRUDE_Y / 2 ? "#101624" : "#080b14",
+        "stroke-width": String(band),
+      }));
+    }
+    thickness.appendChild(el("circle", {
+      cx: CX, cy: CY + EXTRUDE_Y, r: midR,
       fill: "none",
-      stroke: "#1a2236",
+      stroke: "url(#ring-wall-grad)",
+      "stroke-width": String(band),
+    }));
+    thickness.appendChild(el("circle", {
+      cx: CX, cy: CY + EXTRUDE_Y, r: midR,
+      fill: "none",
+      stroke: "#151c2e",
       "stroke-width": String(R_OUTER - R_INNER + 1),
-    });
-    thickness.append(thickBand, thickFace);
+    }));
 
     const timerTrack = el("circle", {
       cx: CX, cy: CY, r: R_TIMER, fill: "none",
@@ -228,7 +262,7 @@
     pointer.appendChild(head);
 
     svg.append(defs, thickness, timerTrack, timer, segs, rims, well, hubDisc, pointer);
-    svg._ring = { segs, timer, timerC, items: [], pointer, sheenPath, pointerAngle: 0, pointerLift: 0 };
+    svg._ring = { segs, timer, timerC, items: [], pointer, sheenPath, pointerAngle: 0, pointerLift: 0, pointerUp: 0 };
     observeScale(svg);
     return svg._ring;
   }
@@ -255,11 +289,11 @@
     if (item.lift) item.lift.classList.toggle("is-leader", on);
     const mid = midAngle(item.a0, item.a1);
     const [dx, dy] = on ? polar(0, 0, LIFT, mid) : [0, 0];
-    const [bx, by] = on ? polar(0, 0, LIFT * 0.22, mid) : [0, 0];
+    const [bx, by] = on ? polar(0, 0, LIFT * 0.18, mid) : [0, 0];
     const target = item.lift || item.root;
     if (target) {
       target.style.setProperty("--lift-x", dx.toFixed(2));
-      target.style.setProperty("--lift-y", dy.toFixed(2));
+      target.style.setProperty("--lift-y", (dy + (on ? LIFT_UP : 0)).toFixed(2));
     }
     if (item.root) {
       item.root.style.setProperty("--bob-x", bx.toFixed(2));
@@ -305,11 +339,13 @@
     return from + d;
   }
 
-  function applyPointerAngle(ring, ang, lift) {
+  function applyPointerAngle(ring, ang, lift, up) {
     const L = lift || 0;
-    ring.pointer.setAttribute("transform", `rotate(${ang} ${CX} ${CY}) translate(0 ${(-L).toFixed(2)})`);
+    const U = up || 0;
+    ring.pointer.setAttribute("transform", `translate(0 ${U.toFixed(2)}) rotate(${ang} ${CX} ${CY}) translate(0 ${(-L).toFixed(2)})`);
     ring.pointerAngle = ang;
     ring.pointerLift = L;
+    ring.pointerUp = U;
   }
 
   function pointToLeader(svg, animateMotion) {
@@ -321,6 +357,8 @@
     const next = shortestTurn(from, mid);
     const fromLift = ring.pointerLift || 0;
     const nextLift = leader ? LIFT : 0;
+    const fromUp = ring.pointerUp || 0;
+    const nextUp = leader ? LIFT_UP : 0;
     if (ring._pointerAnim) {
       cancelAnimationFrame(ring._pointerAnim);
       ring._pointerAnim = null;
@@ -339,15 +377,15 @@
     };
     ring.pointer.style.opacity = leader ? "1" : "0";
     paintSheen();
-    if (animateMotion === false || (Math.abs(next - from) < 0.2 && Math.abs(nextLift - fromLift) < 0.2)) {
-      applyPointerAngle(ring, next, nextLift);
+    if (animateMotion === false || (Math.abs(next - from) < 0.2 && Math.abs(nextLift - fromLift) < 0.2 && Math.abs(nextUp - fromUp) < 0.2)) {
+      applyPointerAngle(ring, next, nextLift, nextUp);
       return;
     }
     const t0 = performance.now();
     function frame(now) {
       const t = Math.min(1, (now - t0) / DURATION);
       const e = 1 - Math.pow(1 - t, 3);
-      applyPointerAngle(ring, from + (next - from) * e, fromLift + (nextLift - fromLift) * e);
+      applyPointerAngle(ring, from + (next - from) * e, fromLift + (nextLift - fromLift) * e, fromUp + (nextUp - fromUp) * e);
       if (t < 1) ring._pointerAnim = requestAnimationFrame(frame);
       else ring._pointerAnim = null;
     }

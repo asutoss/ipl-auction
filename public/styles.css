@@ -238,7 +238,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 
 .top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-.auction-stage { display: grid; justify-items: center; gap: 8px; padding: 16px 10px 24px; }
+.auction-stage { display: grid; justify-items: center; gap: 8px; padding: 18px 10px 34px; }
 .ring-wrap {
   position: relative; width: min(460px, 100%); aspect-ratio: 1;
   margin: 0 auto;
@@ -253,21 +253,21 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 }
 .ring-ground-shadow {
   position: absolute;
-  left: 10%;
-  right: 10%;
-  bottom: -4%;
-  height: 22%;
+  left: 4%;
+  right: 4%;
+  bottom: -12%;
+  height: 32%;
   pointer-events: none;
   z-index: 0;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.32) 40%, rgba(0,0,0,0) 74%);
-  transform: translateY(6px) scaleY(0.7);
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 34%, rgba(0,0,0,0.18) 58%, rgba(0,0,0,0) 76%);
+  transform: translateY(16px) scaleY(0.72);
 }
 .ring-tilt {
   position: relative;
   z-index: 1;
   width: 100%; height: 100%;
-  transform: rotateX(12deg);
-  transform-origin: 50% 52%;
+  transform: rotateX(20deg);
+  transform-origin: 50% 54%;
   transform-style: preserve-3d;
 }
 #auction-ring { width: 100%; height: 100%; overflow: visible; }
@@ -455,11 +455,11 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 @media (max-width: 700px) {
   .logo-picker { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
   .hub { width: 64%; height: 64%; padding: 0; }
-  .hub-inner { width: 68%; max-height: none; overflow: visible; gap: 1px; }
+  .hub-inner { width: 68%; max-height: 72%; overflow: visible; gap: 1px; }
   .hub .hub-name { font-size: clamp(16px, 10.5cqmin, 20px); }
-  .hub .hub-bid-num { font-size: clamp(26px, 18cqmin, 40px); }
+  .hub .hub-bid-num { font-size: clamp(24px, 17cqmin, 36px); }
   .hub .hub-leader { font-size: 11px; gap: 4px; }
-  .hub .hub-timer { font-size: 10px; padding: 1px 8px 2px; margin-top: 2px; }
+  .hub .hub-timer { font-size: 10px; padding: 2px 8px 2px; margin-top: 4px; }
 
 }
 
