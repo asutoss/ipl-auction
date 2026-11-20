@@ -613,7 +613,7 @@ function auctionView() {
     <div>${banner}</div>
     <section class="auction-layout">
       <div class="panel player-card">
-        <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · On the block${a.pass === 2 ? " · unsold list" : ""} · ${a.soldCount} sold · ${a.remainingLots} still to come · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
+        <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · ${a.lotId && a.lotTotal ? `Lot ${a.lotId} of ${a.lotTotal}` : a.lotId ? `Lot ${a.lotId}` : "On the block"} · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
         <div class="auction-stage">
           <div class="ring-wrap">
             <div class="ring-stage">

@@ -37,6 +37,8 @@ function characterIdOf(pack) {
 }
 
 const { isValidEmoteId, EMOTE_COOLDOWN_MS } = require("../public/emotes");
+const { resolveRng, shuffle } = require("./random");
+const { buildAuctionList, extraPlayersForNeeds } = require("./auction-pool");
 
 function normalizeName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
@@ -44,15 +46,6 @@ function normalizeName(name) {
 
 function nameKey(name) {
   return normalizeName(name).toLowerCase();
-}
-
-function shuffle(arr, rng = Math.random) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 function envMs(name, fallback) {
@@ -71,7 +64,7 @@ function defaultTimers() {
 }
 
 class GameRoom extends EventEmitter {
-  constructor({ code, purseLakhs, timers, allPlayers, meta, mode }) {
+  constructor({ code, purseLakhs, timers, allPlayers, meta, mode, rng, seed }) {
     super();
     this.code = code;
     this.mode = resolveMode(mode);
@@ -82,6 +75,7 @@ class GameRoom extends EventEmitter {
     this.timers = { ...defaultTimers(), ...(timers || {}) };
     this.allPlayers = allPlayers;
     this.meta = meta || {};
+    this.rng = resolveRng(rng !== undefined ? rng : seed);
     this.phase = "lobby";
     this.franchises = []; // owner order
     this.hostKey = null;
@@ -92,6 +86,7 @@ class GameRoom extends EventEmitter {
     this.unsold = [];
     this.pass = 1;
     this.lotId = 0;
+    this.lotTotal = 0;
     this.rrIndex = 0;
     this.eliminationLog = [];
     this.timer = null;
@@ -250,6 +245,8 @@ class GameRoom extends EventEmitter {
       endsAt: this.auction.endsAt,
       stillIn: this.packStillIn(),
       pass: this.pass,
+      lotId: this.lotId,
+      lotTotal: this.lotTotal,
       soldCount: this.soldLog.length,
       remainingLots: this.countRemainingLots(),
       defaultBidderName: def ? def.name : null,
@@ -502,7 +499,9 @@ class GameRoom extends EventEmitter {
     }
     this.autoAssignCharacters();
     this.phase = "auction";
-    this.queue = shuffle(this.allPlayers);
+    this.queue = buildAuctionList(this.allPlayers, this.mode, this.franchises.length, this.rng);
+    this.lotTotal = this.queue.length;
+    this.lotId = 0;
     this.unsold = [];
     this.pass = 1;
     this.soldIds = new Set();
@@ -560,6 +559,29 @@ class GameRoom extends EventEmitter {
     return { out, rest };
   }
 
+  queueIds() {
+    return new Set((this.queue || []).map((p) => p && p.id).filter(Boolean));
+  }
+
+  appendNeededPlayers() {
+    const extras = extraPlayersForNeeds({
+      allPlayers: this.allPlayers,
+      mode: this.mode,
+      teams: this.incompleteTeams(),
+      usedIds: new Set([
+        ...this.soldIds,
+        ...this.unaffordableIds,
+        ...this.queueIds(),
+        ...(this.unsold || []).map((p) => p.id),
+      ]),
+      rng: this.rng,
+    });
+    if (!extras.length) return false;
+    this.queue.push(...extras);
+    this.lotTotal += extras.length;
+    return true;
+  }
+
   refillQueue() {
     const needed = this.neededRoles();
     if (needed.size === 0) return false;
@@ -567,24 +589,15 @@ class GameRoom extends EventEmitter {
     const fromUnsold = this.takeNeededFrom(this.unsold);
     this.unsold = fromUnsold.rest;
     if (fromUnsold.out.length) {
-      this.queue = shuffle(fromUnsold.out);
-      if (this.pass < 2) this.pass = 2;
-      return true;
-    }
-
-    const seen = new Set([...this.soldIds, ...this.unaffordableIds]);
-    const out = [];
-    for (const p of this.allPlayers) {
-      if (seen.has(p.id)) continue;
-      if (needed.has(p.role)) {
-        seen.add(p.id);
-        out.push(p);
+      const inQueue = this.queueIds();
+      const add = fromUnsold.out.filter((p) => p && !inQueue.has(p.id));
+      if (add.length) {
+        this.queue.push(...add);
+        return true;
       }
     }
-    if (out.length === 0) return false;
-    this.queue = shuffle(out);
-    if (this.pass < 2) this.pass = 2;
-    return true;
+
+    return this.appendNeededPlayers();
   }
 
   countRemainingLots() {
@@ -592,7 +605,10 @@ class GameRoom extends EventEmitter {
     if (needed.size === 0) return 0;
     const seen = new Set([...this.soldIds, ...this.unaffordableIds]);
     let n = 0;
-    for (const p of [...this.queue, ...this.unsold, ...this.allPlayers]) {
+    // Only the live auction list (queue + any unsold not yet re-queued).
+    // Players still sitting unused in the full DB are not "still to come"
+    // until appendNeededPlayers pulls them in.
+    for (const p of [...this.queue, ...this.unsold]) {
       if (!p || seen.has(p.id)) continue;
       seen.add(p.id);
       if (needed.has(p.role)) n += 1;
@@ -868,6 +884,7 @@ class GameRoom extends EventEmitter {
     }
     const player = this.auction.nominee;
     if (!this.unsold.some((p) => p.id === player.id)) this.unsold.push(player);
+    if (!this.queue.some((p) => p.id === player.id)) this.queue.push(player);
     const revealMs = this.revealDelayMs();
     const revealUntil = revealMs > 0 ? Date.now() + revealMs : null;
     this.lastEvent = {
@@ -1331,4 +1348,4 @@ class GameRoom extends EventEmitter {
 
 const { makeRoomCode, ROOM_CODE_LENGTH } = require("./manager");
 
-module.exports = { GameRoom, makeRoomCode, normalizeName, nameKey, ROOM_CODE_LENGTH };
+module.exports = { GameRoom, makeRoomCode, normalizeName, nameKey, ROOM_CODE_LENGTH, shuffle };

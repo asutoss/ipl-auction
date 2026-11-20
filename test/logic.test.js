@@ -27,6 +27,8 @@ function roomWith(names, timers, opts = {}) {
     timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
+    seed: opts.seed,
+    rng: opts.rng,
   });
   names.forEach((n, i) => room.addPlayer(n, `sock-${i}`));
   room.forcedStartBid = 2; // keep existing tests stable; start-bid range is tested separately
@@ -672,20 +674,19 @@ describe("overall rating", () => {
 });
 
 describe("nomination order and timers", () => {
-  test("startAuction shuffles the full pool instead of grouping by base or rating", () => {
-    const room = roomWith(["Ashutosh", "Priya"]);
-    const top = [...players].sort((a, b) => overallRating(b) - overallRating(a)).slice(0, 8).map((p) => p.id);
+  test("startAuction builds a mode-sized shuffled list, not the full database", () => {
+    const { expectedAuctionComposition } = require("../server/auction-pool");
     const firsts = new Set();
     for (let i = 0; i < 12; i++) {
-      const r = roomWith(["Ashutosh", "Priya"]);
+      const r = roomWith(["Ashutosh", "Priya"], null, { seed: 1000 + i * 17 });
       const started = r.startAuction("Ashutosh");
       assert.equal(started.ok, true);
-      assert.equal(r.queue.length + 1, players.length); // nominee already taken from queue
+      const expect = expectedAuctionComposition("classical", 2);
+      assert.equal(r.queue.length + 1, expect.total);
+      assert.equal(r.lotTotal, expect.total);
       firsts.add(r.auction.nominee.id);
     }
     assert.ok(firsts.size >= 3, `expected mixed openers, got ${[...firsts].join(", ")}`);
-    // Across runs it should not always be a top-rated star.
-    assert.ok([...firsts].some((id) => !top.includes(id)) || firsts.size >= 6);
   });
 
   test("a new lot gets 15 seconds and a bid also resets the timer to 15", () => {
@@ -1224,6 +1225,148 @@ describe("game modes", () => {
       assert.ok(m.secondInnings.balls <= 36);
       assert.ok(m.firstInnings.wickets <= 2);
       assert.ok(m.secondInnings.wickets <= 2);
+    }
+  });
+});
+
+describe("auction list", () => {
+  const {
+    roleBuffer,
+    expectedAuctionComposition,
+    buildAuctionList,
+  } = require("../server/auction-pool");
+  const { shuffle, mulberry32 } = require("../server/random");
+
+  function listIds(list) {
+    return list.map((p) => p.id);
+  }
+
+  function roleCounts(list) {
+    const counts = { BAT: 0, WK: 0, AR: 0, BOWL: 0 };
+    for (const p of list) counts[p.role] = (counts[p.role] || 0) + 1;
+    return counts;
+  }
+
+  function drainAuction(room, maxLots = 800) {
+    let i = 0;
+    while (room.phase === "auction" && i++ < maxLots) {
+      if (!room.auction) {
+        if (room.revealUntil) room.finishReveal();
+        else break;
+        continue;
+      }
+      const lot = room.lotId;
+      const leader = room.auction.currentBidderKey;
+      for (const f of room.franchises) {
+        if (room.lotId !== lot || !room.auction) break;
+        if (f.key !== leader) room.optOut(f.name);
+      }
+    }
+    return i;
+  }
+
+  test("pool size and composition match numTeams x role slots plus the buffer, for each mode", () => {
+    const cases = [
+      ["classical", 2],
+      ["classical", 3],
+      ["classical", 10],
+      ["rapid", 2],
+      ["rapid", 4],
+      ["rapid", 10],
+      ["bullet", 2],
+      ["bullet", 3],
+      ["bullet", 10],
+    ];
+    for (const [mode, n] of cases) {
+      const expect = expectedAuctionComposition(mode, n);
+      assert.equal(roleBuffer(n), Math.max(1, Math.ceil(n / 2)));
+      const list = buildAuctionList(players, mode, n, 42);
+      assert.equal(list.length, expect.total, `${mode} x ${n} length`);
+      assert.deepEqual(roleCounts(list), expect.counts, `${mode} x ${n} roles`);
+      assert.equal(new Set(listIds(list)).size, list.length, `${mode} x ${n} unique`);
+      if (mode === "rapid" || mode === "bullet") {
+        assert.equal(expect.counts.AR, 0);
+        assert.equal(roleCounts(list).AR, 0);
+      }
+    }
+  });
+
+  test("the combined list is a deterministic shuffle of the per-role picks when seeded", () => {
+    const a = listIds(buildAuctionList(players, "classical", 4, 7));
+    const b = listIds(buildAuctionList(players, "classical", 4, 7));
+    const c = listIds(buildAuctionList(players, "classical", 4, 8));
+    assert.deepEqual(a, b);
+    assert.notDeepEqual(a, c);
+    // Same players as seed 7, but a different permutation would use a different seed.
+    assert.equal(new Set(a).size, a.length);
+    // A shuffle, not a role-grouped concatenation: the first stretch is mixed.
+    const firstRoles = buildAuctionList(players, "classical", 4, 7)
+      .slice(0, 8)
+      .map((p) => p.role);
+    assert.ok(new Set(firstRoles).size >= 2, `grouped roles: ${firstRoles.join(",")}`);
+  });
+
+  test("different seeds produce different orders, and Fisher-Yates preserves membership", () => {
+    const orders = new Set();
+    for (let seed = 1; seed <= 8; seed++) {
+      orders.add(listIds(buildAuctionList(players, "rapid", 5, seed)).join(","));
+    }
+    assert.ok(orders.size >= 7, `only ${orders.size} distinct shuffles`);
+
+    const src = players.slice(0, 20).map((p) => p.id);
+    const rng = mulberry32(99);
+    const once = shuffle(src, rng);
+    assert.deepEqual([...once].sort(), [...src].sort());
+    assert.notDeepEqual(once, src);
+    // The same seed starts from the same stream.
+    assert.deepEqual(shuffle(src, 99), shuffle(src, 99));
+  });
+
+  test("startAuction nominates strictly in the shuffled list order", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { soldRevealMs: 0 }, { mode: "bullet", seed: 2026 });
+    const started = room.startAuction("Ashutosh");
+    assert.equal(started.ok, true);
+    const expect = expectedAuctionComposition("bullet", 2);
+    const seen = [room.auction.nominee.id, ...room.queue.map((p) => p.id)];
+    assert.equal(seen.length, expect.total);
+    assert.deepEqual(roleCounts([room.auction.nominee, ...room.queue]), expect.counts);
+    const planned = [room.auction.nominee, ...room.queue];
+    assert.deepEqual(
+      [room.auction.nominee.id, ...room.queue.map((p) => p.id)],
+      require("../server/auction-pool").buildAuctionList(players, "bullet", 2, 2026).map((p) => p.id)
+    );
+    // Walk lots in list order. Players no remaining team can use are skipped, not reordered.
+    let idx = 0;
+    let steps = 0;
+    while (room.auction && steps < 4) {
+      const id = room.auction.nominee.id;
+      while (idx < planned.length && planned[idx].id !== id) idx += 1;
+      assert.ok(idx < planned.length, `nominee ${id} was not next in the shuffled list`);
+      assert.equal(id, planned[idx].id);
+      const lot = room.lotId;
+      const leader = room.auction.currentBidderKey;
+      for (const f of room.franchises) {
+        if (room.lotId !== lot || !room.auction) break;
+        if (f.key !== leader) room.optOut(f.name);
+      }
+      idx += 1;
+      steps += 1;
+    }
+    assert.ok(steps >= 2, `expected to walk at least two lots, got ${steps}`);
+  });
+
+  test("auction still completes with all squads full in classical, rapid, and bullet", () => {
+    for (const mode of ["classical", "rapid", "bullet"]) {
+      const room = roomWith(["Ashutosh", "Priya", "Rohan"], { soldRevealMs: 0 }, { mode, seed: 11 });
+      assert.equal(room.startAuction("Ashutosh").ok, true);
+      const lots = drainAuction(room);
+      assert.ok(lots < 800, `${mode} did not finish in time`);
+      assert.ok(["captains", "simulating", "results"].includes(room.phase), `${mode} phase ${room.phase}`);
+      for (const name of ["Ashutosh", "Priya", "Rohan"]) {
+        const team = room.findByName(name);
+        assert.equal(team.eliminated, false, `${mode} ${name} eliminated`);
+        assert.equal(isSquadComplete(team.squad, mode), true, `${mode} ${name} incomplete`);
+      }
     }
   });
 });
