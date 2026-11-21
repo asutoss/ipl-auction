@@ -280,8 +280,8 @@ describe("characters, pause, start bid and end game over sockets", () => {
 
     await waitState(ash, (s) => s.franchises && s.franchises.length === 3);
     const catalog = ash.state.characters || ash.state.identities || [];
-    assert.equal(catalog.length, 20);
-    assert.equal(new Set(catalog.map((t) => t.color.toLowerCase())).size, 20);
+    assert.equal(catalog.length, 17);
+    assert.equal(new Set(catalog.map((t) => t.color.toLowerCase())).size, 17);
     assert.ok(catalog.every((t) => t.character && t.id));
 
     const clash = await connect(url, "Clone");

@@ -976,22 +976,22 @@ describe("end game and leave", () => {
 
 
 describe("team names and character catalog", () => {
-  test("catalog has 20 characters with unique colours, images, placeholder emotes, and a power", () => {
+  test("catalog has 17 characters with unique colours, images, placeholder emotes, and a power", () => {
     const fs = require("fs");
     const path = require("path");
     const { CHARACTERS, IDENTITIES, imageUrl, logoUrl, characterImg, logoImg } = require("../public/characters");
     const catalogPath = path.join(__dirname, "../data/characters.json");
     const fromFile = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
-    assert.equal(CHARACTERS.length, 20);
-    assert.equal(IDENTITIES.length, 20);
-    assert.equal(fromFile.length, 20);
+    assert.equal(CHARACTERS.length, 17);
+    assert.equal(IDENTITIES.length, 17);
+    assert.equal(fromFile.length, 17);
     assert.deepEqual(CHARACTERS.map((t) => t.id), fromFile.map((t) => t.id));
     const ids = CHARACTERS.map((t) => t.id);
     const characters = CHARACTERS.map((t) => t.character);
     const colors = CHARACTERS.map((t) => t.color.toLowerCase());
-    assert.equal(new Set(ids).size, 20);
-    assert.equal(new Set(characters).size, 20);
-    assert.equal(new Set(colors).size, 20);
+    assert.equal(new Set(ids).size, 17);
+    assert.equal(new Set(characters).size, 17);
+    assert.equal(new Set(colors).size, 17);
     const logoDir = path.join(__dirname, "../public/logos");
     let total = 0;
     for (const t of CHARACTERS) {
@@ -1023,7 +1023,7 @@ describe("team names and character catalog", () => {
     }
     assert.ok(total < 600 * 1024, `character image payload ${total} bytes`);
     const powerNames = CHARACTERS.map((t) => t.power.name);
-    assert.equal(new Set(powerNames).size, 20);
+    assert.equal(new Set(powerNames).size, 17);
     const src = fs.readFileSync(path.join(__dirname, "../public/characters.js"), "utf8");
     const embeddedMatch = src.match(/const embedded = (\[[\s\S]*?\n  \];)/);
     assert.ok(embeddedMatch, "embedded catalogue missing");

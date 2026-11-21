@@ -1,176 +1,5 @@
 [
   {
-    "id": "mickey-mouse",
-    "name": "Mickey Mouse",
-    "image": "/logos/mickey-mouse.webp",
-    "color": "#DC143C",
-    "color2": "#F9D5DC",
-    "ink": "#30040D",
-    "text": "#E65673",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "Clubhouse Cash",
-      "description": "A clubhouse treat adds 10 points to the purse.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
-    "id": "spongebob",
-    "name": "SpongeBob",
-    "image": "/logos/spongebob.webp",
-    "color": "#F5D000",
-    "color2": "#FDF7D1",
-    "ink": "#362E00",
-    "text": "#F5D000",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "Krabby Payday",
-      "description": "Payday at the Krusty Krab: 10 points hit the purse.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
-    "id": "bugs-bunny",
-    "name": "Bugs Bunny",
-    "image": "/logos/bugs-bunny.webp",
-    "color": "#B0B7C3",
-    "color2": "#F1F2F4",
-    "ink": "#27282B",
-    "text": "#B0B7C3",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "What's Up, Stash",
-      "description": "What's up, Doc? 10 points land in the stash.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
-    "id": "pikachu",
-    "name": "Pikachu",
-    "image": "/logos/pikachu.webp",
-    "color": "#E8A100",
-    "color2": "#FBEED1",
-    "ink": "#332300",
-    "text": "#E8A100",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "Thunder Jolt",
-      "description": "A thunder jolt zaps 10 points into the purse.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
-    "id": "doraemon",
-    "name": "Doraemon",
-    "image": "/logos/doraemon.webp",
-    "color": "#2A6DFF",
-    "color2": "#D9E5FF",
-    "ink": "#091838",
-    "text": "#6696FF",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "Anywhere Pocket",
-      "description": "The anywhere pocket produces 10 extra points.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
-    "id": "shin-chan",
-    "name": "Shin-chan",
-    "image": "/logos/shin-chan.webp",
-    "color": "#FF451A",
-    "color2": "#FFDED6",
-    "ink": "#380F06",
-    "text": "#FF795A",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "Action Kamen Boost",
-      "description": "Action Kamen swoops in with 10 bonus points.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
-    "id": "shrek",
-    "name": "Shrek",
-    "image": "/logos/shrek.webp",
-    "color": "#4A8A1E",
-    "color2": "#DEEAD6",
-    "ink": "#101E07",
-    "text": "#8ED44A",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "Swamp Stash",
-      "description": "A layer of the swamp stash adds 10 points.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
-    "id": "minion",
-    "name": "Minion",
-    "image": "/logos/minion.webp",
-    "color": "#163A7A",
-    "color2": "#FFE45C",
-    "ink": "#0A1E5C",
-    "text": "#6B8CFF",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "Banana Bonus",
-      "description": "Bello! A banana bonus adds 10 points.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
-    "id": "chhota-bheem",
-    "name": "Chhota Bheem",
-    "image": "/logos/chhota-bheem.webp",
-    "color": "#E85D00",
-    "color2": "#FBE2D1",
-    "ink": "#331400",
-    "text": "#FF8A33",
-    "emotes": [],
-    "power": {
-      "id": "bonus_points",
-      "name": "Ladoo Power",
-      "description": "A ladoo-powered lift adds 10 points to the purse.",
-      "uses": 1,
-      "params": {
-        "points": 10
-      }
-    }
-  },
-  {
     "id": "narendra-modi",
     "name": "Narendra Modi",
     "image": "/logos/narendra-modi.webp",
@@ -373,6 +202,120 @@
       "id": "bonus_points",
       "name": "Being Human Bonus",
       "description": "A Being Human bonus adds 10 points to the purse.",
+      "uses": 1,
+      "params": {
+        "points": 10
+      }
+    }
+  },
+  {
+    "id": "ravi-kishan",
+    "name": "Ravi Kishan",
+    "image": "/logos/ravi-kishan.webp",
+    "color": "#E8B923",
+    "color2": "#FAF2D7",
+    "ink": "#292106",
+    "text": "#EECC60",
+    "emotes": [],
+    "power": {
+      "id": "bonus_points",
+      "name": "Zindagi Jhand Ba",
+      "description": "Zindagi jhand ba: 10 points land in the purse.",
+      "uses": 1,
+      "params": {
+        "points": 10
+      }
+    }
+  },
+  {
+    "id": "osama-bin-laden",
+    "name": "Osama bin Laden",
+    "image": "/logos/osama-bin-laden.webp",
+    "color": "#7A6A42",
+    "color2": "#E7E4DC",
+    "ink": "#15130B",
+    "text": "#9F9376",
+    "emotes": [],
+    "power": {
+      "id": "bonus_points",
+      "name": "Abbottabad Stash",
+      "description": "An Abbottabad Stash adds 10 points to the purse.",
+      "uses": 1,
+      "params": {
+        "points": 10
+      }
+    }
+  },
+  {
+    "id": "rakhi-sawant",
+    "name": "Rakhi Sawant",
+    "image": "/logos/rakhi-sawant.webp",
+    "color": "#FF4D8D",
+    "color2": "#FFDEEA",
+    "ink": "#2D0D19",
+    "text": "#FF7EAC",
+    "emotes": [],
+    "power": {
+      "id": "bonus_points",
+      "name": "Drama Queen Bonus",
+      "description": "A Drama Queen Bonus adds 10 points to the purse.",
+      "uses": 1,
+      "params": {
+        "points": 10
+      }
+    }
+  },
+  {
+    "id": "taylor-swift",
+    "name": "Taylor Swift",
+    "image": "/logos/taylor-swift.webp",
+    "color": "#1D4ED8",
+    "color2": "#D6DFF7",
+    "ink": "#050E26",
+    "text": "#5C7FE2",
+    "emotes": [],
+    "power": {
+      "id": "bonus_points",
+      "name": "Eras Tour Cash",
+      "description": "Eras Tour Cash drops 10 points into the purse.",
+      "uses": 1,
+      "params": {
+        "points": 10
+      }
+    }
+  },
+  {
+    "id": "arnab-goswami",
+    "name": "Arnab Goswami",
+    "image": "/logos/arnab-goswami.webp",
+    "color": "#DC2626",
+    "color2": "#F8D7D7",
+    "ink": "#270606",
+    "text": "#E56262",
+    "emotes": [],
+    "power": {
+      "id": "bonus_points",
+      "name": "Nation Wants to Know",
+      "description": "The nation wants to know: 10 points hit the purse.",
+      "uses": 1,
+      "params": {
+        "points": 10
+      }
+    }
+  },
+  {
+    "id": "kim-jong-un",
+    "name": "Kim Jong Un",
+    "image": "/logos/kim-jong-un.webp",
+    "color": "#3B6B2F",
+    "color2": "#DBE4D9",
+    "ink": "#0A1308",
+    "text": "#719469",
+    "emotes": [],
+    "power": {
+      "id": "bonus_points",
+      "name": "Supreme Leader Stash",
+      "description": "A Supreme Leader Stash adds 10 points to the purse.",
       "uses": 1,
       "params": {
         "points": 10
