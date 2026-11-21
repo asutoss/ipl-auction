@@ -976,27 +976,31 @@ describe("end game and leave", () => {
 
 
 describe("team names and character catalog", () => {
-  test("catalog has 17 characters with unique colours, images, placeholder emotes, and a power", () => {
+  test("catalog has 20 characters with unique colours, images, meme names, placeholder emotes, and a power", () => {
     const fs = require("fs");
     const path = require("path");
     const { CHARACTERS, IDENTITIES, imageUrl, logoUrl, characterImg, logoImg } = require("../public/characters");
     const catalogPath = path.join(__dirname, "../data/characters.json");
     const fromFile = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
-    assert.equal(CHARACTERS.length, 17);
-    assert.equal(IDENTITIES.length, 17);
-    assert.equal(fromFile.length, 17);
+    assert.equal(CHARACTERS.length, 20);
+    assert.equal(IDENTITIES.length, 20);
+    assert.equal(fromFile.length, 20);
     assert.deepEqual(CHARACTERS.map((t) => t.id), fromFile.map((t) => t.id));
     const ids = CHARACTERS.map((t) => t.id);
     const characters = CHARACTERS.map((t) => t.character);
     const colors = CHARACTERS.map((t) => t.color.toLowerCase());
-    assert.equal(new Set(ids).size, 17);
-    assert.equal(new Set(characters).size, 17);
-    assert.equal(new Set(colors).size, 17);
+    assert.equal(new Set(ids).size, 20);
+    assert.equal(new Set(characters).size, 20);
+    assert.equal(new Set(colors).size, 20);
     const logoDir = path.join(__dirname, "../public/logos");
     let total = 0;
     for (const t of CHARACTERS) {
       assert.ok(t.character && t.character.length > 1, t.id);
       assert.equal(t.name, t.character);
+      assert.ok(t.realName && t.realName.length > 1, t.id);
+      assert.notEqual(t.realName, t.name, t.id);
+      const fileRow = fromFile.find((row) => row.id === t.id);
+      assert.equal(t.realName, fileRow.realName);
       assert.match(t.color, /^#[0-9A-Fa-f]{6}$/);
       assert.match(t.color2, /^#[0-9A-Fa-f]{6}$/);
       assert.match(t.text, /^#[0-9A-Fa-f]{6}$/);
@@ -1022,8 +1026,10 @@ describe("team names and character catalog", () => {
       assert.doesNotMatch(t.character, /chargers|sloths|punchers|rockets|smashers|mavericks|blasters|jaguars|jammers|dynamos|lions|vikings/i);
     }
     assert.ok(total < 600 * 1024, `character image payload ${total} bytes`);
+    const realNames = CHARACTERS.map((t) => t.realName);
+    assert.equal(new Set(realNames).size, 20);
     const powerNames = CHARACTERS.map((t) => t.power.name);
-    assert.equal(new Set(powerNames).size, 17);
+    assert.equal(new Set(powerNames).size, 20);
     const src = fs.readFileSync(path.join(__dirname, "../public/characters.js"), "utf8");
     const embeddedMatch = src.match(/const embedded = (\[[\s\S]*?\n  \];)/);
     assert.ok(embeddedMatch, "embedded catalogue missing");

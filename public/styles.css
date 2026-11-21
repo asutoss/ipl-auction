@@ -269,6 +269,11 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .logo-choice .team-mark, .logo-choice svg {
   width: 124px; height: 124px; border-radius: 50%;
 }
+.character-label {
+  font-size: 12px; font-weight: 700; line-height: 1.25;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text);
+}
 .character-owner {
   font-size: 12px; font-weight: 700; line-height: 1.25;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -952,8 +957,14 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   color: var(--muted); font-weight: 700;
 }
 .power-btn-copy strong {
-  font-family: var(--display); font-size: 22px; line-height: 1; font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--display); font-size: 18px; line-height: 1.15; font-weight: 600;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .power-modal {
@@ -968,7 +979,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   border: 2px solid var(--c, var(--gold));
   border-radius: 28px;
   padding: 28px 24px 32px;
-  max-width: 420px; width: min(420px, 100%);
+  max-width: 560px; width: min(560px, 100%);
   text-align: center;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 18px 50px rgba(0,0,0,0.45), 0 0 48px color-mix(in srgb, var(--c, var(--gold)) 40%, transparent);
   overflow: hidden;
@@ -993,8 +1004,9 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   animation: power-face-pop 560ms cubic-bezier(0.18, 1.4, 0.32, 1) both;
 }
 .power-card h2 {
-  margin: 0 0 8px; font-size: clamp(28px, 8vw, 42px); line-height: 1;
+  margin: 0 0 8px; font-size: clamp(22px, 4.6vw, 34px); line-height: 1.15;
   color: var(--c, var(--gold));
+  overflow-wrap: break-word; word-break: break-word; white-space: normal;
 }
 .power-card #power-team { margin: 0 0 6px; font-weight: 700; color: var(--text); }
 .power-card #power-desc { margin: 0; }

@@ -11,7 +11,8 @@
   const embedded = [
     {
       "id": "narendra-modi",
-      "name": "Narendra Modi",
+      "name": "Mitron",
+      "realName": "Narendra Modi",
       "image": "/logos/narendra-modi.webp",
       "color": "#FF9933",
       "color2": "#FFEDDA",
@@ -20,8 +21,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Masterstroke",
-        "description": "A signature masterstroke adds 10 points to the purse.",
+        "name": "Achhe Din Aayenge",
+        "description": "Achhe din aayenge: 10 points appear in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -30,7 +31,8 @@
     },
     {
       "id": "prabhas",
-      "name": "Prabhas",
+      "name": "Bahubali",
+      "realName": "Prabhas",
       "image": "/logos/prabhas.webp",
       "color": "#A32112",
       "color2": "#EED7D4",
@@ -39,8 +41,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Salaar Surge",
-        "description": "A Salaar surge pours 10 points into the purse.",
+        "name": "Katappa Ne Kyun Maara",
+        "description": "Katappa ne kyun maara? 10 points, that's why.",
         "uses": 1,
         "params": {
           "points": 10
@@ -49,7 +51,8 @@
     },
     {
       "id": "orry",
-      "name": "Orry",
+      "name": "Liver Boy",
+      "realName": "Orry",
       "image": "/logos/orry.webp",
       "color": "#8BCF17",
       "color2": "#EAF6D5",
@@ -58,8 +61,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Spotlight Stash",
-        "description": "The spotlight finds 10 extra points for the purse.",
+        "name": "I'm Just a Liver",
+        "description": "I'm just a liver — and 10 points in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -68,7 +71,8 @@
     },
     {
       "id": "dolly-chaiwala",
-      "name": "Dolly Chaiwala",
+      "name": "Bill Gates Ka Chaiwala",
+      "realName": "Dolly Chaiwala",
       "image": "/logos/dolly-chaiwala.webp",
       "color": "#6B3F14",
       "color2": "#F0E0C8",
@@ -77,8 +81,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Cutting Chai",
-        "description": "A cutting chai comes with 10 extra points.",
+        "name": "Ek Cutting Aur",
+        "description": "Ek cutting aur: 10 points in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -87,7 +91,8 @@
     },
     {
       "id": "amitabh-bachchan",
-      "name": "Amitabh Bachchan",
+      "name": "Big B",
+      "realName": "Amitabh Bachchan",
       "image": "/logos/amitabh-bachchan.webp",
       "color": "#4A0D1C",
       "color2": "#1C0A10",
@@ -96,8 +101,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "KBC Jackpot",
-        "description": "A KBC jackpot locks in 10 bonus points.",
+        "name": "Lock Kiya Jaaye",
+        "description": "Lock kiya jaaye: 10 points are in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -106,7 +111,8 @@
     },
     {
       "id": "jay-shah",
-      "name": "Jay Shah",
+      "name": "Script Writer",
+      "realName": "Jay Shah",
       "image": "/logos/jay-shah.webp",
       "color": "#0E7490",
       "color2": "#D4E6EB",
@@ -115,8 +121,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Boardroom Bonus",
-        "description": "A boardroom bonus credits 10 points to the purse.",
+        "name": "Script Pehle Se Likhi Hai",
+        "description": "The script was written already: 10 points land in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -125,7 +131,8 @@
     },
     {
       "id": "samay-raina",
-      "name": "Samay Raina",
+      "name": "Latent King",
+      "realName": "Samay Raina",
       "image": "/logos/samay-raina.webp",
       "color": "#C026D3",
       "color2": "#F4D8F7",
@@ -134,8 +141,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Checkmate Cash",
-        "description": "Checkmate: 10 points appear on the board.",
+        "name": "Dark Joke Daalo",
+        "description": "Dark joke daalo: 10 points hit the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -144,7 +151,8 @@
     },
     {
       "id": "elvish-yadav",
-      "name": "Elvish Yadav",
+      "name": "Systumm",
+      "realName": "Elvish Yadav",
       "image": "/logos/elvish-yadav.webp",
       "color": "#047857",
       "color2": "#D2E7E1",
@@ -153,8 +161,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Elvishhh Boost",
-        "description": "Elvishhh! A boost drops 10 points into the purse.",
+        "name": "Elvish Bhai Ke Aage Koi Bol Sakta Hai Kya.. Elvish Bhaiiii",
+        "description": "Elvish bhaiiii! 10 points drop into the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -163,7 +171,8 @@
     },
     {
       "id": "puneet-superstar",
-      "name": "Puneet Superstar",
+      "name": "Lord Puneet",
+      "realName": "Puneet Superstar",
       "image": "/logos/puneet-superstar.webp",
       "color": "#DB2777",
       "color2": "#F9D8E7",
@@ -172,8 +181,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Thik Hai Boost",
-        "description": "Thik hai — 10 points, no discussion.",
+        "name": "Thik Hai, Thik Hai",
+        "description": "Thik hai, thik hai — 10 points, no discussion.",
         "uses": 1,
         "params": {
           "points": 10
@@ -182,7 +191,8 @@
     },
     {
       "id": "ranveer-allahbadia",
-      "name": "Ranveer Allahbadia",
+      "name": "BeerBiceps",
+      "realName": "Ranveer Allahbadia",
       "image": "/logos/ranveer-allahbadia.webp",
       "color": "#6D28D9",
       "color2": "#E5D8F8",
@@ -191,8 +201,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Do Epic Cash",
-        "description": "Do it epic: 10 points land in the purse.",
+        "name": "Parents Wala Sawaal",
+        "description": "The parents wala sawaal drops 10 points into the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -201,7 +211,8 @@
     },
     {
       "id": "salman-khan",
-      "name": "Salman Khan",
+      "name": "Bhai",
+      "realName": "Salman Khan",
       "image": "/logos/salman-khan.webp",
       "color": "#2C3E50",
       "color2": "#1A2530",
@@ -210,8 +221,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Being Human Bonus",
-        "description": "A Being Human bonus adds 10 points to the purse.",
+        "name": "Tiger Zinda Hai",
+        "description": "Tiger zinda hai: 10 points land in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -220,7 +231,8 @@
     },
     {
       "id": "ravi-kishan",
-      "name": "Ravi Kishan",
+      "name": "Zindagi Jhand Ba",
+      "realName": "Ravi Kishan",
       "image": "/logos/ravi-kishan.webp",
       "color": "#E8B923",
       "color2": "#FAF2D7",
@@ -229,8 +241,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Zindagi Jhand Ba",
-        "description": "Zindagi jhand ba: 10 points land in the purse.",
+        "name": "Fir Bhi Ghamand Ba",
+        "description": "Zindagi jhand ba, fir bhi ghamand ba: 10 points in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -239,7 +251,8 @@
     },
     {
       "id": "osama-bin-laden",
-      "name": "Osama bin Laden",
+      "name": "Abbottabad Uncle",
+      "realName": "Osama bin Laden",
       "image": "/logos/osama-bin-laden.webp",
       "color": "#7A6A42",
       "color2": "#E7E4DC",
@@ -248,8 +261,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Abbottabad Stash",
-        "description": "An Abbottabad Stash adds 10 points to the purse.",
+        "name": "Cave Mode",
+        "description": "Cave Mode adds 10 points to the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -258,7 +271,8 @@
     },
     {
       "id": "rakhi-sawant",
-      "name": "Rakhi Sawant",
+      "name": "Drama Queen",
+      "realName": "Rakhi Sawant",
       "image": "/logos/rakhi-sawant.webp",
       "color": "#FF4D8D",
       "color2": "#FFDEEA",
@@ -267,8 +281,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Drama Queen Bonus",
-        "description": "A Drama Queen Bonus adds 10 points to the purse.",
+        "name": "Mera Dimaag Kharab Hai",
+        "description": "Mera dimaag kharab hai — 10 points anyway.",
         "uses": 1,
         "params": {
           "points": 10
@@ -277,7 +291,8 @@
     },
     {
       "id": "taylor-swift",
-      "name": "Taylor Swift",
+      "name": "Tay Tay",
+      "realName": "Taylor Swift",
       "image": "/logos/taylor-swift.webp",
       "color": "#1D4ED8",
       "color2": "#D6DFF7",
@@ -286,8 +301,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Eras Tour Cash",
-        "description": "Eras Tour Cash drops 10 points into the purse.",
+        "name": "Bad Blood Bonus",
+        "description": "A Bad Blood Bonus adds 10 points to the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -296,7 +311,8 @@
     },
     {
       "id": "arnab-goswami",
-      "name": "Arnab Goswami",
+      "name": "Nation Wants to Know",
+      "realName": "Arnab Goswami",
       "image": "/logos/arnab-goswami.webp",
       "color": "#DC2626",
       "color2": "#F8D7D7",
@@ -305,8 +321,8 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Nation Wants to Know",
-        "description": "The nation wants to know: 10 points hit the purse.",
+        "name": "Kahan Hai Points?",
+        "description": "Kahan hai points? Right here: 10 points in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -315,7 +331,8 @@
     },
     {
       "id": "kim-jong-un",
-      "name": "Kim Jong Un",
+      "name": "Rocket Man",
+      "realName": "Kim Jong Un",
       "image": "/logos/kim-jong-un.webp",
       "color": "#3B6B2F",
       "color2": "#DBE4D9",
@@ -324,8 +341,68 @@
       "emotes": [],
       "power": {
         "id": "bonus_points",
-        "name": "Supreme Leader Stash",
-        "description": "A Supreme Leader Stash adds 10 points to the purse.",
+        "name": "Big Red Button",
+        "description": "The Big Red Button adds 10 points to the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "scout",
+      "name": "Scout OP",
+      "realName": "Tanmay Singh",
+      "image": "/logos/scout.webp",
+      "color": "#06B6D4",
+      "color2": "#D2F1F7",
+      "ink": "#012026",
+      "text": "#4BCAE0",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Winner Winner Chicken Dinner",
+        "description": "Winner winner, chicken dinner: 10 points in the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "sunny-leone",
+      "name": "Baby Doll",
+      "realName": "Sunny Leone",
+      "image": "/logos/sunny-leone.webp",
+      "color": "#EA580C",
+      "color2": "#FBE0D3",
+      "ink": "#2A0F02",
+      "text": "#EF8650",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Laila Main Laila",
+        "description": "Laila main Laila: 10 points hit the purse.",
+        "uses": 1,
+        "params": {
+          "points": 10
+        }
+      }
+    },
+    {
+      "id": "archana-puran-singh",
+      "name": "Hahaha Ma'am",
+      "realName": "Archana Puran Singh",
+      "image": "/logos/archana-puran-singh.webp",
+      "color": "#6366F1",
+      "color2": "#E2E3FC",
+      "ink": "#11122B",
+      "text": "#8E90F4",
+      "emotes": [],
+      "power": {
+        "id": "bonus_points",
+        "name": "Kapil Ka Sofa",
+        "description": "From Kapil ka sofa, 10 points land in the purse.",
         "uses": 1,
         "params": {
           "points": 10
@@ -351,10 +428,12 @@
     if (!pack || !pack.id) return null;
     const name = pack.name || pack.character || "";
     const image = pack.image || "/logos/" + pack.id + ".webp";
+    const realName = pack.realName || pack.fullName || "";
     return {
       id: pack.id,
       name,
       character: name,
+      realName,
       image,
       logo: image,
       color: pack.color,
@@ -391,6 +470,7 @@
       characterId: pack.id,
       character: pack.character,
       name: pack.name,
+      realName: pack.realName || "",
       color: pack.color,
       color2: pack.color2,
       ink: pack.ink,

@@ -89,7 +89,7 @@ function teamMark(franchise, size = "", title = "") {
     ? imgFn(pack, { alt: title || pack.character || pack.name || "", className: "team-mark-img" })
     : "";
   const inner = img || esc(franchise.character || "");
-  const label = title || franchise.character || "";
+  const label = title || characterTooltip(franchise) || franchise.character || "";
   return `<span class="team-mark-wrap ${esc(size)}" style="--c:${esc(franchise.color)};--c2:${esc(franchise.color2 || "")}" title="${esc(label)}">${inner}</span>`;
 }
 
@@ -100,6 +100,13 @@ function accentColor(franchise) {
 
 function characterName(franchise) {
   return (franchise && (franchise.character || franchise.name)) || "";
+}
+
+function characterTooltip(franchise) {
+  const meme = characterName(franchise);
+  const real = franchise && franchise.realName;
+  if (meme && real && real !== meme) return `${meme} (${real})`;
+  return meme || real || "";
 }
 
 function goHome() {
@@ -412,13 +419,17 @@ function lobbyView() {
       const selected = Boolean(mine && pack.id === mine);
       const used = ownerById.has(pack.id) && !selected;
       const label = characterName(pack);
+      const tip = characterTooltip(pack);
       const owner = used ? (ownerById.get(pack.id) || "") : "";
-      const aria = used && owner ? `Taken by ${owner}` : label;
-      const img = imgFn ? imgFn(pack, { alt: label, className: "team-mark-img" }) : "";
+      const aria = used && owner ? `${label}, taken by ${owner}` : tip || label;
+      const img = imgFn ? imgFn(pack, { alt: tip || label, className: "team-mark-img" }) : "";
       const power = pack.power && pack.power.name ? pack.power : null;
-      const powerLine = selected && power ? `<span class="character-power" title="${esc(power.description || "")}">${esc(power.name)}</span>` : "";
-      return `<button type="button" class="character-choice logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-character="${esc(pack.id)}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""} aria-label="${esc(aria)}">
+      const powerTip = power ? `${power.name}${power.description ? ` — ${power.description}` : ""}` : "";
+      const powerLine = selected && power ? `<span class="character-power" title="${esc(powerTip)}">${esc(power.name)}</span>` : "";
+      const nameLine = label ? `<span class="character-label">${esc(label)}</span>` : "";
+      return `<button type="button" class="character-choice logo-choice ${selected ? "selected" : ""} ${used ? "taken" : ""}" data-character="${esc(pack.id)}" data-identity="${esc(pack.id)}" style="--c:${esc(pack.color)}" ${used ? "disabled" : ""} title="${esc(tip || label)}" aria-label="${esc(aria)}">
         ${img}
+        ${nameLine}
         ${powerLine}
         ${used && owner ? `<span class="character-owner">${esc(owner)}</span>` : ""}
       </button>`;
