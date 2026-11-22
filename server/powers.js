@@ -407,7 +407,7 @@ definePower({
         powerName: "Parents Wala Sawaal",
         endsAfterMs: POWER_PICK_MS,
         options,
-        prompt: "Pick a rival who cannot bid for this lot and the next one.",
+        prompt: "Pick a rival to block this lot and the next.",
       },
       message: `${displayName(team)} used Parents Wala Sawaal and is picking a rival`,
     };
@@ -456,7 +456,7 @@ definePower({
         powerName: "Kala Hiran",
         endsAfterMs: POWER_PICK_MS,
         options,
-        prompt: "Pick a recently sold rival player to take at the sold price.",
+        prompt: "Pick a rival player to take.",
       },
       message: `${displayName(team)} used Kala Hiran and is stalking a player`,
     };
@@ -550,7 +550,7 @@ definePower({
         endsAfterMs: RAKHI_CHOICE_MS,
         options,
         defaultOnTimeout: "refuse",
-        prompt: "Pay Drama Queen 3 points, or refuse and sit out the next lot.",
+        prompt: "Pay 3 points, or refuse and sit out the next lot.",
       },
       message: `${displayName(team)} used Rakhi Ka Swayamvar, rivals must pay 3 points or refuse`,
     };
@@ -614,7 +614,7 @@ definePower({
         endsAfterMs: POWER_PICK_MS,
         options,
         own,
-        prompt: "Pick a rival player, then one of your own in the same role, to swap.",
+        prompt: "Pick a rival, then your player in the same role.",
       },
       message: `${displayName(team)} used Travis Kelce Trade and is arranging a swap`,
     };
@@ -700,7 +700,7 @@ definePower({
         powerName: "Big Red Button",
         endsAfterMs: POWER_PICK_MS,
         options,
-        prompt: "Choose a team. Floor(half) of its squad will be wiped at random.",
+        prompt: "Pick a team to wipe.",
       },
       message: `${displayName(team)} used Big Red Button and is choosing a target`,
     };

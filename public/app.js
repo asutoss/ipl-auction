@@ -234,7 +234,7 @@ function fillSoldModal(evt) {
   const line = document.getElementById("sold-line");
   if (line) {
     if (unsold) {
-      line.innerHTML = `${esc((evt.player && evt.player.name) || "This player")} went unsold.`;
+      line.innerHTML = "Went unsold.";
     } else {
       line.innerHTML = `SOLD to <strong>${esc(evt.buyerName || evt.short || "a team")}</strong> for ${money(evt.priceLakhs)}`;
     }
@@ -335,7 +335,7 @@ function syncWaitModal() {
       timer.textContent = `${secs}s left`;
       timer.hidden = false;
     } else {
-      timer.textContent = wait.kind === "chai" ? "Unlimited pause — only Dolly can end it" : "";
+      timer.textContent = wait.kind === "chai" ? "Only Dolly can end this" : "";
       timer.hidden = !timer.textContent;
     }
   }
@@ -358,7 +358,7 @@ function syncWaitModal() {
       html += `</tbody></table></div>`;
       html += `<button type="button" class="btn" id="chai-khatam">Chai khatam</button>`;
     } else {
-      html += `<p class="lede">Have some chai. You can still emote and quick-chat. The host cannot resume this break.</p>`;
+      html += `<p class="lede">Wait for Dolly.</p>`;
     }
   } else if (wait.kind === "rakhi_choices") {
     if (wait.youMustChoose) {
@@ -366,9 +366,9 @@ function syncWaitModal() {
         <button type="button" class="btn" id="rakhi-pay" data-rakhi-choice="pay">Pay 3 points</button>
         <button type="button" class="btn secondary" id="rakhi-refuse" data-rakhi-choice="refuse">Refuse (sit out next lot)</button>
       </div>
-      <p class="hint">If you do not choose in time, you refuse and sit out the next lot.</p>`;
+      <p class="hint">Timeout = refuse.</p>`;
     } else {
-      html += `<p class="lede">${wait.youChoice ? `You chose to ${wait.youChoice}.` : "Waiting for rivals to pay 3 points or refuse."}</p>`;
+      html += `<p class="lede">${wait.youChoice ? `You chose to ${wait.youChoice}.` : "Waiting for rivals."}</p>`;
     }
   } else if (wait.youAreActor && wait.options) {
     if (wait.kind === "pick_team") {
@@ -380,15 +380,15 @@ function syncWaitModal() {
         `<button type="button" class="btn secondary wait-pick" data-player-id="${esc(o.playerId)}">${esc(o.player && o.player.name)} · ${esc(o.player && o.player.role)} · ${o.priceLakhs} pts from ${esc(o.fromName)}</button>`
       ).join("") + `</div>`;
     } else if (wait.kind === "pick_swap") {
-      html += `<p class="hint">1. Pick the rival player</p><div class="wait-options">` + wait.options.map((o) =>
+      html += `<p class="hint">Pick a rival</p><div class="wait-options">` + wait.options.map((o) =>
         `<button type="button" class="btn secondary wait-pick" data-player-id="${esc(o.playerId)}">${esc(o.player && o.player.name)} · ${esc(o.player && o.player.role)} from ${esc(o.fromName)}</button>`
       ).join("") + `</div>`;
-      html += `<p class="hint">2. Pick your player in the same role</p><div class="wait-options">` + (wait.own || []).map((o) =>
+      html += `<p class="hint">Pick your player</p><div class="wait-options">` + (wait.own || []).map((o) =>
         `<button type="button" class="btn secondary wait-swap" data-swap-id="${esc(o.playerId)}">${esc(o.player && o.player.name)} · ${esc(o.player && o.player.role)}</button>`
       ).join("") + `</div>`;
     }
   } else {
-    html += `<p class="lede">Hang tight — you can still emote and quick-chat.</p>`;
+    html += "";
   }
   body.innerHTML = html;
 }
@@ -502,12 +502,11 @@ function homeView() {
       <div class="panel name-bar">
         <label for="name">Team name</label>
         <input id="name" maxlength="24" placeholder="e.g. Night Owls" />
-        <p class="hint">This team name is used everywhere in the game and must be unique in the room. Rejoin later with the same team name and room code.</p>
+        <p class="hint">Must be unique in the room. Rejoin with the same name and code.</p>
       </div>
       <section class="hero">
         <div class="panel">
-          <h2>Build a franchise. Win the league.</h2>
-          <p class="lede">Join a room with friends, bid for a squad, pick a captain, and watch a simulated tournament unfold. Choose the game type before you create the room.</p>
+          <h2>Create a room</h2>
           <div class="game-mode-block">
             <p class="game-mode-label" id="game-type-label">Game type</p>
             <div class="game-modes" role="radiogroup" aria-labelledby="game-type-label">${gameModeCards()}</div>
@@ -515,11 +514,11 @@ function homeView() {
           <div class="actions">
             <button class="btn" id="create">Create room</button>
           </div>
-          <p class="hint">2–10 teams. Classical is the full 11-player auction (purse 100). Rapid is 5 players (50 points). Bullet is 3 players (30 points). Ratings in the player pool are informal estimates.</p>
+          <p class="hint">2–10 teams. Purse and squad size follow the game type.</p>
         </div>
         <div class="panel">
           <h2>Join a room</h2>
-          <p class="lede">Ask the host for the 6-character room code, then join with the team name above.</p>
+          <p class="lede">Enter the 6-character room code.</p>
           <div class="row">
             <div>
               <label for="code">Room code</label>
@@ -587,8 +586,8 @@ function lobbyView() {
     <section class="panel">
       <p class="lede">Share this code</p>
       <p class="room-code">${esc(state.code)}</p>
-      <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · ${state.franchises.length} / ${state.maxPlayers} teams · purse ${money(state.purseLakhs)} each. Team names were set on the start page and cannot be edited here. Need at least ${state.minPlayers} to start.</p>
-      <p class="hint character-nudge"><a href="#choose-character">Pick your character below</a></p>
+      <p class="lede">${esc(modeInfo().name)} · ${esc(modeInfo().compositionLabel)} · ${state.franchises.length} / ${state.maxPlayers} teams · ${money(state.purseLakhs)} each · min ${state.minPlayers} to start.</p>
+      <p class="hint character-nudge"><a href="#choose-character">Pick your character</a></p>
       ${
         isHost
           ? `<div class="row row-2" style="max-width:420px">
@@ -613,7 +612,7 @@ function lobbyView() {
       <p class="error">${esc(lastError)}</p>
       <div class="character-section" id="choose-character">
         <h3>Choose your character</h3>
-        <p class="hint">Taken characters are greyed out and show the team that chose them. Unpicked characters are auto-assigned when the host starts.</p>
+        <p class="hint">Greyed-out characters are taken. Unpicked ones are assigned at start.</p>
         <div class="character-picker logo-picker">${picker}</div>
       </div>
     </section>
@@ -851,7 +850,7 @@ function auctionView() {
     <div>${banner}</div>
     <section class="auction-layout">
       <div class="panel player-card ${p.vfxHidden ? "is-vfx" : ""}">
-        <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · ${a.lotId && a.lotTotal ? `Lot ${a.lotId} of ${a.lotTotal}` : a.lotId ? `Lot ${a.lotId}` : "On the block"} · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
+        <p class="lede">${esc(modeInfo().compositionLabel)} · ${a.lotId && a.lotTotal ? `Lot ${a.lotId} of ${a.lotTotal}` : a.lotId ? `Lot ${a.lotId}` : "On the block"} · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
         <div class="auction-stage">
           <div class="ring-wrap">
             <div class="ring-stage">
@@ -869,7 +868,7 @@ function auctionView() {
                 </p>
                 <div class="hub-leader" id="hub-leader">${leaderLine(a)}</div>
                 <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
-                  ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Name, role and stats hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
+                  ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
                   <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>`}
                 </div>
                 <p class="hub-timer ${secs <= 3 && !isTimerFrozen() ? "low" : ""} ${isTimerFrozen() ? "paused" : ""}" id="timer">${isTimerFrozen() ? "Paused" : secs + "s"}</p>
@@ -883,7 +882,6 @@ function auctionView() {
           <p class="bid-label">Your bid</p>
           <div class="bid-bar" id="bid-actions">${bidButtonsHtml(a)}</div>
           ${a.youReason ? `<p class="why" id="bid-why">${esc(a.youReason)}</p>` : `<p class="why" id="bid-why" hidden></p>`}
-          <p class="hint">Buttons show the exact points you would pay — current bid plus 1, 2 or 5. Amounts you cannot afford are hidden. When only one team is left, the player is locked immediately. New lots get 15 seconds; each bid also resets the timer to 15.</p>
           <p class="error">${esc(lastError)}</p>
         </div>
       </div>
@@ -1023,13 +1021,13 @@ function captainView() {
     <section class="prep-layout">
       <div class="panel">
         <h2>Choose your captain</h2>
-        <p class="lede">The captain gets a +5% rating boost. Auto-picks the highest-rated player if time runs out (${left}s). Waiting on: ${pending}.</p>
+        <p class="lede">+5% rating. Auto-picks if time runs out. ${left}s left. Waiting on: ${pending}.</p>
         <div class="captain-grid">${picks}</div>
         <div style="margin-top:18px">${you ? squadSlots(you) : ""}</div>
       </div>
       <div class="panel">
         <h2>Booster shop</h2>
-        <p class="lede">Spend leftover points on one of each. Effects are modest — squad strength still matters most. Timer is shared with captain pick (${left}s). Your purse: <strong>${you ? money(you.purseLakhs) : "—"}</strong>. Owned: ${bought}.</p>
+        <p class="lede">Buy one of each. Purse: <strong>${you ? money(you.purseLakhs) : "—"}</strong>. Owned: ${bought}.</p>
         <div class="booster-grid">${shop || `<p class="lede">No boosters available.</p>`}</div>
         <p class="error">${esc(lastError)}</p>
       </div>
@@ -1151,7 +1149,7 @@ function teamReportCard(team) {
 function resultsView() {
   const t = state.tournament;
   if (!t) {
-    return `<section class="panel"><h2>Simulating the tournament…</h2><p class="lede">Results will appear within two minutes.</p></section>`;
+    return `<section class="panel"><h2>Simulating…</h2><p class="lede">Results incoming.</p></section>`;
   }
   const vis = visibleTournament();
   const champ = vis.showFinal && t.champion ? t.champion : null;
@@ -1166,7 +1164,7 @@ function resultsView() {
               <p class="name" style="color:${esc(champ.text || champ.color)}">${esc(champ.name || champ.short)}</p>
               <p class="lede">${champ.title ? esc(champ.title) : "Champion"}</p>
             </div>`
-          : `<div class="panel"><h2>Tournament underway</h2><p class="lede">Match results are coming in…</p><div class="actions"><button class="btn secondary" id="skip-reveal">Skip to results</button></div></div>`
+          : `<div class="panel"><h2>Tournament underway</h2><p class="lede">Results incoming.</p><div class="actions"><button class="btn secondary" id="skip-reveal">Skip to results</button></div></div>`
       }
       <div class="panel">
         <h2>League matches</h2>
@@ -1195,7 +1193,6 @@ function resultsView() {
       ${
         vis.showFinal && (t.teams || []).length
           ? `<div class="panel"><h2>Squads &amp; performance</h2>
-              <p class="lede">Every franchise's full squad, boosters, league record and per-player tournament stats.</p>
               <div class="team-reports">${t.teams.map(teamReportCard).join("")}</div>
             </div>`
           : ""
@@ -1568,7 +1565,7 @@ function wireGlobal() {
       return;
     }
     if (e.target.closest("#end-game")) {
-      const ok = await confirmAction("This ends the game for everyone and returns you to the start page. The room will be closed.");
+      const ok = await confirmAction("This ends the game for everyone.");
       if (!ok) return;
       const res = await emit("endGame");
       if (!res.ok) toast(res.error || "Could not end the game.");

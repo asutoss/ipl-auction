@@ -1574,7 +1574,7 @@ class GameRoom extends EventEmitter {
     if (isActor && w.options) packed.options = w.options;
     if (isActor && w.own) packed.own = w.own;
     if (w.kind === "chai") {
-      packed.prompt = packed.prompt || "Chai break is on. Only Dolly can end it.";
+      packed.prompt = packed.prompt || "Only Dolly can end this break.";
       if (isActor) packed.table = this.packChaiTable();
     }
     return packed;
