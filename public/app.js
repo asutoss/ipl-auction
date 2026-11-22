@@ -1211,11 +1211,10 @@ async function emitOrToast(event, payload, fallback) {
 
 
 function emoteCatalog() {
-  return window.IplEmotes || { EMOTES: [], emojis: () => [], phrases: () => [], getEmote: () => null, isValidEmoteId: () => false, EMOTE_DURATION_MS: 2000, EMOTE_MAX_VISIBLE: 4, EMOTE_COOLDOWN_MS: 2000 };
+  return window.IplEmotes || { EMOTES: [], emojis: () => [], phrases: () => [], getEmote: () => null, isValidEmoteId: () => false, EMOTE_DURATION_MS: 3200, EMOTE_MAX_VISIBLE: 40 };
 }
 
 let emotePickerOpen = false;
-let emoteCoolUntil = 0;
 const liveEmotes = [];
 
 function closeEmotePicker() {
@@ -1286,7 +1285,7 @@ function syncEmoteDock() {
     dock.classList.add("is-fixed");
   }
   const btn = document.getElementById("emote-btn");
-  if (btn) btn.disabled = Date.now() < emoteCoolUntil;
+  if (btn) btn.disabled = false;
   const pop = document.getElementById("emote-popover");
   if (pop) pop.hidden = !emotePickerOpen;
   if (btn) btn.setAttribute("aria-expanded", emotePickerOpen ? "true" : "false");
@@ -1319,61 +1318,43 @@ function emoteTeamStyle(teamId) {
   return { team, name: (team && team.name) || teamId, color, text };
 }
 
-function emoteAnchorPoint(teamId) {
-  const info = emoteTeamStyle(teamId);
-  const svg = document.getElementById("auction-ring");
-  if (svg && window.IplRing && typeof IplRing.anchorFor === "function") {
-    const pt = IplRing.anchorFor(svg, info.name || teamId);
-    if (pt) return avoidEmoteCollisions(pt);
-  }
-  const id = String(teamId || "").toLowerCase();
-  const chip = document.querySelector(`.team-chip[data-team-id="${CSS.escape(id)}"]`)
-    || (info.name ? document.querySelector(`.team-chip[data-team-name="${CSS.escape(info.name)}"]`) : null);
-  if (chip) {
-    const r = chip.getBoundingClientRect();
-    return avoidEmoteCollisions({ x: r.left + r.width / 2, y: r.top + 2 });
-  }
-  const btn = document.getElementById("emote-btn");
-  if (btn) {
-    const r = btn.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top - 8 };
-  }
-  return { x: window.innerWidth / 2, y: window.innerHeight * 0.3 };
-}
 
-function avoidEmoteCollisions(pt) {
-  const hub = document.getElementById("auction-hub");
-  const wrap = document.querySelector(".ring-wrap");
-  let x = pt.x;
-  let y = pt.y;
-  if (hub && wrap) {
-    const wr = wrap.getBoundingClientRect();
-    const cx = wr.left + wr.width / 2;
-    const cy = wr.top + wr.height / 2;
-    const hr = hub.getBoundingClientRect();
-    const safe = hr.width / 2 + 10;
-    const dx = x - cx;
-    const dy = y - cy;
-    const dist = Math.hypot(dx, dy) || 1;
-    if (dist < safe) {
-      const scale = safe / dist;
-      x = cx + dx * scale;
-      y = cy + dy * scale;
-    }
-  }
+function emoteStreamOrigin() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const narrow = vw <= 700;
+  const band = narrow ? 64 : 88;
+  const rightPad = narrow ? 10 : 18;
+  let floor = 20 + (window.visualViewport ? 0 : 0);
+  const safe = Number(getComputedStyle(document.documentElement).getPropertyValue("padding-bottom")) || 0;
+  void safe;
   const bid = document.getElementById("bid-box");
-  if (bid) {
-    const b = bid.getBoundingClientRect();
-    if (x >= b.left - 8 && x <= b.right + 8 && y >= b.top - 8 && y <= b.bottom + 8) {
-      y = b.top - 16;
+  const power = document.getElementById("use-power") || document.getElementById("power-btn-wrap");
+  const dock = document.getElementById("emote-dock");
+  function clearAbove(el, pad) {
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    // Only lift the spawn band when a control overlaps the right-edge stream.
+    const bandLeft = vw - (narrow ? 96 : 140);
+    if (r.right > bandLeft && r.bottom > vh * 0.55) {
+      floor = Math.max(floor, vh - r.top + pad);
     }
   }
-  return { x, y, angle: pt.angle };
+  if (narrow) {
+    clearAbove(bid, 12);
+    clearAbove(power, 12);
+  }
+  if (dock && !dock.hidden) clearAbove(dock, 8);
+  floor = Math.min(floor, vh * 0.45);
+  const x = vw - rightPad - Math.random() * band;
+  const y = vh - floor - Math.random() * 18;
+  return { x: Math.max(24, x), y: Math.max(vh * 0.55, y) };
 }
 
 function pruneLiveEmotes() {
   const cat = emoteCatalog();
-  const max = cat.EMOTE_MAX_VISIBLE || 4;
+  const max = cat.EMOTE_MAX_VISIBLE || 40;
   while (liveEmotes.length > max) {
     const old = liveEmotes.shift();
     if (old && old.el) old.el.remove();
@@ -1381,10 +1362,21 @@ function pruneLiveEmotes() {
   }
 }
 
+function dismissEmote(rec) {
+  if (!rec) return;
+  if (rec.timer) {
+    clearTimeout(rec.timer);
+    rec.timer = null;
+  }
+  if (rec.el) rec.el.remove();
+  const i = liveEmotes.indexOf(rec);
+  if (i >= 0) liveEmotes.splice(i, 1);
+}
+
 function showEmote(payload) {
   const cat = emoteCatalog();
   const emote = (cat.getEmote && cat.getEmote(payload && payload.emoteId)) || (
-    payload && payload.text ? { kind: "phrase", text: payload.text } : null
+    payload && (payload.text || payload.phrase) ? { kind: "phrase", text: payload.phrase || payload.text } : null
   );
   if (!emote) return;
   let layer = document.getElementById("emote-layer");
@@ -1394,52 +1386,61 @@ function showEmote(payload) {
     layer.className = "emote-layer";
     layer.setAttribute("aria-hidden", "true");
     document.body.appendChild(layer);
+  } else if (layer.parentElement !== document.body) {
+    document.body.appendChild(layer);
   }
   const info = emoteTeamStyle(payload.teamId);
-  const at = emoteAnchorPoint(payload.teamId);
+  const at = emoteStreamOrigin();
   const el = document.createElement("div");
   const isPhrase = emote.kind === "phrase";
-  el.className = `emote-float ${isPhrase ? "is-phrase" : "is-emoji"}`;
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.className = `emote-float ${isPhrase ? "is-phrase" : "is-emoji"}${reduced ? " is-reduced" : ""}`;
   el.style.setProperty("--c", info.color);
   el.style.setProperty("--ct", info.text);
-  el.style.left = `${Math.round(at.x)}px`;
+  el.style.left = "auto";
+  el.style.right = `${Math.max(8, Math.round(window.innerWidth - at.x))}px`;
   el.style.top = `${Math.round(at.y)}px`;
-  if (Number.isFinite(at.angle)) {
-    const rad = ((at.angle - 90) * Math.PI) / 180;
-    const dist = isPhrase ? 44 : 36;
-    el.style.setProperty("--dx", `${Math.round(Math.cos(rad) * dist)}px`);
-    el.style.setProperty("--dy", `${Math.round(Math.sin(rad) * dist)}px`);
-  }
-  if (isPhrase) el.textContent = emote.text;
-  else el.textContent = emote.glyph;
+  const scale = isPhrase ? (0.9 + Math.random() * 0.16) : (0.82 + Math.random() * 0.45);
+  const rot0 = (Math.random() * 24 - 12).toFixed(1);
+  const rot1 = (Math.random() * 28 - 14).toFixed(1);
+  const rot2 = (Math.random() * 36 - 18).toFixed(1);
+  const dur = reduced ? 0.85 : (2.3 + Math.random() * 1.3);
+  const travel = reduced ? 18 : Math.round(at.y - (16 + Math.random() * 56));
+  // Bias sideways drift inward (negative X) so long pills stay on screen.
+  const wobble = reduced ? 0 : -Math.round(6 + Math.random() * (isPhrase ? 28 : 36));
+  const drift = reduced ? 0 : wobble - Math.round(Math.random() * 18);
+  el.style.setProperty("--scale", scale.toFixed(3));
+  el.style.setProperty("--rot0", `${rot0}deg`);
+  el.style.setProperty("--rot1", `${rot1}deg`);
+  el.style.setProperty("--rot2", `${rot2}deg`);
+  el.style.setProperty("--dx1", `${wobble}px`);
+  el.style.setProperty("--dx2", `${drift}px`);
+  el.style.setProperty("--dy", `${-Math.max(48, travel)}px`);
+  el.style.setProperty("--dur", `${dur.toFixed(2)}s`);
+  const fr = (info.team && (info.team.franchise || info.team)) || null;
+  const mark = fr ? teamMark({ ...fr, id: characterIdOf(fr) || characterIdOf(info.team) || "" }, "xs", info.name || "") : "";
+  const badge = mark || `<span class="emote-dot" title="${esc(info.name || "")}"></span>`;
+  const body = isPhrase ? esc(emote.text) : esc(emote.glyph);
+  el.innerHTML = `<span class="emote-badge">${badge}</span><span class="emote-body">${body}</span>`;
   layer.appendChild(el);
   const rec = { el, timer: null };
   liveEmotes.push(rec);
   pruneLiveEmotes();
-  const life = cat.EMOTE_DURATION_MS || 2000;
-  rec.timer = setTimeout(() => {
-    el.remove();
-    const i = liveEmotes.indexOf(rec);
-    if (i >= 0) liveEmotes.splice(i, 1);
-  }, life);
+  const life = Math.round(dur * 1000) + 80;
+  rec.timer = setTimeout(() => dismissEmote(rec), life);
+  el.addEventListener("animationend", () => dismissEmote(rec), { once: true });
+  el.addEventListener("animationcancel", () => dismissEmote(rec), { once: true });
 }
 
 async function sendEmote(id) {
-  closeEmotePicker();
   if (!state || state.phase !== "auction" || !id) return;
   const res = await emit("emote", { emoteId: id });
+  if (res && res.dropped) return;
   if (res && res.ok) {
-    const cat = emoteCatalog();
-    emoteCoolUntil = Date.now() + (cat.EMOTE_COOLDOWN_MS || 2000);
-    const btn = document.getElementById("emote-btn");
-    if (btn) {
-      btn.disabled = true;
-      setTimeout(() => { if (btn) btn.disabled = Date.now() < emoteCoolUntil; }, (cat.EMOTE_COOLDOWN_MS || 2000) + 20);
-    }
     // The broadcast also arrives on this socket; don't double-show here.
     return;
   }
-  if (res && res.error && !/wait a moment/i.test(res.error)) toast(res.error);
+  if (res && res.error) toast(res.error);
 }
 
 function wireGlobal() {
@@ -1779,7 +1780,7 @@ socket.on("emote", (evt) => {
 
 socket.on("quickChat", (evt) => {
   if (!evt || !evt.text) return;
-  showEmote({ teamId: evt.teamId, emoteId: null, text: `${evt.name || "A team"}: ${evt.text}`, phrase: evt.text });
+  showEmote({ teamId: evt.teamId, emoteId: null, text: evt.text, phrase: evt.text });
 });
 
 socket.on("connect_error", () => toast("Connection issue — retrying…"));

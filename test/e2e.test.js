@@ -364,7 +364,7 @@ describe("emote broadcast over sockets", () => {
   let ctx;
   const sockets = [];
 
-  test("validates, rate-limits, and broadcasts {teamId, emoteId} to the room", async () => {
+  test("validates, broadcasts {teamId, emoteId}, and allows a burst of emotes", async () => {
     ctx = await start(0);
     const url = `http://127.0.0.1:${ctx.server.address().port}`;
     const ash = await connect(url, "Ashutosh");
@@ -407,8 +407,8 @@ describe("emote broadcast over sockets", () => {
       assert.deepEqual(row.evt, { teamId: "priya", emoteId: "overpaid" });
     }
     const again = await ack(priya, "emote", { emoteId: "steal" });
-    assert.equal(again.ok, false);
-    assert.match(again.error || "", /wait a moment/i);
+    assert.equal(again.ok, true, again.error);
+    assert.equal(again.emoteId, "steal");
   });
 
   after(async () => {

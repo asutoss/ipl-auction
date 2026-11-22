@@ -246,6 +246,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .team-mark { width: 100%; height: 100%; display: block; }
 .team-mark-wrap { display: inline-flex; width: 40px; height: 40px; flex-shrink: 0; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35)); }
 .team-mark-wrap.sm { width: 28px; height: 28px; }
+.team-mark-wrap.xs { width: 14px; height: 14px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45)); }
 .team-mark-wrap.lg { width: 56px; height: 56px; }
 
 .character-nudge { margin: -4px 0 16px; }
@@ -789,7 +790,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 76;
+  z-index: 120;
   overflow: hidden;
 }
 .emote-dock {
@@ -804,7 +805,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   position: fixed;
   right: 18px;
   bottom: 24px;
-  z-index: 80;
+  z-index: 110;
 }
 .emote-btn {
   width: 44px;
@@ -877,36 +878,107 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   position: fixed;
   left: 0;
   top: 0;
-  --dx: 0px;
-  --dy: -36px;
-  transform: translate(-50%, -50%);
-  animation: emote-rise 2s ease-out forwards;
+  --dx1: 0px;
+  --dx2: 0px;
+  --dy: -70vh;
+  --scale: 1;
+  --rot0: 0deg;
+  --rot1: 0deg;
+  --rot2: 0deg;
+  --dur: 3s;
+  --c: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transform: translateY(-50%);
+  animation: emote-stream var(--dur) cubic-bezier(0.15, 0.55, 0.35, 1) forwards;
   pointer-events: none;
   will-change: transform, opacity;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
 }
 .emote-float.is-emoji {
-  font-size: 30px;
+  font-size: 28px;
   line-height: 1;
+}
+.emote-float.is-emoji .emote-body {
+  text-shadow: 0 0 10px color-mix(in srgb, var(--c, var(--gold)) 55%, transparent);
 }
 .emote-float.is-phrase {
   background: #0c1324;
   color: var(--text);
-  border: 1.5px solid var(--c, var(--gold));
-  border-radius: 14px 14px 14px 5px;
-  padding: 5px 9px 6px;
-  font-size: 12px;
+  border: 1.5px solid color-mix(in srgb, var(--c, var(--gold)) 80%, #334169);
+  border-radius: 999px;
+  padding: 4px 8px 4px 5px;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   max-width: 168px;
-  white-space: normal;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c, var(--gold)) 35%, transparent), 0 10px 20px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c, var(--gold)) 30%, transparent), 0 0 12px color-mix(in srgb, var(--c, var(--gold)) 28%, transparent), 0 8px 16px rgba(0, 0, 0, 0.4);
 }
-@keyframes emote-rise {
-  0% { opacity: 0; transform: translate(-50%, -50%) translate(0, 0) scale(0.72); }
-  14% { opacity: 1; transform: translate(-50%, -50%) translate(calc(var(--dx) * 0.25), calc(var(--dy) * 0.25)) scale(1.06); }
-  70% { opacity: 1; transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) translate(calc(var(--dx) * 1.4), calc(var(--dy) * 1.4)) scale(0.96); }
+.emote-float.is-phrase .emote-body {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.emote-badge {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+.emote-float.is-emoji .emote-badge {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--c, var(--gold)), 0 0 8px color-mix(in srgb, var(--c, var(--gold)) 70%, transparent);
+  overflow: hidden;
+  background: #0c1324;
+}
+.emote-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c, var(--gold));
+  box-shadow: 0 0 6px color-mix(in srgb, var(--c, var(--gold)) 80%, transparent);
+}
+@keyframes emote-stream {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) translate(0, 0) rotate(var(--rot0)) scale(calc(var(--scale) * 0.72));
+  }
+  8% {
+    opacity: 1;
+    transform: translateY(-50%) translate(calc(var(--dx1) * 0.2), calc(var(--dy) * 0.08)) rotate(var(--rot0)) scale(calc(var(--scale) * 1.04));
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-50%) translate(var(--dx1), calc(var(--dy) * 0.62)) rotate(var(--rot1)) scale(var(--scale));
+  }
+  82% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) translate(var(--dx2), var(--dy)) rotate(var(--rot2)) scale(calc(var(--scale) * 0.9));
+  }
+}
+.emote-float.is-reduced {
+  animation-name: emote-fade;
+  animation-duration: 0.85s;
+  animation-timing-function: ease;
+}
+@keyframes emote-fade {
+  0% { opacity: 0; transform: translateY(-50%) scale(0.92); }
+  18% { opacity: 1; transform: translateY(-50%) scale(var(--scale, 1)); }
+  100% { opacity: 0; transform: translateY(-50%) translate(0, -16px) scale(calc(var(--scale, 1) * 0.96)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .emote-float:not(.is-reduced) {
+    animation-name: emote-fade;
+    animation-duration: 0.85s;
+    animation-timing-function: ease;
+  }
 }
 
 @media (max-width: 700px) {
@@ -918,7 +990,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
     bottom: calc(158px + env(safe-area-inset-bottom, 0px));
     left: auto;
     top: auto;
-    z-index: 80;
+    z-index: 110;
   }
   .emote-popover {
     top: auto;

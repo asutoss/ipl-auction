@@ -36,7 +36,7 @@ function characterIdOf(pack) {
   return pack.characterId || pack.id || null;
 }
 
-const { isValidEmoteId, EMOTE_COOLDOWN_MS } = require("../public/emotes");
+const { isValidEmoteId, EMOTE_RATE_MAX, EMOTE_RATE_WINDOW_MS } = require("../public/emotes");
 const { resolveRng, shuffle } = require("./random");
 const {
   POWER_REVEAL_MS,
@@ -2001,7 +2001,7 @@ class GameRoom extends EventEmitter {
     }
   }
 
-    emote(byName, emoteId) {
+  emote(byName, emoteId) {
     if (this.ended) return { ok: false, error: "This game has ended." };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
@@ -2009,9 +2009,16 @@ class GameRoom extends EventEmitter {
     const id = typeof emoteId === "string" ? emoteId : "";
     if (!isValidEmoteId(id)) return { ok: false, error: "Unknown emote." };
     const now = Date.now();
-    if (team.lastEmoteAt && now - team.lastEmoteAt < EMOTE_COOLDOWN_MS) {
-      return { ok: false, error: "Wait a moment before sending another emote." };
+    const windowMs = Number(EMOTE_RATE_WINDOW_MS) || 1000;
+    const max = Number(EMOTE_RATE_MAX) || 10;
+    const recent = (team.emoteTimes || []).filter((t) => now - t < windowMs);
+    if (recent.length >= max) {
+      team.emoteTimes = recent;
+      // Silent drop — spam is allowed up to the cap; excess is not broadcast.
+      return { ok: false, dropped: true };
     }
+    recent.push(now);
+    team.emoteTimes = recent;
     team.lastEmoteAt = now;
     const payload = { teamId: team.key, emoteId: id };
     this.emit("emote", payload);

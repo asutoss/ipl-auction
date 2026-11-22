@@ -25,9 +25,11 @@
     { id: "bas-kar", kind: "phrase", text: "Bas kar bhai" },
   ];
 
-  const EMOTE_COOLDOWN_MS = 2000;
-  const EMOTE_DURATION_MS = 2000;
-  const EMOTE_MAX_VISIBLE = 4;
+  // Client display. Server rate-limit is a generous anti-abuse cap only.
+  const EMOTE_RATE_MAX = 10;
+  const EMOTE_RATE_WINDOW_MS = 1000;
+  const EMOTE_DURATION_MS = 3200;
+  const EMOTE_MAX_VISIBLE = 40;
 
   const EMOTE_IDS = new Set(EMOTES.map((e) => e.id));
 
@@ -50,7 +52,8 @@
   return {
     EMOTES,
     EMOTE_IDS,
-    EMOTE_COOLDOWN_MS,
+    EMOTE_RATE_MAX,
+    EMOTE_RATE_WINDOW_MS,
     EMOTE_DURATION_MS,
     EMOTE_MAX_VISIBLE,
     getEmote,

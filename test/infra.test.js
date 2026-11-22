@@ -385,7 +385,7 @@ describe("bid button amounts", () => {
 
 describe("emotes", () => {
   const { loadPlayers: loadPool } = require("../server/players");
-  const { EMOTES, isValidEmoteId, emojis, phrases, EMOTE_COOLDOWN_MS } = require("../public/emotes");
+  const { EMOTES, isValidEmoteId, emojis, phrases, EMOTE_RATE_MAX, EMOTE_RATE_WINDOW_MS } = require("../public/emotes");
   const { meta, players } = loadPool();
 
   function liveRoom() {
@@ -442,21 +442,30 @@ describe("emotes", () => {
     assert.match(tooSoon.error, /auction/i);
   });
 
-  test("rate-limits a team to one emote every 2 seconds", () => {
+  test("allows a burst of emotes and silently drops above ~10 per second per team", () => {
+    assert.equal(EMOTE_RATE_MAX, 10);
+    assert.equal(EMOTE_RATE_WINDOW_MS, 1000);
     const room = liveRoom();
-    const first = room.emote("Priya", "fire");
-    assert.equal(first.ok, true);
-    const second = room.emote("Priya", "clap");
-    assert.equal(second.ok, false);
-    assert.match(second.error, /wait a moment/i);
+    const events = [];
+    room.on("emote", (evt) => events.push(evt));
+    const ids = ["fire", "clap", "laugh", "cry", "clown", "money", "mindblown", "cool", "steal", "overpaid", "bas-kar"];
+    const results = ids.map((id) => room.emote("Priya", id));
+    const accepted = results.filter((r) => r.ok);
+    const dropped = results.filter((r) => !r.ok && r.dropped);
+    assert.equal(accepted.length, EMOTE_RATE_MAX);
+    assert.equal(dropped.length, ids.length - EMOTE_RATE_MAX);
+    assert.equal(dropped.every((r) => !r.error), true, "excess is dropped silently, with no error string");
+    assert.equal(events.length, EMOTE_RATE_MAX);
     // A different team can still emote immediately.
     const other = room.emote("Ashutosh", "cool");
     assert.equal(other.ok, true);
+    assert.equal(events.length, EMOTE_RATE_MAX + 1);
+    // After the window, the same team can send again.
     const team = room.findByName("Priya");
-    team.lastEmoteAt = Date.now() - EMOTE_COOLDOWN_MS;
-    const third = room.emote("Priya", "clap");
-    assert.equal(third.ok, true);
-    assert.equal(third.emoteId, "clap");
+    team.emoteTimes = (team.emoteTimes || []).map((t) => t - EMOTE_RATE_WINDOW_MS - 1);
+    const again = room.emote("Priya", "clap");
+    assert.equal(again.ok, true, again.error);
+    assert.equal(again.emoteId, "clap");
   });
 
   test("broadcasts {teamId, emoteId} and works while paused", () => {
