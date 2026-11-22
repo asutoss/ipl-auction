@@ -262,7 +262,9 @@
       },
       "lines": [
         "Zindagi jhand ba, fir bhi ghamand ba",
-        "Jai Mahakal"
+        "Jai Mahakal",
+        "Money follows my brother",
+        "Naam ya daam? Naam."
       ]
     },
     {

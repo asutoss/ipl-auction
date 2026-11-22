@@ -1054,7 +1054,7 @@ describe("team names and character catalog", () => {
       "elvish-yadav": ["Elvish bhaiiii!", "Systumm hang kar diya", "Kaatenge kaatenge"],
       "ranveer-allahbadia": ["Hello dosto", "Would you rather...", "Maut ke baare mein socha hai?"],
       "salman-khan": ["Ehsaan mat karna", "Dil mein aata hoon", "Mai aa jau kya apni pe?", "Hiran kidhar hai?", "Footpath pe mil"],
-      "ravi-kishan": ["Zindagi jhand ba, fir bhi ghamand ba", "Jai Mahakal"],
+      "ravi-kishan": ["Zindagi jhand ba, fir bhi ghamand ba", "Jai Mahakal", "Money follows my brother", "Naam ya daam? Naam."],
       "rakhi-sawant": ["Mera dimaag kharab hai!", "Main media bulaungi"],
       "taylor-swift": ["Shake it off", "Look what you made me do", "We are never ever getting back together"],
       "arnab-goswami": ["Nation wants to know!", "Mujhe drugs do!", "Aap chup rahiye"],
