@@ -24,6 +24,7 @@
         "name": "Demonetisation",
         "description": "Every other team loses 10 points. A team that reaches 0 is banned for match fixing.",
         "shortDesc": "Every other team loses 10 points.",
+        "funnyDesc": "Just like the 8pm note ban in 2016, every other team loses 10 points overnight. Mitron, bas 50 din dijiye.",
         "uses": 1,
         "params": {}
       },
@@ -49,6 +50,7 @@
         "name": "Adipurush VFX",
         "description": "The next auctioned player is visible only to you. Everyone else sees a glitched VFX loading card and bids blind.",
         "shortDesc": "Only you can see the next player.",
+        "funnyDesc": "Adipurush's VFX was so bad nobody could make anything out, so the next player is hidden from everyone but you.",
         "uses": 1,
         "params": {}
       },
@@ -74,6 +76,7 @@
         "name": "What Do You Even Do?",
         "description": "Use a random other character's power, chosen only from powers that are valid right now. If that power needs a target, you pick it.",
         "shortDesc": "Copy a random valid power right now.",
+        "funnyDesc": "Nobody knows what Orry does, so he just copies someone else's power. Very on brand.",
         "uses": 1,
         "params": {}
       },
@@ -96,6 +99,7 @@
         "name": "Chai Break",
         "description": "Unlimited pause. Only you can end it with Chai khatam. While it lasts you can read every team's squad and remaining points.",
         "shortDesc": "Pause the auction until you end it.",
+        "funnyDesc": "Bill Gates stopped for Dolly's chai, so the whole auction waits too, until Dolly says it's over.",
         "uses": 1,
         "params": {}
       },
@@ -119,6 +123,7 @@
         "name": "Lock Kiya Jaaye",
         "description": "A 50-50 coin flip on the current lot. Win the flip: if you win the player, you pay half. Lose the flip: whoever wins pays double.",
         "shortDesc": "A coin flip halves or doubles the price.",
+        "funnyDesc": "It's KBC time. Lock it in and a coin flip either halves or doubles the price. Computer ji, toss kijiye.",
         "uses": 1,
         "params": {}
       },
@@ -145,6 +150,7 @@
         "name": "Broadcast Rights",
         "description": "On the next lot, each bid by a rival costs them 1 extra point, paid to you.",
         "shortDesc": "Rivals pay you 1 point per bid next lot.",
+        "funnyDesc": "BCCI money logic: rivals pay you 1 point for every bid they make next lot.",
         "uses": 1,
         "params": {}
       },
@@ -170,6 +176,7 @@
         "name": "Chess Blundermaster",
         "description": "Privately see the next 3 players in auction order. A VFX-hidden player shows as ??? (VFX).",
         "shortDesc": "Privately see the next 3 players.",
+        "funnyDesc": "A chess streamer thinks 3 moves ahead, so you privately see the next 3 players. No guarantee you won't blunder anyway.",
         "uses": 1,
         "params": {}
       },
@@ -194,6 +201,7 @@
         "name": "Elvish Bhai Ke Aage Koi Bol Sakta Hai Kya.. Elvish Bhaiiii",
         "description": "Mute the room: nobody can bid against you on this lot. You win at the current bid plus 1. Exempt from Broadcast Rights fees.",
         "shortDesc": "Nobody can bid against you this lot.",
+        "funnyDesc": "Elvish bhai ke aage koi bol sakta hai kya? Nobody can bid against you this lot.",
         "uses": 1,
         "params": {}
       },
@@ -218,6 +226,7 @@
         "name": "Parents Wala Sawaal",
         "description": "Pick a rival who cannot bid for this lot and the next one.",
         "shortDesc": "A rival cannot bid this lot or the next.",
+        "funnyDesc": "One question about parents and you're off every show. Pick a rival and they're banned from bidding this lot and the next.",
         "uses": 1,
         "params": {}
       },
@@ -242,6 +251,7 @@
         "name": "Kala Hiran",
         "description": "Pause and pick one of the last 10 sold rival players still on a squad, into a role you have open. You pay the sold price; the rival is refunded. 30 seconds; the power is used even if you time out.",
         "shortDesc": "Buy a recently sold rival at their price.",
+        "funnyDesc": "Bhai has a history of hunting things that belong to someone else. Grab a rival's recent buy at the price they paid.",
         "uses": 1,
         "params": {}
       },
@@ -267,6 +277,7 @@
         "name": "Ghamand Tax",
         "description": "Every team with more points than you pays you 5 points.",
         "shortDesc": "Richer teams each pay you 5 points.",
+        "funnyDesc": "Zindagi jhand ba, fir bhi ghamand ba. Every team richer than you pays 5 points for its attitude.",
         "uses": 1,
         "params": {}
       },
@@ -292,6 +303,7 @@
         "name": "Rakhi Ka Swayamvar",
         "description": "Each rival may pay you 3 points or refuse. Refusers cannot bid on the next lot. On timeout they refuse.",
         "shortDesc": "Rivals pay 3 points or skip the next lot.",
+        "funnyDesc": "Her swayamvar came with conditions. Rivals pay 3 points or sit out the next lot.",
         "uses": 1,
         "params": {}
       },
@@ -315,6 +327,7 @@
         "name": "Travis Kelce Trade",
         "description": "Pause, pick one of the last 10 sold rival players still on a squad, then swap with one of your own same-role players. No points change. 30 seconds; the power is used even if you time out.",
         "shortDesc": "Swap a recently sold rival with one of yours.",
+        "funnyDesc": "She swapped her ex for a football star. Swap one of your players for a rival's recent buy.",
         "uses": 1,
         "params": {}
       },
@@ -339,6 +352,7 @@
         "name": "Kahan Hai Points?",
         "description": "The richest other team (random tie-break) gives you 10 points.",
         "shortDesc": "The richest other team gives you 10 points.",
+        "funnyDesc": "The nation wants to know! The richest other team hands you 10 points just to make the shouting stop.",
         "uses": 1,
         "params": {}
       },
@@ -363,6 +377,7 @@
         "name": "Big Red Button",
         "description": "Choose a team. Half of its squad (rounded down) is wiped at random and returns to the pool. That team is refunded a quarter of the points it has spent so far.",
         "shortDesc": "Wipe half a chosen team's squad at random.",
+        "funnyDesc": "The button is always on his desk. Pick a team and half its squad disappears at random.",
         "uses": 1,
         "params": {}
       },

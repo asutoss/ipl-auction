@@ -180,7 +180,7 @@ class GameRoom extends EventEmitter {
   packTeamPower(team) {
     const def = publicPower(team && team.franchise && team.franchise.power);
     if (!def) {
-      return { id: null, name: null, description: null, shortDesc: null, uses: 0, usesLeft: 0, used: false };
+      return { id: null, name: null, description: null, shortDesc: null, funnyDesc: null, uses: 0, usesLeft: 0, used: false };
     }
     const usesLeft = team.powerUsesLeft != null ? team.powerUsesLeft : def.uses;
     return {
@@ -188,6 +188,7 @@ class GameRoom extends EventEmitter {
       name: def.name,
       description: def.description,
       shortDesc: def.shortDesc || "",
+      funnyDesc: def.funnyDesc || "",
       uses: def.uses,
       usesLeft,
       used: usesLeft <= 0 || (team.powerUsedCount || 0) > 0,

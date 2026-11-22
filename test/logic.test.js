@@ -1024,6 +1024,7 @@ describe("team names and character catalog", () => {
       assert.ok(t.power.description && t.power.description.length > 8, t.id);
       assert.ok(t.power.shortDesc && t.power.shortDesc.length > 4, t.id);
       assert.ok(t.power.shortDesc.trim().split(/\s+/).length <= 10, `${t.id} shortDesc too long: ${t.power.shortDesc}`);
+      assert.ok(t.power.funnyDesc && t.power.funnyDesc.length > 20, t.id);
       assert.equal(t.power.uses, 1);
       const filePower = fromFile.find((row) => row.id === t.id).power;
       assert.deepEqual(t.power, filePower);

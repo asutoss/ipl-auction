@@ -757,6 +757,7 @@ function publicPower(raw) {
     name: String(raw.name || impl.name || impl.id),
     description: String(raw.description || impl.description || ""),
     shortDesc: String(raw.shortDesc || impl.shortDesc || ""),
+    funnyDesc: String(raw.funnyDesc || impl.funnyDesc || ""),
     uses,
     params,
     usesNextLotSlot: Boolean(impl.usesNextLotSlot),

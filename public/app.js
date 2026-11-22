@@ -756,8 +756,18 @@ function openPowerConfirm() {
   if (face) face.innerHTML = you.franchise ? teamMark(you.franchise, "lg", you.name) : "";
   const nameEl = document.getElementById("power-confirm-name");
   if (nameEl) nameEl.textContent = power.name || "Power";
+  const funnyEl = document.getElementById("power-confirm-funny");
+  const funny = (power.funnyDesc || "").trim();
+  if (funnyEl) {
+    funnyEl.textContent = funny;
+    funnyEl.hidden = !funny;
+  }
   const descEl = document.getElementById("power-confirm-desc");
-  if (descEl) descEl.textContent = power.shortDesc || power.description || "";
+  const rule = (power.shortDesc || (!funny && power.description) || "").trim();
+  if (descEl) {
+    descEl.textContent = rule;
+    descEl.hidden = !rule;
+  }
   modal.hidden = false;
   const useBtn = document.getElementById("power-confirm-use");
   if (useBtn) useBtn.focus();

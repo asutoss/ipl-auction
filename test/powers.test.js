@@ -2,7 +2,7 @@ const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 const { loadPlayers } = require("../server/players");
 const { GameRoom } = require("../server/game");
-const { CHARACTERS, characterLines } = require("../public/characters");
+const { CHARACTERS, characterLines, publicCharacter } = require("../public/characters");
 const { POWERS, applyPower, listValidCopyPowers } = require("../server/powers");
 const { applyDelta } = require("../public/state");
 
@@ -90,6 +90,38 @@ describe("power registry", () => {
 });
 
 describe("power confirm copy", () => {
+  test("every power has the approved funny confirm description", () => {
+    const EXPECTED_FUNNY = {
+      "narendra-modi": "Just like the 8pm note ban in 2016, every other team loses 10 points overnight. Mitron, bas 50 din dijiye.",
+      "prabhas": "Adipurush's VFX was so bad nobody could make anything out, so the next player is hidden from everyone but you.",
+      "orry": "Nobody knows what Orry does, so he just copies someone else's power. Very on brand.",
+      "dolly-chaiwala": "Bill Gates stopped for Dolly's chai, so the whole auction waits too, until Dolly says it's over.",
+      "amitabh-bachchan": "It's KBC time. Lock it in and a coin flip either halves or doubles the price. Computer ji, toss kijiye.",
+      "jay-shah": "BCCI money logic: rivals pay you 1 point for every bid they make next lot.",
+      "samay-raina": "A chess streamer thinks 3 moves ahead, so you privately see the next 3 players. No guarantee you won't blunder anyway.",
+      "elvish-yadav": "Elvish bhai ke aage koi bol sakta hai kya? Nobody can bid against you this lot.",
+      "ranveer-allahbadia": "One question about parents and you're off every show. Pick a rival and they're banned from bidding this lot and the next.",
+      "salman-khan": "Bhai has a history of hunting things that belong to someone else. Grab a rival's recent buy at the price they paid.",
+      "ravi-kishan": "Zindagi jhand ba, fir bhi ghamand ba. Every team richer than you pays 5 points for its attitude.",
+      "rakhi-sawant": "Her swayamvar came with conditions. Rivals pay 3 points or sit out the next lot.",
+      "taylor-swift": "She swapped her ex for a football star. Swap one of your players for a rival's recent buy.",
+      "arnab-goswami": "The nation wants to know! The richest other team hands you 10 points just to make the shouting stop.",
+      "kim-jong-un": "The button is always on his desk. Pick a team and half its squad disappears at random.",
+    };
+    assert.equal(CHARACTERS.length, 15);
+    assert.equal(Object.keys(EXPECTED_FUNNY).length, 15);
+    for (const t of CHARACTERS) {
+      assert.equal(t.power.funnyDesc, EXPECTED_FUNNY[t.id], t.id);
+      assert.equal(publicCharacter(t.id).power.funnyDesc, EXPECTED_FUNNY[t.id], t.id);
+    }
+    const room = roomWith(["A", "B"]);
+    setChar(room, "A", IDS.modi);
+    setChar(room, "B", IDS.dolly);
+    start(room);
+    assert.equal(room.getState("A").you.power.funnyDesc, EXPECTED_FUNNY["narendra-modi"]);
+    assert.equal(room.getState("B").you.power.funnyDesc, EXPECTED_FUNNY["dolly-chaiwala"]);
+  });
+
   test("getState exposes a short one-line description on you.power", () => {
     const room = roomWith(["A", "B"]);
     setChar(room, "A", IDS.modi);
