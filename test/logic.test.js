@@ -1048,7 +1048,7 @@ describe("team names and character catalog", () => {
       "prabhas": ["Bahubali!", "Devasena!", "Seesfire!"],
       "orry": ["I'm just a liver"],
       "dolly-chaiwala": ["Ek cutting!", "Chai peelo"],
-      "amitabh-bachchan": ["Lock kiya jaaye?", "Rishte mein toh hum tumhare baap lagte hain", "Computer ji…", "Devi aur sajjano"],
+      "amitabh-bachchan": ["Lock kiya jaaye?", "Rishte mein toh hum tumhare baap lagte hain", "Computer ji…", "Devi aur sajjano", "Aaaaag"],
       "jay-shah": ["Script pehle se likhi hai", "Crowd silent kar diya", "19 Nov 2023 yaad hai?", "Yaar ki gail chale"],
       "samay-raina": ["Blunder!", "Ye episode delete karo", "This too shall pass"],
       "elvish-yadav": ["Elvish bhaiiii!", "Systumm hang kar diya", "Kaatenge kaatenge"],
