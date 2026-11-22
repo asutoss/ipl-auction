@@ -276,9 +276,25 @@ function syncSoldModal() {
 }
 
 
+function yourCharacterId() {
+  const you = state && state.you;
+  const fr = you && you.franchise;
+  return (fr && (fr.characterId || fr.id)) || (you && (you.characterId || you.identityId || you.key)) || "";
+}
+
+function yourCharacterLines() {
+  const id = yourCharacterId();
+  const api = window.IplCharacters;
+  if (api && api.characterLines) return api.characterLines(id) || [];
+  const fr = state && state.you && state.you.franchise;
+  const raw = (fr && fr.lines) || [];
+  return raw.map((item, i) => (
+    typeof item === "string" ? { id: `${id}:${i}`, text: item } : item
+  ));
+}
+
 function quickChatLines() {
-  const api = window.IplQuickChat;
-  return (api && api.QUICK_CHAT_LINES) || [];
+  return yourCharacterLines();
 }
 
 function quickChatBarHtml() {
@@ -1242,7 +1258,7 @@ function emotePickerHtml() {
   const emojiBtns = (cat.emojis ? cat.emojis() : []).map((e) => (
     `<button type="button" class="emote-pick-emoji" data-emote="${esc(e.id)}" title="${esc(e.glyph)}" aria-label="${esc(e.glyph)}">${e.glyph}</button>`
   )).join("");
-  const phraseBtns = (cat.phrases ? cat.phrases() : []).map((e) => (
+  const phraseBtns = yourCharacterLines().map((e) => (
     `<button type="button" class="emote-pick-phrase" data-emote="${esc(e.id)}">${esc(e.text)}</button>`
   )).join("");
   return `
@@ -1274,6 +1290,11 @@ function syncEmoteDock() {
     dock.classList.remove("is-fixed");
     if (dock.parentElement !== document.body) document.body.appendChild(dock);
     return;
+  }
+  const linesKey = yourCharacterLines().map((l) => l.id).join("|");
+  if (dock.dataset.lines !== linesKey) {
+    dock.innerHTML = emotePickerHtml();
+    dock.dataset.lines = linesKey;
   }
   const overlayUp = isSoldRevealActive() || Boolean(state.paused);
   const wrap = document.querySelector(".ring-wrap");
@@ -1373,11 +1394,20 @@ function dismissEmote(rec) {
   if (i >= 0) liveEmotes.splice(i, 1);
 }
 
-function showEmote(payload) {
+function resolveEmote(payload) {
   const cat = emoteCatalog();
-  const emote = (cat.getEmote && cat.getEmote(payload && payload.emoteId)) || (
-    payload && (payload.text || payload.phrase) ? { kind: "phrase", text: payload.phrase || payload.text } : null
-  );
+  const id = payload && payload.emoteId;
+  const listed = cat.getEmote && cat.getEmote(id);
+  if (listed) return listed;
+  const chars = window.IplCharacters;
+  const line = (chars && chars.findLine && id) ? chars.findLine(id) : null;
+  const text = (line && line.text) || (payload && (payload.text || payload.phrase)) || "";
+  if (text) return { kind: "phrase", text };
+  return null;
+}
+
+function showEmote(payload) {
+  const emote = resolveEmote(payload);
   if (!emote) return;
   let layer = document.getElementById("emote-layer");
   if (!layer) {

@@ -2,7 +2,7 @@ const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 const { loadPlayers } = require("../server/players");
 const { GameRoom } = require("../server/game");
-const { CHARACTERS } = require("../public/characters");
+const { CHARACTERS, characterLines } = require("../public/characters");
 const { POWERS, applyPower, listValidCopyPowers } = require("../server/powers");
 
 const { meta, players } = loadPlayers();
@@ -599,17 +599,25 @@ describe("global power rules", () => {
     setChar(room, "A", IDS.dolly);
     setChar(room, "B", IDS.ravi);
     start(room);
-    assert.equal(room.quickChat("B", "chai_break").ok, false);
+    const raviLines = characterLines(IDS.ravi);
+    const dollyLines = characterLines(IDS.dolly);
+    assert.equal(room.quickChat("B", raviLines[0].id).ok, false);
     assert.equal(room.usePower("A").ok, true);
     const evts = [];
     room.on("quickChat", (e) => evts.push(e));
-    const ok = room.quickChat("B", "chai_break");
+    const ok = room.quickChat("B", raviLines[0].id);
     assert.equal(ok.ok, true, ok.error);
-    assert.equal(ok.text, "Chai break le lo");
+    assert.equal(ok.text, "Zindagi jhand ba, fir bhi ghamand ba");
     assert.equal(evts.length, 1);
-    const again = room.quickChat("B", "hahaha");
+    const again = room.quickChat("B", raviLines[1].id);
     assert.equal(again.ok, false);
     assert.match(again.error, /Wait a moment/i);
+    const stolen = room.quickChat("A", raviLines[0].id);
+    assert.equal(stolen.ok, false);
+    assert.match(stolen.error, /not yours/i);
+    const own = room.quickChat("A", dollyLines[0].id);
+    assert.equal(own.ok, true, own.error);
+    assert.equal(own.text, "Ek cutting!");
   });
 
   test("existing rejection rules still hold during chai and sold reveal", () => {

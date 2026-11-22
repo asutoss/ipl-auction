@@ -25,7 +25,13 @@
         "description": "Every other team loses 10 points. A team that reaches 0 is banned for match fixing.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Mitron!",
+        "Bhaiyon aur behno",
+        "Jhola uthake chal padenge",
+        "Aap chronology samajhiye"
+      ]
     },
     {
       "id": "prabhas",
@@ -43,11 +49,16 @@
         "description": "The next auctioned player is visible only to you. Everyone else sees a glitched VFX loading card and bids blind.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Katappa ne Bahubali ko kyun maara?",
+        "Jai Shri Ram",
+        "Darling!"
+      ]
     },
     {
       "id": "orry",
-      "name": "Liver Boy",
+      "name": "Orry",
       "realName": "Orry",
       "image": "/logos/orry.webp",
       "color": "#8BCF17",
@@ -61,7 +72,11 @@
         "description": "Use a random other character's power, chosen only from powers that are valid right now. If that power needs a target, you pick it.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "I'm just a liver",
+        "What do I do? I work on myself"
+      ]
     },
     {
       "id": "dolly-chaiwala",
@@ -79,7 +94,11 @@
         "description": "Unlimited pause. Only you can end it with Chai khatam. While it lasts you can read every team's squad and remaining points.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Ek cutting!",
+        "Chai peelo"
+      ]
     },
     {
       "id": "amitabh-bachchan",
@@ -97,7 +116,13 @@
         "description": "A 50-50 coin flip on the current lot. Win the flip: if you win the player, you pay half. Lose the flip: whoever wins pays double.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Lock kiya jaaye?",
+        "Rishte mein toh hum tumhare baap lagte hain",
+        "Computer ji…",
+        "Devi aur sajjano"
+      ]
     },
     {
       "id": "jay-shah",
@@ -115,7 +140,10 @@
         "description": "On the next lot, each bid by a rival costs them 1 extra point, paid to you.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Script pehle se likhi hai"
+      ]
     },
     {
       "id": "samay-raina",
@@ -133,7 +161,11 @@
         "description": "Privately see the next 3 players in auction order. A VFX-hidden player shows as ??? (VFX).",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Kya hi bolun",
+        "Dark hai, pasand aaya?"
+      ]
     },
     {
       "id": "elvish-yadav",
@@ -151,7 +183,12 @@
         "description": "Mute the room: nobody can bid against you on this lot. You win at the current bid plus 1. Exempt from Broadcast Rights fees.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Elvish bhaiiii!",
+        "Systumm hang kar diya",
+        "Kaatenge kaatenge"
+      ]
     },
     {
       "id": "ranveer-allahbadia",
@@ -169,7 +206,12 @@
         "description": "Pick a rival who cannot bid for this lot and the next one.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Hello dosto",
+        "Would you rather...",
+        "Maut ke baare mein socha hai?"
+      ]
     },
     {
       "id": "salman-khan",
@@ -187,7 +229,12 @@
         "description": "Pause and pick one of the last 10 sold rival players still on a squad, into a role you have open. You pay the sold price; the rival is refunded. 30 seconds; the power is used even if you time out.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Ek baar jo maine commitment kar di…",
+        "Tiger zinda hai",
+        "Bhai ka bday"
+      ]
     },
     {
       "id": "ravi-kishan",
@@ -205,7 +252,11 @@
         "description": "Every team with more points than you pays you 5 points.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Zindagi jhand ba, fir bhi ghamand ba",
+        "Jai Mahakal"
+      ]
     },
     {
       "id": "rakhi-sawant",
@@ -223,7 +274,11 @@
         "description": "Each rival may pay you 3 points or refuse. Refusers cannot bid on the next lot. On timeout they refuse.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Mera dimaag kharab hai!",
+        "Main media bulaungi"
+      ]
     },
     {
       "id": "taylor-swift",
@@ -241,7 +296,12 @@
         "description": "Pause, pick one of the last 10 sold rival players still on a squad, then swap with one of your own same-role players. No points change. 30 seconds; the power is used even if you time out.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Shake it off",
+        "Look what you made me do",
+        "We are never ever getting back together"
+      ]
     },
     {
       "id": "arnab-goswami",
@@ -259,7 +319,12 @@
         "description": "The richest other team (random tie-break) gives you 10 points.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Nation wants to know!",
+        "Mujhe drugs do!",
+        "Aap chup rahiye"
+      ]
     },
     {
       "id": "kim-jong-un",
@@ -277,7 +342,11 @@
         "description": "Choose a team. Half of its squad (rounded down) is wiped at random and returns to the pool. That team is refunded a quarter of the points it has spent so far.",
         "uses": 1,
         "params": {}
-      }
+      },
+      "lines": [
+        "Big red button",
+        "Nuclear button is always on my desk"
+      ]
     }
   ];
   function loadCatalog() {
@@ -294,6 +363,35 @@
   if (typeof module === "object" && module.exports) module.exports = lib;
   else root.IplCharacters = lib;
 })(typeof self !== "undefined" ? self : this, function (rawList) {
+  function slugLine(text) {
+    return String(text)
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/['’`]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "line";
+  }
+
+  function normalizeLines(characterId, raw) {
+    const list = Array.isArray(raw) ? raw : [];
+    const seen = new Set();
+    const out = [];
+    for (const item of list) {
+      const text = typeof item === "string" ? item : String((item && item.text) || "");
+      if (!text) continue;
+      let id = item && typeof item === "object" && item.id
+        ? String(item.id)
+        : characterId + ":" + slugLine(text);
+      const base = id;
+      let n = 2;
+      while (seen.has(id)) id = base + "-" + n++;
+      seen.add(id);
+      out.push({ id, text });
+    }
+    return out;
+  }
+
   function normalize(pack) {
     if (!pack || !pack.id) return null;
     const name = pack.name || pack.character || "";
@@ -311,6 +409,7 @@
       ink: pack.ink,
       text: pack.text || pack.color,
       emotes: Array.isArray(pack.emotes) ? pack.emotes : [],
+      lines: normalizeLines(pack.id, pack.lines),
       power: pack.power == null ? null : pack.power,
     };
   }
@@ -348,8 +447,41 @@
       image: pack.image,
       logo: pack.image,
       emotes: Array.isArray(pack.emotes) ? pack.emotes : [],
+      lines: Array.isArray(pack.lines) ? pack.lines : [],
       power: pack.power == null ? null : pack.power,
     };
+  }
+
+  function characterLines(idOrPack) {
+    if (!idOrPack) return [];
+    if (typeof idOrPack === "string") {
+      const pack = getCharacter(idOrPack);
+      return (pack && pack.lines) || [];
+    }
+    if (Array.isArray(idOrPack.lines) && idOrPack.lines.length && typeof idOrPack.lines[0] === "object") {
+      return idOrPack.lines;
+    }
+    const id = idOrPack.characterId || idOrPack.id;
+    if (id && byId[id]) return byId[id].lines || [];
+    return normalizeLines(id, idOrPack.lines);
+  }
+
+  function getCharacterLine(characterId, lineId) {
+    if (!lineId) return null;
+    return characterLines(characterId).find((l) => l.id === lineId) || null;
+  }
+
+  function isCharacterLine(characterId, lineId) {
+    return Boolean(getCharacterLine(characterId, lineId));
+  }
+
+  function findLine(lineId) {
+    if (!lineId) return null;
+    for (const pack of CHARACTERS) {
+      const hit = (pack.lines || []).find((l) => l.id === lineId);
+      if (hit) return { ...hit, characterId: pack.id };
+    }
+    return null;
   }
 
   function esc(v) {
@@ -388,5 +520,11 @@
     logoUrl: imageUrl,
     characterImg,
     logoImg: characterImg,
+    slugLine,
+    normalizeLines,
+    characterLines,
+    getCharacterLine,
+    isCharacterLine,
+    findLine,
   };
 });

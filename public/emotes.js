@@ -1,6 +1,7 @@
 /**
- * Shared auction emote catalogue. Server validates ids; the client
- * renders the picker and the floating reactions from the same list.
+ * Shared auction emoji catalogue. Phrase lines live on each character
+ * in characters.js. Server validates ids; the client renders the picker
+ * and the floating reactions from the same list.
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
@@ -15,14 +16,6 @@
     { id: "money", kind: "emoji", glyph: "💸" },
     { id: "mindblown", kind: "emoji", glyph: "🤯" },
     { id: "cool", kind: "emoji", glyph: "😎" },
-    { id: "overpaid", kind: "phrase", text: "Overpaid! 💸" },
-    { id: "steal", kind: "phrase", text: "Steal deal 🤑" },
-    { id: "bhai-kya", kind: "phrase", text: "Bhai kya kar raha hai?" },
-    { id: "paisa-barbaad", kind: "phrase", text: "Paisa barbaad" },
-    { id: "ee-sala", kind: "phrase", text: "Ee sala cup namde" },
-    { id: "kya-player", kind: "phrase", text: "Kya player hai!" },
-    { id: "chahiye-tha", kind: "phrase", text: "Mujhe toh ye chahiye tha 😭" },
-    { id: "bas-kar", kind: "phrase", text: "Bas kar bhai" },
   ];
 
   // Client display. Server rate-limit is a generous anti-abuse cap only.

@@ -397,18 +397,18 @@ describe("emote broadcast over sockets", () => {
       ash.on("emote", onEmote);
       priya.on("emote", onEmote);
     });
-    const sent = await ack(priya, "emote", { emoteId: "overpaid" });
+    const sent = await ack(priya, "emote", { emoteId: "laugh" });
     assert.equal(sent.ok, true);
     assert.equal(sent.teamId, "priya");
-    assert.equal(sent.emoteId, "overpaid");
+    assert.equal(sent.emoteId, "laugh");
     const events = await got;
     assert.equal(events.length, 2);
     for (const row of events) {
-      assert.deepEqual(row.evt, { teamId: "priya", emoteId: "overpaid" });
+      assert.deepEqual(row.evt, { teamId: "priya", emoteId: "laugh" });
     }
-    const again = await ack(priya, "emote", { emoteId: "steal" });
+    const again = await ack(priya, "emote", { emoteId: "fire" });
     assert.equal(again.ok, true, again.error);
-    assert.equal(again.emoteId, "steal");
+    assert.equal(again.emoteId, "fire");
   });
 
   after(async () => {

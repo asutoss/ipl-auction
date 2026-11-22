@@ -979,7 +979,7 @@ describe("team names and character catalog", () => {
   test("catalog has 15 characters with unique colours, images, meme names, placeholder emotes, and a unique power", () => {
     const fs = require("fs");
     const path = require("path");
-    const { CHARACTERS, IDENTITIES, imageUrl, logoUrl, characterImg, logoImg } = require("../public/characters");
+    const { CHARACTERS, IDENTITIES, imageUrl, logoUrl, characterImg, logoImg, publicCharacter } = require("../public/characters");
     const catalogPath = path.join(__dirname, "../data/characters.json");
     const fromFile = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
     assert.equal(CHARACTERS.length, 15);
@@ -998,8 +998,8 @@ describe("team names and character catalog", () => {
       assert.ok(t.character && t.character.length > 1, t.id);
       assert.equal(t.name, t.character);
       assert.ok(t.realName && t.realName.length > 1, t.id);
-      if (t.id !== "prabhas") assert.notEqual(t.realName, t.name, t.id);
-      else assert.equal(t.name, "Prabhas");
+      if (t.id !== "prabhas" && t.id !== "orry") assert.notEqual(t.realName, t.name, t.id);
+      else assert.equal(t.name, t.id === "prabhas" ? "Prabhas" : "Orry");
       const fileRow = fromFile.find((row) => row.id === t.id);
       assert.equal(t.realName, fileRow.realName);
       assert.match(t.color, /^#[0-9A-Fa-f]{6}$/);
@@ -1008,6 +1008,17 @@ describe("team names and character catalog", () => {
       assert.equal(t.image, `/logos/${t.id}.webp`);
       assert.equal(t.logo, t.image);
       assert.ok(Array.isArray(t.emotes) && t.emotes.length === 0, t.id);
+      assert.ok(Array.isArray(fileRow.lines) && fileRow.lines.length >= 1, t.id);
+      assert.ok(fileRow.lines.every((s) => typeof s === "string" && s.length > 0), t.id);
+      assert.deepEqual(t.lines.map((l) => l.text), fileRow.lines, t.id);
+      const pub = publicCharacter(t.id);
+      assert.deepEqual(pub.lines, t.lines);
+      const lineIds = t.lines.map((l) => l.id);
+      assert.equal(new Set(lineIds).size, lineIds.length, t.id);
+      for (const line of t.lines) {
+        assert.ok(line.id && line.id.startsWith(t.id + ":"), line.id);
+        assert.equal(typeof line.text, "string");
+      }
       assert.ok(t.power && t.power.id && t.power.id !== "bonus_points", t.id);
       assert.ok(t.power.name && t.power.name.length > 1, t.id);
       assert.ok(t.power.description && t.power.description.length > 8, t.id);
@@ -1032,6 +1043,27 @@ describe("team names and character catalog", () => {
     assert.equal(new Set(powerNames).size, 15);
     const powerIds = CHARACTERS.map((t) => t.power.id);
     assert.equal(new Set(powerIds).size, 15);
+    const EXPECTED_LINES = {
+      "narendra-modi": ["Mitron!", "Bhaiyon aur behno", "Jhola uthake chal padenge", "Aap chronology samajhiye"],
+      "prabhas": ["Katappa ne Bahubali ko kyun maara?", "Jai Shri Ram", "Darling!"],
+      "orry": ["I'm just a liver", "What do I do? I work on myself"],
+      "dolly-chaiwala": ["Ek cutting!", "Chai peelo"],
+      "amitabh-bachchan": ["Lock kiya jaaye?", "Rishte mein toh hum tumhare baap lagte hain", "Computer ji…", "Devi aur sajjano"],
+      "jay-shah": ["Script pehle se likhi hai"],
+      "samay-raina": ["Kya hi bolun", "Dark hai, pasand aaya?"],
+      "elvish-yadav": ["Elvish bhaiiii!", "Systumm hang kar diya", "Kaatenge kaatenge"],
+      "ranveer-allahbadia": ["Hello dosto", "Would you rather...", "Maut ke baare mein socha hai?"],
+      "salman-khan": ["Ek baar jo maine commitment kar di…", "Tiger zinda hai", "Bhai ka bday"],
+      "ravi-kishan": ["Zindagi jhand ba, fir bhi ghamand ba", "Jai Mahakal"],
+      "rakhi-sawant": ["Mera dimaag kharab hai!", "Main media bulaungi"],
+      "taylor-swift": ["Shake it off", "Look what you made me do", "We are never ever getting back together"],
+      "arnab-goswami": ["Nation wants to know!", "Mujhe drugs do!", "Aap chup rahiye"],
+      "kim-jong-un": ["Big red button", "Nuclear button is always on my desk"],
+    };
+    for (const t of CHARACTERS) {
+      assert.ok(EXPECTED_LINES[t.id], t.id);
+      assert.deepEqual(t.lines.map((l) => l.text), EXPECTED_LINES[t.id], t.id);
+    }
     const src = fs.readFileSync(path.join(__dirname, "../public/characters.js"), "utf8");
     const embeddedMatch = src.match(/const embedded = (\[[\s\S]*?\n  \];)/);
     assert.ok(embeddedMatch, "embedded catalogue missing");

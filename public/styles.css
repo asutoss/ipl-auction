@@ -828,7 +828,8 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .emote-btn:disabled { opacity: 0.55; }
 .emote-popover {
   position: absolute;
-  top: calc(100% + 8px);
+  top: auto;
+  bottom: calc(100% + 8px);
   right: 0;
   z-index: 81;
   width: min(268px, calc(100vw - 24px));
@@ -870,9 +871,8 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   line-height: 1.25;
   padding: 6px 8px;
   border-radius: 8px;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .emote-float {
   position: fixed;

@@ -406,7 +406,7 @@ describe("emotes", () => {
 
   test("rejects unknown emote ids and accepts the whitelist", () => {
     assert.equal(emojis().length, 8);
-    assert.equal(phrases().length, 8);
+    assert.equal(phrases().length, 0);
     for (const e of EMOTES) assert.equal(isValidEmoteId(e.id), true);
     assert.equal(isValidEmoteId("not-a-real-emote"), false);
     assert.equal(isValidEmoteId(""), false);
@@ -448,7 +448,7 @@ describe("emotes", () => {
     const room = liveRoom();
     const events = [];
     room.on("emote", (evt) => events.push(evt));
-    const ids = ["fire", "clap", "laugh", "cry", "clown", "money", "mindblown", "cool", "steal", "overpaid", "bas-kar"];
+    const ids = ["fire", "clap", "laugh", "cry", "clown", "money", "mindblown", "cool", "fire", "clap", "laugh"];
     const results = ids.map((id) => room.emote("Priya", id));
     const accepted = results.filter((r) => r.ok);
     const dropped = results.filter((r) => !r.ok && r.dropped);
@@ -476,11 +476,46 @@ describe("emotes", () => {
     assert.equal(paused.ok, true);
     const snapBefore = [];
     room.on("snapshot", (reason) => snapBefore.push(reason));
-    const sent = room.emote("Ashutosh", "bas-kar");
+    const sent = room.emote("Ashutosh", "laugh");
     assert.equal(sent.ok, true);
-    assert.deepEqual(events, [{ teamId: "ashutosh", emoteId: "bas-kar" }]);
+    assert.deepEqual(events, [{ teamId: "ashutosh", emoteId: "laugh" }]);
     assert.equal(snapBefore.length, 0);
     assert.equal(room.getState("Priya").lastEmote, undefined);
     assert.equal(room.auction && room.auction.emotes, undefined);
+  });
+
+  test("character lines are accepted as emotes only from their owner", () => {
+    const { characterLines, characterIdOf } = (() => {
+      const chars = require("../public/characters");
+      function characterIdOf(pack) {
+        if (!pack) return null;
+        return pack.characterId || pack.id || null;
+      }
+      return { characterLines: chars.characterLines, characterIdOf };
+    })();
+    const room = liveRoom();
+    const ashId = characterIdOf(room.findByName("Ashutosh").franchise);
+    const priyaId = characterIdOf(room.findByName("Priya").franchise);
+    const ashLines = characterLines(ashId);
+    const priyaLines = characterLines(priyaId);
+    assert.ok(ashLines.length >= 1);
+    assert.ok(priyaLines.length >= 1);
+    assert.notEqual(ashId, priyaId);
+
+    const events = [];
+    room.on("emote", (evt) => events.push(evt));
+    const ok = room.emote("Ashutosh", ashLines[0].id);
+    assert.equal(ok.ok, true, ok.error);
+    assert.equal(ok.emoteId, ashLines[0].id);
+    assert.equal(ok.text, ashLines[0].text);
+    assert.deepEqual(events[0], { teamId: "ashutosh", emoteId: ashLines[0].id, text: ashLines[0].text });
+
+    const stolen = room.emote("Ashutosh", priyaLines[0].id);
+    assert.equal(stolen.ok, false);
+    assert.match(stolen.error, /not yours/i);
+
+    const leftover = room.emote("Ashutosh", "overpaid");
+    assert.equal(leftover.ok, false);
+    assert.match(leftover.error, /unknown emote/i);
   });
 });

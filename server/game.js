@@ -29,6 +29,8 @@ const {
   getCharacter,
   nextCharacter,
   publicCharacter,
+  getCharacterLine,
+  findLine,
 } = require("../public/characters");
 
 function characterIdOf(pack) {
@@ -60,7 +62,7 @@ const {
   transfer,
   peekNextPlayers,
 } = require("./powers");
-const { isValidQuickChatId, getQuickChat, QUICK_CHAT_COOLDOWN_MS } = require("../public/quick-chat");
+const { QUICK_CHAT_COOLDOWN_MS } = require("../public/quick-chat");
 const { buildAuctionList, extraPlayersForNeeds } = require("./auction-pool");
 
 function normalizeName(name) {
@@ -1840,13 +1842,17 @@ class GameRoom extends EventEmitter {
     if (!this.powerWait && !this.chaiBreak && !this.paused && !this.powerReveal) {
       return { ok: false, error: "Quick chat is only open during a power wait." };
     }
-    if (!isValidQuickChatId(lineId)) return { ok: false, error: "Unknown line." };
+    const charId = characterIdOf(team.franchise);
+    const line = getCharacterLine(charId, lineId);
+    if (!line) {
+      const other = findLine(lineId);
+      return { ok: false, error: other ? "That line is not yours." : "Unknown line." };
+    }
     const now = Date.now();
     if (team.lastQuickChatAt && now - team.lastQuickChatAt < QUICK_CHAT_COOLDOWN_MS) {
       return { ok: false, error: "Wait a moment before sending another line." };
     }
     team.lastQuickChatAt = now;
-    const line = getQuickChat(lineId);
     const payload = { teamId: team.key, name: team.name, lineId, text: line.text };
     this.emit("quickChat", payload);
     return { ok: true, ...payload };
@@ -2007,7 +2013,18 @@ class GameRoom extends EventEmitter {
     if (!team) return { ok: false, error: "You are not in this room." };
     if (this.phase !== "auction") return { ok: false, error: "Emotes are available during the auction." };
     const id = typeof emoteId === "string" ? emoteId : "";
-    if (!isValidEmoteId(id)) return { ok: false, error: "Unknown emote." };
+    let lineText = null;
+    if (isValidEmoteId(id)) {
+      // Shared emoji — anyone can send it.
+    } else {
+      const charId = characterIdOf(team.franchise);
+      const line = getCharacterLine(charId, id);
+      if (!line) {
+        const other = findLine(id);
+        return { ok: false, error: other ? "That line is not yours." : "Unknown emote." };
+      }
+      lineText = line.text;
+    }
     const now = Date.now();
     const windowMs = Number(EMOTE_RATE_WINDOW_MS) || 1000;
     const max = Number(EMOTE_RATE_MAX) || 10;
@@ -2021,6 +2038,7 @@ class GameRoom extends EventEmitter {
     team.emoteTimes = recent;
     team.lastEmoteAt = now;
     const payload = { teamId: team.key, emoteId: id };
+    if (lineText) payload.text = lineText;
     this.emit("emote", payload);
     return { ok: true, ...payload };
   }
