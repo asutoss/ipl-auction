@@ -383,7 +383,7 @@ class GameRoom extends EventEmitter {
     }
 
     const pack = publicCharacter(nextCharacter(this.takenCharacterIds()));
-    if (!pack) return { ok: false, error: "No characters left to assign." };
+    if (!pack) return { ok: false, error: "No co-owners left to assign." };
     const franchise = {
       key: nameKey(name),
       name,
@@ -453,9 +453,9 @@ class GameRoom extends EventEmitter {
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
     const pack = publicCharacter(characterId);
-    if (!pack) return { ok: false, error: "Unknown character." };
+    if (!pack) return { ok: false, error: "Unknown co-owner." };
     const taken = this.takenCharacterIds(team.key);
-    if (taken.has(pack.id)) return { ok: false, error: "That character is already taken." };
+    if (taken.has(pack.id)) return { ok: false, error: "That co-owner is already taken." };
     this.assignCharacter(team, pack.id);
     this.bump("lobby");
     return { ok: true };

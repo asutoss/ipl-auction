@@ -485,11 +485,21 @@ function renderTop() {
   const hostEnd = you && you.isHost
     ? `<button class="btn danger" id="end-game" type="button">End game</button>`
     : `<button class="btn secondary" id="leave" type="button">Leave</button>`;
+  const youPill = you
+    ? `<span class="pill" style="display:inline-flex;gap:8px;align-items:center">${teamMark(you.franchise, "sm", you.name)}<span style="color:${esc(accentColor(you.franchise))}">${esc(you.name)}</span></span>`
+    : "";
+  if (state.phase === "lobby") {
+    topMeta.innerHTML = `
+      ${youPill}
+      <span class="top-actions">${hostEnd}</span>
+    `;
+    return;
+  }
   topMeta.innerHTML = `
     <span class="pill">Room <strong>${esc(state.code)}</strong></span>
     ${modePill()}
     <span class="pill">${esc(state.phase)}</span>
-    ${you ? `<span class="pill" style="display:inline-flex;gap:8px;align-items:center">${teamMark(you.franchise, "sm", you.name)}<span style="color:${esc(accentColor(you.franchise))}">${esc(you.name)}</span></span>` : ""}
+    ${youPill}
     ${you ? `<span class="pill">Purse <strong>${money(you.purseLakhs)}</strong></span>` : ""}
     <span class="top-actions">
       ${canPause ? `<button class="btn secondary" id="pause" type="button" ${state.paused || state.powerReveal ? "disabled" : ""}>${pauseLabel}</button>` : ""}
@@ -579,42 +589,54 @@ function lobbyView() {
         ${teamMark(f.franchise, "lg", f.name)}
         <div>
           <p class="short" style="color:${esc(accentColor(f.franchise))}">${esc(f.name)}</p>
-          <p class="owner">${f.isHost ? "Host" : "Team"}${f.connected ? "" : " · offline"}${f.eliminated ? " · eliminated" : ""}</p>
+          ${(() => {
+            const bits = [];
+            if (f.isHost) bits.push("Host");
+            if (!f.connected) bits.push("offline");
+            if (f.eliminated) bits.push("eliminated");
+            return bits.length ? `<p class="owner">${esc(bits.join(" · "))}</p>` : "";
+          })()}
         </div>
       </div>`
     )
     .join("");
+  const mode = modeInfo();
+  const purseOpts = [...(mode.purseOptions || [50, 75, 100, 120, 150])];
+  if (state.purseLakhs && !purseOpts.includes(state.purseLakhs)) purseOpts.push(state.purseLakhs);
+  purseOpts.sort((a, b) => a - b);
+  const purseSelect = isHost
+    ? `<div class="lobby-purse">
+        <label for="purse">Purse</label>
+        <select id="purse">
+          ${purseOpts.map((n) => `<option value="${n}" ${state.purseLakhs === n ? "selected" : ""}>${n}</option>`).join("")}
+        </select>
+      </div>`
+    : `<p class="lobby-purse-read">${money(state.purseLakhs)} each</p>`;
+  const startHint = isHost
+    ? `<p class="hint">Min ${state.minPlayers} teams to start.</p>`
+    : `<p class="hint">Waiting for the host to start.</p>`;
   return `
-    <section class="panel">
-      <p class="lede">Share this code</p>
-      <p class="room-code">${esc(state.code)}</p>
-      <p class="lede">${esc(modeInfo().name)} · ${esc(modeInfo().compositionLabel)} · ${state.franchises.length} / ${state.maxPlayers} teams · ${money(state.purseLakhs)} each · min ${state.minPlayers} to start.</p>
-      <p class="hint character-nudge"><a href="#choose-character">Pick your character</a></p>
-      ${
-        isHost
-          ? `<div class="row row-2" style="max-width:420px">
-              <div>
-                <label for="purse">Purse (points)</label>
-                <select id="purse">
-                  ${(() => {
-                    const opts = [...(modeInfo().purseOptions || [50, 75, 100, 120, 150])];
-                    if (state.purseLakhs && !opts.includes(state.purseLakhs)) opts.push(state.purseLakhs);
-                    opts.sort((a, b) => a - b);
-                    return opts.map((n) => `<option value="${n}" ${state.purseLakhs === n ? "selected" : ""}>${n}</option>`).join("");
-                  })()}
-                </select>
-              </div>
-            </div>`
-          : ""
-      }
-      <div class="franchise-grid">${cards}</div>
-      <div class="actions">
-        ${isHost ? `<button class="btn" id="start" ${ready ? "" : "disabled"}>Start auction</button>` : `<p class="hint">Waiting for the host to start…</p>`}
+    <section class="panel lobby">
+      <div class="lobby-share">
+        <p class="lobby-share-label">Share this code</p>
+        <p class="room-code">${esc(state.code)}</p>
+      </div>
+      <div class="lobby-settings">
+        <p class="lobby-mode">${esc(mode.name)} · ${esc(mode.compositionLabel)}</p>
+        ${purseSelect}
+      </div>
+      <div class="lobby-teams">
+        <p class="lobby-teams-label">Teams ${state.franchises.length} / ${state.maxPlayers}</p>
+        <div class="franchise-grid">${cards}</div>
+      </div>
+      <div class="actions lobby-start">
+        ${isHost ? `<button class="btn" id="start" ${ready ? "" : "disabled"}>Start auction</button>` : ""}
+        ${startHint}
       </div>
       <p class="error">${esc(lastError)}</p>
       <div class="character-section" id="choose-character">
-        <h3>Choose your character</h3>
-        <p class="hint">Greyed-out characters are taken. Unpicked ones are assigned at start.</p>
+        <h3>Choose your co-owner</h3>
+        <p class="hint">Greyed-out co-owners are taken. Unpicked ones are assigned at start.</p>
         <div class="character-picker logo-picker">${picker}</div>
       </div>
     </section>
@@ -1576,7 +1598,7 @@ function wireGlobal() {
     const ident = e.target.closest("[data-character], [data-identity]");
     if (ident) {
       const characterId = ident.getAttribute("data-character") || ident.getAttribute("data-identity");
-      await emitOrToast("selectCharacter", { characterId, identityId: characterId }, "Could not pick that character.");
+      await emitOrToast("selectCharacter", { characterId, identityId: characterId }, "Could not pick that co-owner.");
       return;
     }
     const quick = e.target.closest("[data-quick-chat]");
