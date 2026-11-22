@@ -1045,7 +1045,7 @@ describe("team names and character catalog", () => {
     assert.equal(new Set(powerIds).size, 15);
     const EXPECTED_LINES = {
       "narendra-modi": ["Mitron!", "Bhaiyon aur behno", "Jhola uthake chal padenge", "Aap chronology samajhiye"],
-      "prabhas": ["Bahubali!", "Devasena!", "Seesfire!"],
+      "prabhas": ["Bahubali!", "Devasena!", "Seesfire!", "All excited, fingers crossed..."],
       "orry": ["I'm just a liver"],
       "dolly-chaiwala": ["Ek cutting!", "Chai peelo"],
       "amitabh-bachchan": ["Lock kiya jaaye?", "Rishte mein toh hum tumhare baap lagte hain", "Computer ji…", "Devi aur sajjano", "Aaaaag"],

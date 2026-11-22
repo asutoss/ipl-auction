@@ -53,7 +53,8 @@
       "lines": [
         "Bahubali!",
         "Devasena!",
-        "Seesfire!"
+        "Seesfire!",
+        "All excited, fingers crossed..."
       ]
     },
     {
