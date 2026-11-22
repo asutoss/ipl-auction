@@ -82,7 +82,7 @@ function bindRoom(room) {
     // method (payload × recipients) and stays consistent with snapshots.
     for (const [, sock] of io.of("/").sockets) {
       if (sock.data && sock.data.code === room.code) {
-        sock.emit("delta", evt);
+        sock.emit("delta", room.personalizeDelta ? room.personalizeDelta(evt, sock.data.name) : evt);
       }
     }
   });
@@ -90,6 +90,13 @@ function bindRoom(room) {
     for (const [, sock] of io.of("/").sockets) {
       if (sock.data && sock.data.code === room.code) {
         sock.emit("emote", evt);
+      }
+    }
+  });
+  room.on("quickChat", (evt) => {
+    for (const [, sock] of io.of("/").sockets) {
+      if (sock.data && sock.data.code === room.code) {
+        sock.emit("quickChat", evt);
       }
     }
   });
@@ -282,10 +289,38 @@ io.on("connection", (socket) => {
     cb && cb(result);
   });
 
-  socket.on("usePower", (_payload, cb) => {
+  socket.on("usePower", (payload = {}, cb) => {
     const room = getRoom(socket.data.code);
     if (!room) return cb && cb({ ok: false, error: "Join a room first." });
-    const result = room.usePower(socket.data.name);
+    const result = room.usePower(socket.data.name, payload);
+    cb && cb(result);
+  });
+
+  socket.on("pickPowerTarget", (payload = {}, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.pickPowerTarget(socket.data.name, payload);
+    cb && cb(result);
+  });
+
+  socket.on("resolvePowerChoice", (payload = {}, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.resolvePowerChoice(socket.data.name, payload);
+    cb && cb(result);
+  });
+
+  socket.on("endChaiBreak", (_payload, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.endChaiBreak(socket.data.name);
+    cb && cb(result);
+  });
+
+  socket.on("quickChat", (payload = {}, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.quickChat(socket.data.name, payload.lineId);
     cb && cb(result);
   });
 

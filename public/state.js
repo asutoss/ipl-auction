@@ -249,6 +249,8 @@
           image: evt.image,
           endsAt: evt.endsAt,
           revealMs: evt.revealMs,
+          message: evt.message || null,
+          copiedPowerName: evt.copiedPowerName || null,
         };
         const revealTeam = findTeam(state, evt.name) || findTeam(state, evt.teamId);
         if (revealTeam) {
@@ -288,7 +290,69 @@
         if (Object.prototype.hasOwnProperty.call(evt, "soldRevealUntil")) {
           state.soldRevealUntil = evt.soldRevealUntil || null;
         }
+        if (evt.preview && state.you) state.you.samayPreview = evt.preview;
+        if (evt.toast) state.powerToast = evt.toast;
+        if (evt.message) {
+          state.powerLog = state.powerLog || [];
+          state.powerLog.push({ message: evt.message, at: Date.now() });
+        }
+        if (evt.waiting) {
+          /* full powerWait arrives on the following powerWait / state snapshot */
+        }
         syncYou(state);
+        break;
+      }
+      case "powerWait": {
+        state.powerReveal = null;
+        state.powerWait = evt;
+        if (evt.kind === "chai") {
+          state.paused = true;
+          state.pausedBy = evt.actorName;
+          state.chaiBreak = true;
+        }
+        break;
+      }
+      case "powerChoice": {
+        if (state.powerWait) {
+          state.powerWait.youChoice = state.you && evt.name === state.you.name ? evt.choice : state.powerWait.youChoice;
+        }
+        break;
+      }
+      case "powerWaitEnded":
+      case "chaiEnded": {
+        state.powerWait = null;
+        state.chaiBreak = false;
+        if (evt.type === "chaiEnded") {
+          state.paused = false;
+          state.pausedBy = null;
+          state.pauseRemainingMs = null;
+        }
+        if (evt.toast) state.powerToast = evt.toast;
+        if (state.auction && (evt.auctionEndsAt || evt.endsAt)) {
+          state.auction.endsAt = evt.auctionEndsAt || evt.endsAt;
+        }
+        if (evt.captainEndsAt) state.captainEndsAt = evt.captainEndsAt;
+        if (Object.prototype.hasOwnProperty.call(evt, "soldRevealUntil")) {
+          state.soldRevealUntil = evt.soldRevealUntil || null;
+        }
+        break;
+      }
+      case "banned": {
+        const bannedTeam = findTeam(state, evt.name);
+        if (bannedTeam) {
+          bannedTeam.banned = true;
+          bannedTeam.eliminated = true;
+          bannedTeam.eliminatedReason = "Banned for match fixing";
+          bannedTeam.purseLakhs = 0;
+        }
+        if (state.auction && state.auction.lotSnapshot) {
+          const row = state.auction.lotSnapshot.find((r) => r.name === evt.name);
+          if (row) {
+            row.banned = true;
+            row.eliminated = true;
+            row.purseLakhs = 0;
+          }
+        }
         break;
       }
       default:

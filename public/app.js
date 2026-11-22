@@ -68,7 +68,7 @@ function remainingMs(endsAt) {
 }
 
 function isTimerFrozen() {
-  return Boolean(state && (state.paused || state.powerReveal));
+  return Boolean(state && (state.paused || state.powerReveal || state.powerWait));
 }
 
 function characterIdOf(obj) {
@@ -275,10 +275,128 @@ function syncSoldModal() {
   hideSoldModal();
 }
 
+
+function quickChatLines() {
+  const api = window.IplQuickChat;
+  return (api && api.QUICK_CHAT_LINES) || [];
+}
+
+function quickChatBarHtml() {
+  const lines = quickChatLines();
+  return lines.map((l) => `<button type="button" class="quick-chat-btn" data-quick-chat="${esc(l.id)}">${esc(l.text)}</button>`).join("");
+}
+
+function missingRolesLabel(missing) {
+  if (!missing) return "—";
+  if (Array.isArray(missing)) return missing.length ? missing.join(", ") : "full";
+  const parts = Object.entries(missing).filter(([, n]) => n > 0).map(([role, n]) => `${role}×${n}`);
+  return parts.length ? parts.join(", ") : "full";
+}
+
+function syncWaitModal() {
+  const modal = document.getElementById("wait-modal");
+  if (!modal) return;
+  const wait = state && state.powerWait;
+  const show = Boolean(wait && state.phase !== "ended" && !state.powerReveal);
+  modal.hidden = !show;
+  if (!show) return;
+  const kicker = document.getElementById("wait-kicker");
+  const title = document.getElementById("wait-title");
+  const prompt = document.getElementById("wait-prompt");
+  const body = document.getElementById("wait-body");
+  const timer = document.getElementById("wait-timer");
+  const bar = document.getElementById("quick-chat-bar");
+  if (kicker) kicker.textContent = wait.powerName || "Power";
+  if (title) {
+    if (wait.kind === "chai") title.textContent = "Chai Break";
+    else if (wait.kind === "rakhi_choices") title.textContent = wait.youMustChoose ? "Rakhi Ka Swayamvar" : "Waiting for answers";
+    else title.textContent = wait.youAreActor ? (wait.powerName || "Pick a target") : `${wait.actorName || "A team"} is choosing`;
+  }
+  if (prompt) prompt.textContent = wait.prompt || "";
+  if (timer) {
+    if (wait.endsAt) {
+      const secs = Math.ceil(Math.max(0, wait.endsAt - Date.now()) / 1000);
+      timer.textContent = `${secs}s left`;
+      timer.hidden = false;
+    } else {
+      timer.textContent = wait.kind === "chai" ? "Unlimited pause — only Dolly can end it" : "";
+      timer.hidden = !timer.textContent;
+    }
+  }
+  if (bar) {
+    bar.hidden = false;
+    if (!bar.dataset.ready) {
+      bar.innerHTML = `<p class="quick-chat-label">Quick chat</p><div class="quick-chat-row">${quickChatBarHtml()}</div>`;
+      bar.dataset.ready = "1";
+    }
+  }
+  if (!body) return;
+  let html = "";
+  if (wait.kind === "chai") {
+    if (wait.youAreActor && wait.table) {
+      html += `<div class="chai-table-wrap"><table class="chai-table"><thead><tr><th>Team</th><th>Pts</th><th>Squad</th><th>Missing</th></tr></thead><tbody>`;
+      for (const row of wait.table) {
+        const squad = (row.squad || []).map((p) => `${p.name} (${p.role})`).join(", ") || "—";
+        html += `<tr class="${row.banned ? "is-banned" : ""}"><td>${esc(row.character || row.name)}${row.banned ? " · banned" : ""}</td><td>${row.purseLakhs}</td><td>${esc(squad)}</td><td>${esc(missingRolesLabel(row.missingRoles))}</td></tr>`;
+      }
+      html += `</tbody></table></div>`;
+      html += `<button type="button" class="btn" id="chai-khatam">Chai khatam</button>`;
+    } else {
+      html += `<p class="lede">Have some chai. You can still emote and quick-chat. The host cannot resume this break.</p>`;
+    }
+  } else if (wait.kind === "rakhi_choices") {
+    if (wait.youMustChoose) {
+      html += `<div class="wait-actions">
+        <button type="button" class="btn" id="rakhi-pay" data-rakhi-choice="pay">Pay 3 points</button>
+        <button type="button" class="btn secondary" id="rakhi-refuse" data-rakhi-choice="refuse">Refuse (sit out next lot)</button>
+      </div>
+      <p class="hint">If you do not choose in time, you refuse and sit out the next lot.</p>`;
+    } else {
+      html += `<p class="lede">${wait.youChoice ? `You chose to ${wait.youChoice}.` : "Waiting for rivals to pay 3 points or refuse."}</p>`;
+    }
+  } else if (wait.youAreActor && wait.options) {
+    if (wait.kind === "pick_team") {
+      html += `<div class="wait-options">` + wait.options.map((o) =>
+        `<button type="button" class="btn secondary wait-pick" data-target-key="${esc(o.key)}">${esc(o.character || o.name)}${o.wipe ? ` · wipe ${o.wipe}` : ""}</button>`
+      ).join("") + `</div>`;
+    } else if (wait.kind === "pick_player") {
+      html += `<div class="wait-options">` + wait.options.map((o) =>
+        `<button type="button" class="btn secondary wait-pick" data-player-id="${esc(o.playerId)}">${esc(o.player && o.player.name)} · ${esc(o.player && o.player.role)} · ${o.priceLakhs} pts from ${esc(o.fromName)}</button>`
+      ).join("") + `</div>`;
+    } else if (wait.kind === "pick_swap") {
+      html += `<p class="hint">1. Pick the rival player</p><div class="wait-options">` + wait.options.map((o) =>
+        `<button type="button" class="btn secondary wait-pick" data-player-id="${esc(o.playerId)}">${esc(o.player && o.player.name)} · ${esc(o.player && o.player.role)} from ${esc(o.fromName)}</button>`
+      ).join("") + `</div>`;
+      html += `<p class="hint">2. Pick your player in the same role</p><div class="wait-options">` + (wait.own || []).map((o) =>
+        `<button type="button" class="btn secondary wait-swap" data-swap-id="${esc(o.playerId)}">${esc(o.player && o.player.name)} · ${esc(o.player && o.player.role)}</button>`
+      ).join("") + `</div>`;
+    }
+  } else {
+    html += `<p class="lede">Hang tight — you can still emote and quick-chat.</p>`;
+  }
+  body.innerHTML = html;
+}
+
+function syncSamayPreview() {
+  const box = document.getElementById("samay-preview");
+  if (!box) return;
+  const preview = state && state.you && state.you.samayPreview;
+  const show = Boolean(preview && preview.length && state.phase === "auction");
+  box.hidden = !show;
+  if (!show) return;
+  const list = document.getElementById("samay-list");
+  if (!list) return;
+  list.innerHTML = preview.map((p) => {
+    if (p.hidden) return `<li class="is-vfx">${esc(p.name)}</li>`;
+    return `<li><strong>${esc(p.name)}</strong> · ${esc(p.role)}${p.overseas ? " · OS" : ""} · Bat ${p.batting} · Bowl ${p.bowling}</li>`;
+  }).join("");
+}
+
 function syncOverlays() {
   const modal = document.getElementById("pause-modal");
   if (modal) {
-    const paused = Boolean(state && state.paused && !state.powerReveal && state.phase && state.phase !== "ended");
+    const chaiOrWait = Boolean(state && (state.chaiBreak || state.powerWait));
+    const paused = Boolean(state && state.paused && !state.powerReveal && !chaiOrWait && state.phase && state.phase !== "ended");
     modal.hidden = !paused;
     const msg = document.getElementById("pause-msg");
     if (msg) msg.textContent = paused ? `Game paused by ${state.pausedBy || "a team"}.` : "";
@@ -292,6 +410,8 @@ function syncOverlays() {
   }
   syncSoldModal();
   syncPowerModal();
+  syncWaitModal();
+  syncSamayPreview();
 }
 
 function meter(value) {
@@ -521,23 +641,25 @@ function teamStripHtml(a) {
       const pending = row.pending != null ? row.pending : Math.max(0, (state.squadSize || modeInfo().squadSize || 11) - (row.squadSize || 0));
       const done = Boolean(row.complete) || pending === 0;
       const out = !row.eliminated && !done && !still.has(row.name);
+      const live = (state.franchises || []).find((f) => f.name === row.name);
+      const banned = Boolean((live && live.banned) || row.banned);
       const cls = [
         "team-chip",
-        row.eliminated ? "is-eliminated" : "",
+        banned ? "is-banned" : "",
+        row.eliminated && !banned ? "is-eliminated" : "",
         done && !row.eliminated ? "is-done" : "",
         out ? "is-out" : "",
         leader && row.name === leader ? "is-leader" : "",
       ].filter(Boolean).join(" ");
-      const live = (state.franchises || []).find((f) => f.name === row.name);
       const powerUsed = Boolean((live && live.powerUsed) || row.powerUsed);
-      const need = row.eliminated ? "out" : done ? "done" : `need ${pending}`;
+      const need = banned ? "banned" : row.eliminated ? "out" : done ? "done" : `need ${pending}`;
       const tip = `${row.name} · ${row.purseLakhs} pts at start of this lot · ${
-        row.eliminated ? "eliminated" : done ? "squad complete" : out ? "opted out of this player" : `${pending} slot${pending === 1 ? "" : "s"} left`
+        banned ? "Banned for match fixing" : row.eliminated ? "eliminated" : done ? "squad complete" : out ? "opted out of this player" : `${pending} slot${pending === 1 ? "" : "s"} left`
       }${powerUsed ? " · power used" : ""}`;
       const fr = { id: characterIdOf(row), characterId: characterIdOf(row), color: row.color, color2: row.color2, text: row.text };
       return `<button type="button" class="${cls}" data-team-id="${esc((row.name || "").toLowerCase())}" data-team-name="${esc(row.name)}" title="${esc(tip)}" style="--c:${esc(row.color)};--c2:${esc(row.color2 || "")};--ct:${esc(row.text || row.color)}">
         ${teamMark(fr, "sm", row.name)}
-        <span class="chip-name">${esc(row.name)}${powerUsed ? `<span class="chip-power-used" title="Power used">⚡</span>` : ""}</span>
+        <span class="chip-name">${esc(row.name)}${banned ? `<span class="chip-banned" title="Banned for match fixing">banned</span>` : ""}${powerUsed ? `<span class="chip-power-used" title="Power used">⚡</span>` : ""}</span>
         <span class="chip-meta"><b>${row.purseLakhs}</b><small>${esc(need)}</small></span>
       </button>`;
     })
@@ -558,9 +680,10 @@ function powerButtonHtml() {
   const power = yourPower();
   if (!you || !power || (state && state.phase !== "auction")) return "";
   const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || (power.used);
-  const busy = Boolean(state.paused || state.powerReveal || (typeof isSoldRevealActive === "function" && isSoldRevealActive()));
-  const disabled = used || busy || you.eliminated;
-  const title = power.description || power.name;
+  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()));
+  const blocked = you.eliminated || you.banned || (you.canUsePower === false && !used);
+  const disabled = used || busy || blocked;
+  const title = you.canUsePowerReason || power.description || power.name;
   const label = used ? `${power.name} used` : power.name;
   return `<button type="button" class="power-btn ${used ? "is-used" : ""}" id="use-power" ${disabled ? "disabled" : ""} title="${esc(title)}" aria-label="${esc(used ? label : `Use power: ${power.name}. ${title}`)}">
     ${teamMark(you.franchise, "sm", you.name)}
@@ -584,7 +707,7 @@ function fillPowerModal(evt) {
   const nameEl = document.getElementById("power-name");
   if (nameEl) nameEl.textContent = evt.powerName || "Power";
   const teamEl = document.getElementById("power-team");
-  if (teamEl) teamEl.textContent = evt.name ? `${evt.name} used their power` : "";
+  if (teamEl) teamEl.textContent = evt.message || (evt.name ? `${evt.name} used their power` : "");
   const desc = document.getElementById("power-desc");
   if (desc) desc.textContent = evt.description || "";
   return modal;
@@ -711,7 +834,7 @@ function auctionView() {
   return `
     <div>${banner}</div>
     <section class="auction-layout">
-      <div class="panel player-card">
+      <div class="panel player-card ${p.vfxHidden ? "is-vfx" : ""}">
         <p class="lede">${esc(modeInfo().summary)} · ${esc(modeInfo().compositionLabel)} · ${a.lotId && a.lotTotal ? `Lot ${a.lotId} of ${a.lotTotal}` : a.lotId ? `Lot ${a.lotId}` : "On the block"} · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
         <div class="auction-stage">
           <div class="ring-wrap">
@@ -723,15 +846,15 @@ function auctionView() {
             </div>
             <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
               <div class="hub-inner">
-                <p class="hub-name" id="hub-name">${esc(p.name)}</p>
+                <p class="hub-name ${p.vfxHidden ? "is-vfx" : ""}" id="hub-name">${esc(p.name)}</p>
                 <p class="hub-bid" id="hub-bid">
                   <span class="hub-bid-num" id="hub-bid-num">${bidParts(a.currentBidLakhs).n}</span>
                   <span class="hub-bid-unit" id="hub-bid-unit">${bidParts(a.currentBidLakhs).unit}</span>
                 </p>
                 <div class="hub-leader" id="hub-leader">${leaderLine(a)}</div>
-                <div class="hub-meta">
-                  ${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
-                  <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>
+                <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
+                  ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Name, role and stats hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
+                  <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>`}
                 </div>
                 <p class="hub-timer ${secs <= 3 && !isTimerFrozen() ? "low" : ""} ${isTimerFrozen() ? "paused" : ""}" id="timer">${isTimerFrozen() ? "Paused" : secs + "s"}</p>
               </div>
@@ -750,7 +873,7 @@ function auctionView() {
       </div>
       <aside class="panel side">
         <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm", you.name) : ""}${you ? esc(you.name) : "Squad"}</h3>
-        ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede">${you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.complete ? " · squad complete" : (() => { const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0); return n ? ` · need ${n} more` : ""; })()}</p>` : ""}
+        ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede">${you.banned ? "Banned for match fixing · " : you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.complete ? " · squad complete" : (() => { const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0); return n ? ` · need ${n} more` : ""; })()}</p>` : ""}
         ${you ? squadSlots(you) : ""}
       </aside>
     </section>
@@ -1260,7 +1383,9 @@ function pruneLiveEmotes() {
 
 function showEmote(payload) {
   const cat = emoteCatalog();
-  const emote = cat.getEmote && cat.getEmote(payload && payload.emoteId);
+  const emote = (cat.getEmote && cat.getEmote(payload && payload.emoteId)) || (
+    payload && payload.text ? { kind: "phrase", text: payload.text } : null
+  );
   if (!emote) return;
   let layer = document.getElementById("emote-layer");
   if (!layer) {
@@ -1339,6 +1464,54 @@ function wireGlobal() {
     if (ident) {
       const characterId = ident.getAttribute("data-character") || ident.getAttribute("data-identity");
       await emitOrToast("selectCharacter", { characterId, identityId: characterId }, "Could not pick that character.");
+      return;
+    }
+    const quick = e.target.closest("[data-quick-chat]");
+    if (quick) {
+      e.preventDefault();
+      const res = await emit("quickChat", { lineId: quick.getAttribute("data-quick-chat") });
+      if (!res || !res.ok) toast((res && res.error) || "Could not send that line.");
+      return;
+    }
+    if (e.target.closest("#chai-khatam")) {
+      e.preventDefault();
+      await emitOrToast("endChaiBreak", {}, "Could not end the chai break.");
+      return;
+    }
+    const rakhi = e.target.closest("[data-rakhi-choice]");
+    if (rakhi) {
+      e.preventDefault();
+      await emitOrToast("resolvePowerChoice", { choice: rakhi.getAttribute("data-rakhi-choice") }, "Could not send your choice.");
+      return;
+    }
+    const pick = e.target.closest("[data-target-key], [data-player-id], [data-swap-id]");
+    if (pick && (pick.hasAttribute("data-target-key") || pick.hasAttribute("data-player-id") || pick.hasAttribute("data-swap-id"))) {
+      e.preventDefault();
+      if (pick.hasAttribute("data-swap-id")) {
+        window._swapOwnId = pick.getAttribute("data-swap-id");
+        document.querySelectorAll("[data-swap-id]").forEach((b) => b.classList.toggle("is-picked", b === pick));
+        if (window._swapRivalId) {
+          const res = await emit("pickPowerTarget", { playerId: window._swapRivalId, swapPlayerId: window._swapOwnId });
+          if (!res || !res.ok) toast((res && res.error) || "Could not swap.");
+          window._swapOwnId = window._swapRivalId = null;
+        }
+        return;
+      }
+      if (pick.hasAttribute("data-player-id") && state.powerWait && state.powerWait.kind === "pick_swap") {
+        window._swapRivalId = pick.getAttribute("data-player-id");
+        document.querySelectorAll("[data-player-id]").forEach((b) => b.classList.toggle("is-picked", b === pick));
+        if (window._swapOwnId) {
+          const res = await emit("pickPowerTarget", { playerId: window._swapRivalId, swapPlayerId: window._swapOwnId });
+          if (!res || !res.ok) toast((res && res.error) || "Could not swap.");
+          window._swapOwnId = window._swapRivalId = null;
+        }
+        return;
+      }
+      const payload = {};
+      if (pick.hasAttribute("data-target-key")) payload.targetKey = pick.getAttribute("data-target-key");
+      if (pick.hasAttribute("data-player-id")) payload.playerId = pick.getAttribute("data-player-id");
+      const res = await emit("pickPowerTarget", payload);
+      if (!res || !res.ok) toast((res && res.error) || "Could not pick that target.");
       return;
     }
     if (e.target.closest("#use-power")) {
@@ -1520,6 +1693,13 @@ function startTicks() {
         render();
       }
     }
+    if (state.powerWait && state.powerWait.endsAt) {
+      const timer = document.getElementById("wait-timer");
+      if (timer) {
+        const secs = Math.ceil(Math.max(0, state.powerWait.endsAt - Date.now()) / 1000);
+        timer.textContent = `${secs}s left`;
+      }
+    }
   }, 250);
 }
 
@@ -1575,6 +1755,9 @@ socket.on("delta", (evt) => {
   if (!state) return;
   const prevNominee = state.auction?.nominee?.id;
   const prevPhase = state.phase;
+  if (evt && evt.message && (evt.type === "powerApplied" || evt.type === "powerWaitEnded" || evt.type === "chaiEnded" || evt.type === "banned" || evt.type === "chaiDisconnectArmed")) {
+    toast(evt.message);
+  }
   IplState.applyDelta(state, evt);
   if (state.auction?.nominee?.id !== prevNominee) {
     bidDraft = state.auction?.minBidLakhs ?? null;
@@ -1592,6 +1775,11 @@ socket.on("gameEnded", (info) => {
 socket.on("emote", (evt) => {
   if (!evt || !evt.emoteId) return;
   showEmote(evt);
+});
+
+socket.on("quickChat", (evt) => {
+  if (!evt || !evt.text) return;
+  showEmote({ teamId: evt.teamId, emoteId: null, text: `${evt.name || "A team"}: ${evt.text}`, phrase: evt.text });
 });
 
 socket.on("connect_error", () => toast("Connection issue — retrying…"));

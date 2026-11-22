@@ -20,18 +20,16 @@
       "text": "#FF9933",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Achhe Din Aayenge",
-        "description": "Achhe din aayenge: 10 points appear in the purse.",
+        "id": "demonetisation",
+        "name": "Demonetisation",
+        "description": "Every other team loses 10 points. A team that reaches 0 is banned for match fixing.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
       "id": "prabhas",
-      "name": "Bahubali",
+      "name": "Prabhas",
       "realName": "Prabhas",
       "image": "/logos/prabhas.webp",
       "color": "#A32112",
@@ -40,13 +38,11 @@
       "text": "#BD5F54",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Katappa Ne Kyun Maara",
-        "description": "Katappa ne kyun maara? 10 points, that's why.",
+        "id": "adipurush_vfx",
+        "name": "Adipurush VFX",
+        "description": "The next auctioned player is visible only to you. Everyone else sees a glitched VFX loading card and bids blind.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -60,13 +56,11 @@
       "text": "#8BCF17",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "I'm Just a Liver",
-        "description": "I'm just a liver — and 10 points in the purse.",
+        "id": "what_do_you_even_do",
+        "name": "What Do You Even Do?",
+        "description": "Use a random other character's power, chosen only from powers that are valid right now. If that power needs a target, you pick it.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -80,13 +74,11 @@
       "text": "#D4A574",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Ek Cutting Aur",
-        "description": "Ek cutting aur: 10 points in the purse.",
+        "id": "chai_break",
+        "name": "Chai Break",
+        "description": "Unlimited pause. Only you can end it with Chai khatam. While it lasts you can read every team's squad and remaining points.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -100,13 +92,11 @@
       "text": "#E8C547",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
+        "id": "lock_kiya_jaaye",
         "name": "Lock Kiya Jaaye",
-        "description": "Lock kiya jaaye: 10 points are in the purse.",
+        "description": "A 50-50 coin flip on the current lot. Win the flip: if you win the player, you pay half. Lose the flip: whoever wins pays double.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -120,13 +110,11 @@
       "text": "#519BAF",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Script Pehle Se Likhi Hai",
-        "description": "The script was written already: 10 points land in the purse.",
+        "id": "broadcast_rights",
+        "name": "Broadcast Rights",
+        "description": "On the next lot, each bid by a rival costs them 1 extra point, paid to you.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -140,13 +128,11 @@
       "text": "#D263DF",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Dark Joke Daalo",
-        "description": "Dark joke daalo: 10 points hit the purse.",
+        "id": "chess_blundermaster",
+        "name": "Chess Blundermaster",
+        "description": "Privately see the next 3 players in auction order. A VFX-hidden player shows as ??? (VFX).",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -160,33 +146,11 @@
       "text": "#4A9E86",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
+        "id": "mute_the_room",
         "name": "Elvish Bhai Ke Aage Koi Bol Sakta Hai Kya.. Elvish Bhaiiii",
-        "description": "Elvish bhaiiii! 10 points drop into the purse.",
+        "description": "Mute the room: nobody can bid against you on this lot. You win at the current bid plus 1. Exempt from Broadcast Rights fees.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
-      }
-    },
-    {
-      "id": "puneet-superstar",
-      "name": "Lord Puneet",
-      "realName": "Puneet Superstar",
-      "image": "/logos/puneet-superstar.webp",
-      "color": "#DB2777",
-      "color2": "#F9D8E7",
-      "ink": "#30091A",
-      "text": "#E5639D",
-      "emotes": [],
-      "power": {
-        "id": "bonus_points",
-        "name": "Thik Hai, Thik Hai",
-        "description": "Thik hai, thik hai — 10 points, no discussion.",
-        "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -200,13 +164,11 @@
       "text": "#9664E4",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
+        "id": "parents_wala_sawaal",
         "name": "Parents Wala Sawaal",
-        "description": "The parents wala sawaal drops 10 points into the purse.",
+        "description": "Pick a rival who cannot bid for this lot and the next one.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -220,13 +182,11 @@
       "text": "#8FA4B8",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Tiger Zinda Hai",
-        "description": "Tiger zinda hai: 10 points land in the purse.",
+        "id": "kala_hiran",
+        "name": "Kala Hiran",
+        "description": "Pause and pick one of the last 10 sold rival players still on a squad, into a role you have open. You pay the sold price; the rival is refunded. 30 seconds; the power is used even if you time out.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -240,33 +200,11 @@
       "text": "#EECC60",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Fir Bhi Ghamand Ba",
-        "description": "Zindagi jhand ba, fir bhi ghamand ba: 10 points in the purse.",
+        "id": "ghamand_tax",
+        "name": "Ghamand Tax",
+        "description": "Every team with more points than you pays you 5 points.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
-      }
-    },
-    {
-      "id": "osama-bin-laden",
-      "name": "Abbottabad Uncle",
-      "realName": "Osama bin Laden",
-      "image": "/logos/osama-bin-laden.webp",
-      "color": "#7A6A42",
-      "color2": "#E7E4DC",
-      "ink": "#15130B",
-      "text": "#9F9376",
-      "emotes": [],
-      "power": {
-        "id": "bonus_points",
-        "name": "Cave Mode",
-        "description": "Cave Mode adds 10 points to the purse.",
-        "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -280,13 +218,11 @@
       "text": "#FF7EAC",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Mera Dimaag Kharab Hai",
-        "description": "Mera dimaag kharab hai — 10 points anyway.",
+        "id": "rakhi_ka_swayamvar",
+        "name": "Rakhi Ka Swayamvar",
+        "description": "Each rival may pay you 3 points or refuse. Refusers cannot bid on the next lot. On timeout they refuse.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -300,13 +236,11 @@
       "text": "#5C7FE2",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
-        "name": "Bad Blood Bonus",
-        "description": "A Bad Blood Bonus adds 10 points to the purse.",
+        "id": "travis_kelce_trade",
+        "name": "Travis Kelce Trade",
+        "description": "Pause, pick one of the last 10 sold rival players still on a squad, then swap with one of your own same-role players. No points change. 30 seconds; the power is used even if you time out.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -320,13 +254,11 @@
       "text": "#E56262",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
+        "id": "kahan_hai_points",
         "name": "Kahan Hai Points?",
-        "description": "Kahan hai points? Right here: 10 points in the purse.",
+        "description": "The richest other team (random tie-break) gives you 10 points.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     },
     {
@@ -340,73 +272,11 @@
       "text": "#719469",
       "emotes": [],
       "power": {
-        "id": "bonus_points",
+        "id": "big_red_button",
         "name": "Big Red Button",
-        "description": "The Big Red Button adds 10 points to the purse.",
+        "description": "Choose a team. Half of its squad (rounded down) is wiped at random and returns to the pool. That team is refunded a quarter of the points it has spent so far.",
         "uses": 1,
-        "params": {
-          "points": 10
-        }
-      }
-    },
-    {
-      "id": "scout",
-      "name": "Scout OP",
-      "realName": "Tanmay Singh",
-      "image": "/logos/scout.webp",
-      "color": "#06B6D4",
-      "color2": "#D2F1F7",
-      "ink": "#012026",
-      "text": "#4BCAE0",
-      "emotes": [],
-      "power": {
-        "id": "bonus_points",
-        "name": "Winner Winner Chicken Dinner",
-        "description": "Winner winner, chicken dinner: 10 points in the purse.",
-        "uses": 1,
-        "params": {
-          "points": 10
-        }
-      }
-    },
-    {
-      "id": "sunny-leone",
-      "name": "Baby Doll",
-      "realName": "Sunny Leone",
-      "image": "/logos/sunny-leone.webp",
-      "color": "#EA580C",
-      "color2": "#FBE0D3",
-      "ink": "#2A0F02",
-      "text": "#EF8650",
-      "emotes": [],
-      "power": {
-        "id": "bonus_points",
-        "name": "Laila Main Laila",
-        "description": "Laila main Laila: 10 points hit the purse.",
-        "uses": 1,
-        "params": {
-          "points": 10
-        }
-      }
-    },
-    {
-      "id": "archana-puran-singh",
-      "name": "Hahaha Ma'am",
-      "realName": "Archana Puran Singh",
-      "image": "/logos/archana-puran-singh.webp",
-      "color": "#6366F1",
-      "color2": "#E2E3FC",
-      "ink": "#11122B",
-      "text": "#8E90F4",
-      "emotes": [],
-      "power": {
-        "id": "bonus_points",
-        "name": "Kapil Ka Sofa",
-        "description": "From Kapil ka sofa, 10 points land in the purse.",
-        "uses": 1,
-        "params": {
-          "points": 10
-        }
+        "params": {}
       }
     }
   ];

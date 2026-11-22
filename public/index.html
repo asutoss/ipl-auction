@@ -44,6 +44,21 @@
         <p id="power-desc" class="lede"></p>
       </div>
     </div>
+    <div id="wait-modal" class="wait-modal" hidden>
+      <div class="wait-card" id="wait-card">
+        <p class="kicker" id="wait-kicker">Power</p>
+        <h2 id="wait-title">Waiting</h2>
+        <p id="wait-prompt" class="lede"></p>
+        <div id="wait-body"></div>
+        <p class="wait-timer" id="wait-timer"></p>
+        <div id="quick-chat-bar" class="quick-chat-bar" hidden></div>
+      </div>
+    </div>
+    <div id="samay-preview" class="samay-preview" hidden>
+      <p class="kicker">Chess Blundermaster</p>
+      <h3>Next up</h3>
+      <ol id="samay-list"></ol>
+    </div>
     <div id="sold-modal" class="sold-modal" hidden>
       <div class="sold-card" id="sold-card">
         <div class="sold-claps" aria-hidden="true">
@@ -63,6 +78,7 @@
     <script src="/identities.js"></script>
     <script src="/state.js"></script>
     <script src="/emotes.js"></script>
+    <script src="/quick-chat.js"></script>
     <script src="/ring.js"></script>
     <script src="/app.js"></script>
   </body>

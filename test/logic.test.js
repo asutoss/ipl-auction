@@ -976,29 +976,30 @@ describe("end game and leave", () => {
 
 
 describe("team names and character catalog", () => {
-  test("catalog has 20 characters with unique colours, images, meme names, placeholder emotes, and a power", () => {
+  test("catalog has 15 characters with unique colours, images, meme names, placeholder emotes, and a unique power", () => {
     const fs = require("fs");
     const path = require("path");
     const { CHARACTERS, IDENTITIES, imageUrl, logoUrl, characterImg, logoImg } = require("../public/characters");
     const catalogPath = path.join(__dirname, "../data/characters.json");
     const fromFile = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
-    assert.equal(CHARACTERS.length, 20);
-    assert.equal(IDENTITIES.length, 20);
-    assert.equal(fromFile.length, 20);
+    assert.equal(CHARACTERS.length, 15);
+    assert.equal(IDENTITIES.length, 15);
+    assert.equal(fromFile.length, 15);
     assert.deepEqual(CHARACTERS.map((t) => t.id), fromFile.map((t) => t.id));
     const ids = CHARACTERS.map((t) => t.id);
     const characters = CHARACTERS.map((t) => t.character);
     const colors = CHARACTERS.map((t) => t.color.toLowerCase());
-    assert.equal(new Set(ids).size, 20);
-    assert.equal(new Set(characters).size, 20);
-    assert.equal(new Set(colors).size, 20);
+    assert.equal(new Set(ids).size, 15);
+    assert.equal(new Set(characters).size, 15);
+    assert.equal(new Set(colors).size, 15);
     const logoDir = path.join(__dirname, "../public/logos");
     let total = 0;
     for (const t of CHARACTERS) {
       assert.ok(t.character && t.character.length > 1, t.id);
       assert.equal(t.name, t.character);
       assert.ok(t.realName && t.realName.length > 1, t.id);
-      assert.notEqual(t.realName, t.name, t.id);
+      if (t.id !== "prabhas") assert.notEqual(t.realName, t.name, t.id);
+      else assert.equal(t.name, "Prabhas");
       const fileRow = fromFile.find((row) => row.id === t.id);
       assert.equal(t.realName, fileRow.realName);
       assert.match(t.color, /^#[0-9A-Fa-f]{6}$/);
@@ -1007,11 +1008,10 @@ describe("team names and character catalog", () => {
       assert.equal(t.image, `/logos/${t.id}.webp`);
       assert.equal(t.logo, t.image);
       assert.ok(Array.isArray(t.emotes) && t.emotes.length === 0, t.id);
-      assert.ok(t.power && t.power.id === "bonus_points", t.id);
+      assert.ok(t.power && t.power.id && t.power.id !== "bonus_points", t.id);
       assert.ok(t.power.name && t.power.name.length > 1, t.id);
-      assert.ok(t.power.description && /10/.test(t.power.description), t.id);
+      assert.ok(t.power.description && t.power.description.length > 8, t.id);
       assert.equal(t.power.uses, 1);
-      assert.equal(t.power.params.points, 10);
       const filePower = fromFile.find((row) => row.id === t.id).power;
       assert.deepEqual(t.power, filePower);
       assert.equal(imageUrl(t.id), `/logos/${t.id}.webp`);
@@ -1027,9 +1027,11 @@ describe("team names and character catalog", () => {
     }
     assert.ok(total < 600 * 1024, `character image payload ${total} bytes`);
     const realNames = CHARACTERS.map((t) => t.realName);
-    assert.equal(new Set(realNames).size, 20);
+    assert.equal(new Set(realNames).size, 15);
     const powerNames = CHARACTERS.map((t) => t.power.name);
-    assert.equal(new Set(powerNames).size, 20);
+    assert.equal(new Set(powerNames).size, 15);
+    const powerIds = CHARACTERS.map((t) => t.power.id);
+    assert.equal(new Set(powerIds).size, 15);
     const src = fs.readFileSync(path.join(__dirname, "../public/characters.js"), "utf8");
     const embeddedMatch = src.match(/const embedded = (\[[\s\S]*?\n  \];)/);
     assert.ok(embeddedMatch, "embedded catalogue missing");
@@ -1392,47 +1394,33 @@ describe("auction list", () => {
 });
 
 describe("character powers", () => {
-  const { publicPower, applyPower, POWERS } = require("../server/powers");
-
-  test("bonus_points applies +10 to the purse", () => {
-    const team = { purseLakhs: 50 };
-    const result = applyPower({}, team, { id: "bonus_points", params: { points: 10 }, uses: 1, name: "Test" });
-    assert.equal(result.ok, true);
-    assert.equal(result.points, 10);
-    assert.equal(team.purseLakhs, 60);
-    assert.ok(POWERS.bonus_points);
-    const def = publicPower({ id: "bonus_points", name: "Masterstroke", description: "Adds 10.", uses: 1, params: { points: 10 } });
-    assert.equal(def.uses, 1);
-    assert.equal(def.params.points, 10);
-  });
-
-  test("usePower adds 10 once, then rejects a second use", () => {
+  test("usePower can only be used once, then rejects a second use", () => {
     const room = roomWith(["Ashutosh", "Priya"], { powerRevealMs: 0, soldRevealMs: 0 });
+    room.assignCharacter(room.findByName("Ashutosh"), "narendra-modi");
+    room.assignCharacter(room.findByName("Priya"), "ravi-kishan");
     assert.equal(room.startAuction("Ashutosh").ok, true);
-    const priya = room.findByName("Priya");
-    const startPurse = priya.purseLakhs;
-    const first = room.usePower("Priya");
+    const first = room.usePower("Ashutosh");
     assert.equal(first.ok, true, first.error);
-    assert.equal(priya.purseLakhs, startPurse + 10);
-    assert.equal(priya.powerUsesLeft, 0);
+    assert.equal(room.findByName("Ashutosh").powerUsesLeft, 0);
     assert.equal(room.powerReveal, null);
-    const snap = room.getState("Priya");
-    assert.equal(snap.you.purseLakhs, startPurse + 10);
+    const snap = room.getState("Ashutosh");
     assert.equal(snap.you.powerUsed, true);
     assert.equal(snap.you.power.uses, 1);
     assert.ok(snap.you.power.name);
-    const second = room.usePower("Priya");
+    const second = room.usePower("Ashutosh");
     assert.equal(second.ok, false);
     assert.match(second.error, /already used/i);
-    assert.equal(priya.purseLakhs, startPurse + 10);
   });
 
   test("usePower freezes the lot timer and resumes with the remaining time after the reveal", async () => {
     const room = roomWith(["Ashutosh", "Priya"], { lotStartMs: 400, bidMs: 400, powerRevealMs: 80, soldRevealMs: 0 });
+    room.assignCharacter(room.findByName("Ashutosh"), "narendra-modi");
+    room.assignCharacter(room.findByName("Priya"), "ravi-kishan");
     assert.equal(room.startAuction("Ashutosh").ok, true);
     const before = Math.max(0, room.auction.endsAt - Date.now());
     const events = [];
     room.on("delta", (e) => events.push(e.type));
+    const priyaPurse = room.findByName("Priya").purseLakhs;
     const used = room.usePower("Ashutosh");
     assert.equal(used.ok, true, used.error);
     assert.ok(room.powerReveal);
@@ -1441,13 +1429,12 @@ describe("character powers", () => {
     assert.ok(held <= before && held >= before - 80, `held=${held} before=${before}`);
     assert.equal(room.bid("Priya", room.auction.currentBidLakhs + 1).ok, false);
     assert.equal(room.pause("Priya").ok, false);
-    const purseDuring = room.findByName("Ashutosh").purseLakhs;
     await new Promise((r) => setTimeout(r, 30));
     assert.ok(room.powerReveal, "reveal should still be in progress");
-    assert.equal(room.findByName("Ashutosh").purseLakhs, purseDuring);
+    assert.equal(room.findByName("Priya").purseLakhs, priyaPurse, "effect applies after the reveal");
     await new Promise((r) => setTimeout(r, 80));
     assert.equal(room.powerReveal, null);
-    assert.equal(room.findByName("Ashutosh").purseLakhs, purseDuring + 10);
+    assert.equal(room.findByName("Priya").purseLakhs, Math.max(0, priyaPurse - 10));
     const left = room.auction.endsAt - Date.now();
     assert.ok(left <= held + 40, `left=${left} held=${held}`);
     assert.ok(left >= held - 90, `left=${left} held=${held}`);
@@ -1457,6 +1444,8 @@ describe("character powers", () => {
 
   test("usePower is rejected when invalid", () => {
     const room = roomWith(["Ashutosh", "Priya"], { powerRevealMs: 200, soldRevealMs: 400 });
+    room.assignCharacter(room.findByName("Ashutosh"), "narendra-modi");
+    room.assignCharacter(room.findByName("Priya"), "ravi-kishan");
     const lobby = room.usePower("Ashutosh");
     assert.equal(lobby.ok, false);
     assert.match(lobby.error, /during the auction/i);
@@ -1476,7 +1465,6 @@ describe("character powers", () => {
     assert.match(paused.error, /paused/i);
     assert.equal(room.resume("Ashutosh").ok, true);
 
-    // During a sold reveal there is no live lot.
     const player = room.auction.nominee;
     room.auction = null;
     room.revealUntil = Date.now() + 400;

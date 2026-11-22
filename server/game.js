@@ -38,7 +38,29 @@ function characterIdOf(pack) {
 
 const { isValidEmoteId, EMOTE_COOLDOWN_MS } = require("../public/emotes");
 const { resolveRng, shuffle } = require("./random");
-const { POWER_REVEAL_MS, publicPower, applyPower } = require("./powers");
+const {
+  POWER_REVEAL_MS,
+  POWER_PICK_MS,
+  RAKHI_CHOICE_MS,
+  DOLLY_DISCONNECT_MS,
+  publicPower,
+  applyPower,
+  canUsePower,
+  resolvePower,
+  getPowerImpl,
+  listValidCopyPowers,
+  usesNextLotSlot,
+  hiddenNomineePlaceholder,
+  displayName,
+  isBanned,
+  isOut,
+  isBidBlocked,
+  credit,
+  debit,
+  transfer,
+  peekNextPlayers,
+} = require("./powers");
+const { isValidQuickChatId, getQuickChat, QUICK_CHAT_COOLDOWN_MS } = require("../public/quick-chat");
 const { buildAuctionList, extraPlayersForNeeds } = require("./auction-pool");
 
 function normalizeName(name) {
@@ -107,6 +129,13 @@ class GameRoom extends EventEmitter {
     this.unaffordableIds = new Set();
     this.powerReveal = null;
     this.powerFreeze = null;
+    this.powerWait = null;
+    this.pendingLotEffects = {};
+    this.lotPowerUsed = false;
+    this.powerLog = [];
+    this.powerToast = null;
+    this.chaiBreak = null;
+    this.chaiDisconnectTimer = null;
   }
 
   rollStartBid() {
@@ -159,6 +188,7 @@ class GameRoom extends EventEmitter {
       uses: def.uses,
       usesLeft,
       used: usesLeft <= 0 || (team.powerUsedCount || 0) > 0,
+      usesNextLotSlot: Boolean(def.usesNextLotSlot),
     };
   }
 
@@ -189,12 +219,14 @@ class GameRoom extends EventEmitter {
   requireUnpaused() {
     if (this.ended) return { ok: false, error: "This game has ended." };
     if (this.powerReveal) return { ok: false, error: "A power is being revealed." };
+    if (this.powerWait) return { ok: false, error: "A power is waiting for a choice." };
     if (this.paused) return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
     return { ok: true };
   }
 
   destroy() {
     this.clearTimer();
+    this.clearChaiDisconnectTimer();
     this.removeAllListeners();
   }
 
@@ -248,6 +280,7 @@ class GameRoom extends EventEmitter {
       squadSize: (f.squad || []).length,
       complete: isSquadComplete(f.squad, this.mode),
       eliminated: Boolean(f.eliminated),
+      banned: Boolean(f.banned) || (f.eliminated && f.eliminatedReason === "match_fixing"),
       powerUsed: Boolean(f.powerUsedCount) || (f.powerUsesLeft != null && f.powerUsesLeft <= 0),
     }));
   }
@@ -287,6 +320,11 @@ class GameRoom extends EventEmitter {
       startBidLakhs: this.auction.startBidLakhs,
       timerMs: this.auction.timerMs || this.timers.lotStartMs,
       lotSnapshot: this.auction.lotSnapshot || this.packLotSnapshot(),
+      vfxHidden: Boolean(this.auction.vfxHidden),
+      vfxSeerKey: this.auction.vfxSeerKey || null,
+      broadcastActive: Boolean(this.auction.broadcastKey),
+      muteByKey: this.auction.muteByKey || null,
+      lockFlip: this.auction.lockFlip || null,
     };
   }
 
@@ -318,6 +356,9 @@ class GameRoom extends EventEmitter {
       }
       existing.socketId = socketId;
       existing.connected = true;
+      if (this.chaiBreak && this.chaiBreak.actorKey === existing.key) {
+        this.clearChaiDisconnectTimer();
+      }
       if (this.phase === "lobby") this.bump("lobby");
       else {
         this.emitDelta({
@@ -352,6 +393,11 @@ class GameRoom extends EventEmitter {
       eliminated: false,
       eliminatedReason: null,
       eliminatedAt: null,
+      banned: false,
+      spentLakhs: 0,
+      bidBlockedUntilLot: null,
+      rakhiBlockLot: null,
+      samayPreview: null,
     };
     this.armTeamPower(franchise);
     this.franchises.push(franchise);
@@ -365,6 +411,9 @@ class GameRoom extends EventEmitter {
     if (!f) return;
     f.connected = false;
     f.socketId = null;
+    if (this.chaiBreak && this.chaiBreak.actorKey === f.key) {
+      this.armChaiDisconnect();
+    }
     if (this.phase === "lobby" && f.key === this.hostKey) {
       const next = this.franchises.find((x) => x.connected);
       if (next) this.hostKey = next.key;
@@ -442,7 +491,10 @@ class GameRoom extends EventEmitter {
     this.paused = false;
     this.powerReveal = null;
     this.powerFreeze = null;
+    this.powerWait = null;
+    this.chaiBreak = null;
     this.clearTimer();
+    this.clearChaiDisconnectTimer();
     this.phase = "ended";
     this.auction = null;
     const endedBy = team ? team.name : byName;
@@ -492,6 +544,9 @@ class GameRoom extends EventEmitter {
   resume(byName) {
     if (this.ended) return { ok: false, error: "This game has ended." };
     if (!this.paused) return { ok: false, error: "The game is not paused." };
+    if (this.chaiBreak || this.pauseTimerKind === "chai") {
+      return { ok: false, error: "Only Dolly can end the chai break." };
+    }
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
     const allowed = team.key === this.hostKey || team.name === this.pausedBy;
@@ -540,6 +595,13 @@ class GameRoom extends EventEmitter {
     for (const f of this.franchises) this.armTeamPower(f);
     this.powerReveal = null;
     this.powerFreeze = null;
+    this.powerWait = null;
+    this.pendingLotEffects = {};
+    this.lotPowerUsed = false;
+    this.powerLog = [];
+    this.powerToast = null;
+    this.chaiBreak = null;
+    this.clearChaiDisconnectTimer();
     this.phase = "auction";
     this.queue = buildAuctionList(this.allPlayers, this.mode, this.franchises.length, this.rng);
     this.lotTotal = this.queue.length;
@@ -552,6 +614,13 @@ class GameRoom extends EventEmitter {
     this.eliminationLog = [];
     this.revealUntil = null;
     this.unaffordableIds = new Set();
+    for (const team of this.franchises) {
+      team.spentLakhs = 0;
+      team.banned = false;
+      team.bidBlockedUntilLot = null;
+      team.rakhiBlockLot = null;
+      team.samayPreview = null;
+    }
     this.nominateNext();
     return { ok: true };
   }
@@ -659,7 +728,8 @@ class GameRoom extends EventEmitter {
   }
 
   isEligible(team, player, amountLakhs) {
-    if (!team || team.eliminated) return false;
+    if (!team || team.eliminated || team.banned) return false;
+    if (isBidBlocked(this, team)) return false;
     return canBidFor(team, player, amountLakhs, this.remainingPool(player.id), { mode: this.mode }).ok;
   }
 
@@ -695,7 +765,8 @@ class GameRoom extends EventEmitter {
     for (let i = 0; i < n; i++) {
       const idx = (start + i) % n;
       const team = this.franchises[idx];
-      if (team.eliminated || isSquadComplete(team.squad, this.mode)) continue;
+      if (team.eliminated || team.banned || isSquadComplete(team.squad, this.mode)) continue;
+      if (isBidBlocked(this, team)) continue;
       if (team.purseLakhs < cost) {
         this.eliminate(team);
         continue;
@@ -712,9 +783,10 @@ class GameRoom extends EventEmitter {
     const hasBidder = Boolean(currentBidderKey);
     const minBid = nextBidAmount(currentBidLakhs, hasBidder);
     return this.franchises.filter((f) => {
-      if (f.eliminated) return false;
+      if (f.eliminated || f.banned) return false;
       if (optedOut.has(f.key)) return false;
       if (f.key === currentBidderKey) return true;
+      if (isBidBlocked(this, f)) return false;
       return this.isEligible(f, nominee, minBid);
     });
   }
@@ -747,7 +819,7 @@ class GameRoom extends EventEmitter {
   }
 
   onLotTimeout(lotId) {
-    if (this.paused || this.ended) return;
+    if (this.paused || this.ended || this.powerReveal || this.powerWait) return;
     if (this.phase !== "auction" || !this.auction || this.lotId !== lotId) return;
     if (this.auction.currentBidderKey || this.auction.defaultBidderKey) this.sellCurrent();
     else this.unsoldCurrent();
@@ -802,6 +874,7 @@ class GameRoom extends EventEmitter {
         timerMs: this.timers.lotStartMs,
         lotSnapshot: this.packLotSnapshot(),
       };
+      this.applyPendingLotEffects();
       this.startLotTimer(false);
       if (!this.maybeResolveLot()) {
         this.emitDelta({ type: "lotStart", ...this.packAuctionPublic() });
@@ -883,13 +956,20 @@ class GameRoom extends EventEmitter {
     }
     const player = this.auction.nominee;
     const winner = this.findByKey(key);
-    const price = this.auction.currentBidLakhs != null ? this.auction.currentBidLakhs : this.auction.startBidLakhs;
+    let price = this.auction.currentBidLakhs != null ? this.auction.currentBidLakhs : this.auction.startBidLakhs;
     if (!winner) {
       this.unsoldCurrent();
       return;
     }
+    const flip = this.auction.lockFlip;
+    if (flip && flip.result === "win" && winner.key === flip.byKey) {
+      price = Math.ceil(Number(price) / 2);
+    } else if (flip && flip.result === "lose") {
+      price = Number(price) * 2;
+    }
     winner.squad.push({ player, priceLakhs: price });
-    winner.purseLakhs -= price;
+    const paid = debit(this, winner, price);
+    winner.spentLakhs = (Number(winner.spentLakhs) || 0) + paid;
     this.soldIds.add(player.id);
     const packed = this.soldPack(winner, player, price);
     // revealUntil is filled in after schedule sets it; compute now so the delta carries it
@@ -950,7 +1030,15 @@ class GameRoom extends EventEmitter {
     }
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
-    if (team.eliminated) return { ok: false, error: "Your franchise has been eliminated." };
+    if (team.eliminated || team.banned) {
+      return { ok: false, error: team.banned ? "You are banned for match fixing." : "Your franchise has been eliminated." };
+    }
+    if (isBidBlocked(this, team)) {
+      return { ok: false, error: "You are blocked from bidding on this lot." };
+    }
+    if (this.auction.muteByKey && team.key !== this.auction.muteByKey) {
+      return { ok: false, error: "Elvish has muted the room." };
+    }
     if (this.auction.optedOut.has(team.key)) {
       return { ok: false, error: "You already opted out of this player." };
     }
@@ -974,8 +1062,22 @@ class GameRoom extends EventEmitter {
     const check = canBidFor(team, this.auction.nominee, amount, this.remainingPool(this.auction.nominee.id), { mode: this.mode });
     if (!check.ok) return { ok: false, error: check.reason };
 
+    const taxHost = this.auction.broadcastKey ? this.findByKey(this.auction.broadcastKey) : null;
+    const jayTax = Boolean(taxHost && !isOut(taxHost) && team.key !== taxHost.key);
+    if (jayTax && (Number(team.purseLakhs) || 0) < amount + 1) {
+      return { ok: false, error: `You need ${amount + 1} points to cover the broadcast fee.` };
+    }
+
     this.auction.currentBidLakhs = amount;
     this.auction.currentBidderKey = team.key;
+    if (jayTax) {
+      const paid = transfer(this, team, taxHost, 1);
+      this.auction.lastBroadcastTax = { from: team.name, to: taxHost.name, paid };
+      if (this._needLotResolve) {
+        this._needLotResolve = false;
+        if (this.maybeResolveLot()) return { ok: true };
+      }
+    }
     this.startLotTimer(true);
     if (!this.maybeResolveLot()) {
       this.emitDelta({
@@ -1007,7 +1109,9 @@ class GameRoom extends EventEmitter {
     }
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
-    if (team.eliminated) return { ok: false, error: "Your franchise has been eliminated." };
+    if (team.eliminated || team.banned) {
+      return { ok: false, error: team.banned ? "You are banned for match fixing." : "Your franchise has been eliminated." };
+    }
     if (team.key === this.auction.currentBidderKey) {
       return { ok: false, error: "You have the leading bid, so you cannot opt out." };
     }
@@ -1051,7 +1155,8 @@ class GameRoom extends EventEmitter {
         const pick = leftover.find((p) => (left[p.role] || 0) > 0 && team.purseLakhs >= fillPrice);
         if (!pick) continue;
         team.squad.push({ player: pick, priceLakhs: fillPrice });
-        team.purseLakhs -= fillPrice;
+        const paid = debit(this, team, fillPrice);
+        team.spentLakhs = (Number(team.spentLakhs) || 0) + paid;
         this.soldIds.add(pick.id);
         this.soldLog.push({
           player: pick,
@@ -1212,7 +1317,11 @@ class GameRoom extends EventEmitter {
       captainId: f.captainId,
       boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
       eliminated: Boolean(f.eliminated),
-      eliminatedReason: f.eliminated ? "Eliminated - insufficient purse" : null,
+      banned: Boolean(f.banned) || (f.eliminated && f.eliminatedReason === "match_fixing"),
+      eliminatedReason: f.banned || (f.eliminated && f.eliminatedReason === "match_fixing")
+        ? "Banned for match fixing"
+        : (f.eliminated ? "Eliminated - insufficient purse" : null),
+      bidBlocked: isBidBlocked(this, f),
       power,
       powerUsesLeft: power.usesLeft,
       powerUsed: power.used,
@@ -1303,6 +1412,10 @@ class GameRoom extends EventEmitter {
       image: r.image,
       endsAt: r.endsAt,
       revealMs: r.revealMs,
+      message: r.message || null,
+      copiedPowerId: r.copiedPowerId || null,
+      copiedPowerName: r.copiedPowerName || null,
+      copiedFrom: r.copiedFrom || null,
     };
   }
 
@@ -1348,59 +1461,466 @@ class GameRoom extends EventEmitter {
     return endsAt;
   }
 
-  /**
-   * Use the team's character power once (uses is configurable on the power
-   * definition; default 1). Auction phase only, including during a live lot.
-   * Rejected during a sold reveal or a manual pause, and while another power
-   * reveal is on screen. Eliminated teams cannot use a power; use it before
-   * you are out. On use the auction timers freeze, a 2s reveal is broadcast,
-   * then the effect is applied and timers resume with the remaining time.
-   */
-  usePower(byName) {
+  clearChaiDisconnectTimer() {
+    if (this.chaiDisconnectTimer) {
+      clearTimeout(this.chaiDisconnectTimer);
+      this.chaiDisconnectTimer = null;
+    }
+  }
+
+  armChaiDisconnect() {
+    this.clearChaiDisconnectTimer();
+    const ms = Number(this.timers.dollyDisconnectMs) || DOLLY_DISCONNECT_MS;
+    this.chaiDisconnectTimer = setTimeout(() => {
+      this.chaiDisconnectTimer = null;
+      if (this.ended || !this.chaiBreak) return;
+      this.endChaiBreak(null, { auto: true });
+    }, ms);
+    if (typeof this.chaiDisconnectTimer.unref === "function") this.chaiDisconnectTimer.unref();
+    this.emitDelta({
+      type: "chaiDisconnectArmed",
+      endsAt: Date.now() + ms,
+      message: "Dolly disconnected. Chai break will end in 30 seconds.",
+    });
+  }
+
+  applyPendingLotEffects() {
+    const pending = this.pendingLotEffects || {};
+    this.lotPowerUsed = Boolean(pending.powerLocked);
+    if (this.auction) {
+      this.auction.vfxSeerKey = pending.vfxSeerKey || null;
+      this.auction.vfxHidden = Boolean(pending.vfxSeerKey);
+      this.auction.broadcastKey = pending.broadcastKey || null;
+    }
+    this.pendingLotEffects = {};
+  }
+
+  returnPlayerToPool(player) {
+    if (!player) return;
+    if (this.soldIds && this.soldIds.delete) this.soldIds.delete(player.id);
+    if (this.unaffordableIds && this.unaffordableIds.delete) this.unaffordableIds.delete(player.id);
+    this.queue = this.queue || [];
+    if (!this.queue.some((p) => p.id === player.id)) this.queue.unshift(player);
+    for (const entry of this.soldLog || []) {
+      if (entry.player && entry.player.id === player.id) entry.wiped = true;
+    }
+    this.lotTotal = (this.lotTotal || 0) + 1;
+  }
+
+  banForMatchFixing(team) {
+    if (!team || team.banned) return;
+    team.banned = true;
+    team.eliminated = true;
+    team.eliminatedReason = "match_fixing";
+    team.eliminatedAt = Date.now();
+    team.purseLakhs = 0;
+    const entry = {
+      name: team.name,
+      short: team.name,
+      color: team.franchise && team.franchise.color,
+      reason: "Banned for match fixing",
+      banned: true,
+    };
+    this.eliminationLog.push(entry);
+    this.lastEvent = { type: "banned", ...entry };
+    this.emitDelta({ type: "banned", ...entry });
+    if (this.auction) {
+      this.auction.optedOut.add(team.key);
+      if (this.auction.currentBidderKey === team.key) {
+        this.auction.currentBidderKey = null;
+        if (this.auction.defaultBidderKey === team.key) this.auction.defaultBidderKey = null;
+        this._needLotResolve = true;
+      }
+    }
+  }
+
+  maybeResolveAfterPower() {
+    if (!this._needLotResolve) return;
+    this._needLotResolve = false;
+    if (this.auction) this.maybeResolveLot();
+  }
+
+  appendPowerLog(message, extra = {}) {
+    const entry = { message, at: Date.now(), ...extra };
+    this.powerLog = this.powerLog || [];
+    this.powerLog.push(entry);
+    if (this.powerLog.length > 40) this.powerLog = this.powerLog.slice(-40);
+    this.powerToast = entry;
+    return entry;
+  }
+
+  packPowerWait(forKey) {
+    const w = this.powerWait;
+    if (!w) return null;
+    const isActor = forKey && w.actorKey === forKey;
+    const isChooser = w.kind === "rakhi_choices" && forKey && forKey !== w.actorKey;
+    const youChoice = w.choices && forKey ? w.choices[forKey] : null;
+    const packed = {
+      kind: w.kind,
+      actorKey: w.actorKey,
+      actorName: w.actorName,
+      powerId: w.powerId || null,
+      powerName: w.powerName || null,
+      prompt: w.prompt || null,
+      endsAt: w.endsAt || null,
+      endsAfterMs: w.endsAfterMs || null,
+      defaultOnTimeout: w.defaultOnTimeout || null,
+      youAreActor: Boolean(isActor),
+      youMustChoose: Boolean(isChooser && !youChoice && this.findByKey(forKey) && !isOut(this.findByKey(forKey))),
+      youChoice: youChoice || null,
+    };
+    if (isActor && w.options) packed.options = w.options;
+    if (isActor && w.own) packed.own = w.own;
+    if (w.kind === "chai") {
+      packed.prompt = packed.prompt || "Chai break is on. Only Dolly can end it.";
+      if (isActor) packed.table = this.packChaiTable();
+    }
+    return packed;
+  }
+
+  packChaiTable() {
+    return this.franchises.map((f) => {
+      const pending = pendingSlots(f.squad, this.mode);
+      return {
+        name: f.name,
+        character: displayName(f),
+        color: f.franchise && f.franchise.color,
+        purseLakhs: f.purseLakhs,
+        banned: Boolean(f.banned),
+        complete: isSquadComplete(f.squad, this.mode),
+        squad: (f.squad || []).map((s) => ({
+          name: s.player.name,
+          role: s.player.role,
+          priceLakhs: s.priceLakhs,
+        })),
+        filledRoles: (f.squad || []).map((s) => s.player.role),
+        missingRoles: remainingQuota(f.squad, this.mode),
+        pendingSlots: pending,
+      };
+    });
+  }
+
+  canTeamUsePower(team) {
     if (this.ended) return { ok: false, error: "This game has ended." };
-    const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
-    if (this.phase !== "auction") {
-      return { ok: false, error: "Powers can only be used during the auction." };
-    }
-    if (this.powerReveal) {
-      return { ok: false, error: "A power is already being revealed." };
-    }
-    if (this.paused) {
-      return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
-    }
-    if (this.revealUntil && !this.auction) {
-      return { ok: false, error: "Wait until the next player is on the block." };
-    }
-    if (team.eliminated) {
-      return { ok: false, error: "Eliminated teams cannot use a power." };
+    if (this.phase !== "auction") return { ok: false, error: "Powers can only be used during the auction." };
+    if (this.powerReveal) return { ok: false, error: "A power is already being revealed." };
+    if (this.powerWait) return { ok: false, error: "A power is waiting for a choice." };
+    if (this.paused) return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
+    if (this.revealUntil && !this.auction) return { ok: false, error: "Wait until the next player is on the block." };
+    if (team.eliminated || team.banned) {
+      return { ok: false, error: team.banned ? "Banned teams cannot use a power." : "Eliminated teams cannot use a power." };
     }
     const def = publicPower(team.franchise && team.franchise.power);
     if (!def) return { ok: false, error: "This character has no power." };
     const left = team.powerUsesLeft != null ? team.powerUsesLeft : def.uses;
     if (left <= 0) return { ok: false, error: "You have already used your power." };
+    if (def.id === "what_do_you_even_do") {
+      const options = listValidCopyPowers(this, team);
+      if (!options.length) return { ok: false, error: "No other power is valid right now." };
+      return { ok: true, def };
+    }
+    const gate = canUsePower(this, team, def);
+    if (!gate.ok) return gate;
+    const usesNext = usesNextLotSlot(def.id);
+    if (usesNext) {
+      if (this.pendingLotEffects && this.pendingLotEffects.powerLocked) {
+        return { ok: false, error: "The next lot's power slot is already taken." };
+      }
+    } else if (this.lotPowerUsed) {
+      return { ok: false, error: "A power has already been used on this lot." };
+    }
+    return { ok: true, def };
+  }
 
+  maskNomineeFor(viewer) {
+    if (!this.auction || !this.auction.vfxHidden) return this.auction ? this.auction.nominee : null;
+    if (viewer && viewer.key === this.auction.vfxSeerKey) return this.auction.nominee;
+    return hiddenNomineePlaceholder();
+  }
+
+  personalizeDelta(evt, forName) {
+    if (!evt || typeof evt !== "object") return evt;
+    const copy = JSON.parse(JSON.stringify(evt));
+    const you = forName ? this.findByName(forName) : null;
+    if ((copy.type === "lotStart" || copy.nominee) && this.auction && this.auction.vfxHidden && copy.nominee) {
+      if (!you || you.key !== this.auction.vfxSeerKey) {
+        copy.nominee = hiddenNomineePlaceholder();
+      }
+    }
+    if (copy.auction && this.auction && this.auction.vfxHidden) {
+      if (!you || you.key !== this.auction.vfxSeerKey) {
+        copy.auction.nominee = hiddenNomineePlaceholder();
+      }
+    }
+    if (copy.type === "powerApplied" && you && you.samayPreview) {
+      copy.preview = you.samayPreview;
+    }
+    if (this.powerWait && (copy.type === "powerWait" || copy.type === "powerApplied" || copy.type === "powerChoice")) {
+      const packed = this.packPowerWait(you && you.key);
+      if (copy.type === "powerWait") Object.assign(copy, packed);
+      copy.powerWait = packed;
+    }
+    return copy;
+  }
+
+  startPowerWait(wait, team) {
+    const ms = Math.max(0, Number(wait.endsAfterMs) || POWER_PICK_MS);
+    this.powerWait = {
+      ...wait,
+      choices: {},
+      startedAt: Date.now(),
+      endsAt: wait.kind === "chai" ? null : Date.now() + ms,
+      endsAfterMs: wait.kind === "chai" ? null : ms,
+    };
+    if (wait.kind === "chai") {
+      this.chaiBreak = { actorKey: team.key, actorName: team.name, startedAt: Date.now() };
+      this.paused = true;
+      this.pausedBy = team.name;
+      this.pauseTimerKind = "chai";
+      this.pauseRemainingMs = this.powerFreeze ? this.powerFreeze.remainingMs : null;
+    } else {
+      this.armTimer(() => this.timeoutPowerWait(), ms);
+    }
+    this.emitDelta({
+      type: "powerWait",
+      ...this.packPowerWait(null),
+      message: wait.kind === "chai" ? `${team.name} called a chai break` : `${team.name} is choosing a target`,
+    });
+  }
+
+  timeoutPowerWait() {
+    if (this.ended || !this.powerWait) return;
+    const wait = this.powerWait;
+    const team = this.findByKey(wait.actorKey);
+    if (wait.kind === "rakhi_choices") {
+      const choices = { ...(wait.choices || {}) };
+      this.finishPowerWait(team, wait, { choices, timedOut: true });
+      return;
+    }
+    // Pickers: power already consumed; timeout = no effect.
+    this.clearPowerWait({ timedOut: true });
+    const endsAt = this.thawPowerFreeze();
+    const message = `${wait.actorName || "A team"} ran out of time, so ${wait.powerName || "the power"} had no effect`;
+    this.appendPowerLog(message, { powerId: wait.powerId, timedOut: true });
+    this.emitDelta({
+      type: "powerWaitEnded",
+      timedOut: true,
+      message,
+      endsAt,
+      auctionEndsAt: this.auction ? this.auction.endsAt : null,
+      soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
+      captainEndsAt: this.captainEndsAt,
+      toast: this.powerToast,
+    });
+    this.maybeResolveAfterPower();
+  }
+
+  finishPowerWait(team, wait, payload = {}) {
+    if (!wait) return { ok: false, error: "Nothing to resolve." };
+    const implId = wait.powerId;
+    const applied = resolvePower(this, team, implId, payload);
+    if (!applied.ok) return applied;
+    this.clearPowerWait({ timedOut: Boolean(payload.timedOut) });
+    const endsAt = this.thawPowerFreeze();
+    const message = applied.message || `${displayName(team)} resolved ${wait.powerName}`;
+    this.appendPowerLog(message, { powerId: implId, name: team && team.name });
+    this.refreshLotSnapshot();
+    this.emitDelta({
+      type: "powerWaitEnded",
+      timedOut: Boolean(payload.timedOut),
+      message,
+      effect: applied.effect,
+      endsAt,
+      auctionEndsAt: this.auction ? this.auction.endsAt : null,
+      soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
+      captainEndsAt: this.captainEndsAt,
+      toast: this.powerToast,
+    });
+    this.maybeResolveAfterPower();
+    return { ok: true };
+  }
+
+  clearPowerWait() {
+    this.clearTimer();
+    this.powerWait = null;
+  }
+
+  refreshLotSnapshot() {
+    if (this.auction) this.auction.lotSnapshot = this.packLotSnapshot();
+  }
+
+  pickPowerTarget(byName, payload = {}) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    if (!this.powerWait) return { ok: false, error: "No power is waiting for a pick." };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (team.key !== this.powerWait.actorKey) {
+      return { ok: false, error: "Only the power user can pick a target." };
+    }
+    if (this.powerWait.kind === "chai" || this.powerWait.kind === "rakhi_choices") {
+      return { ok: false, error: "This power does not use a target pick." };
+    }
+    return this.finishPowerWait(team, this.powerWait, payload);
+  }
+
+  resolvePowerChoice(byName, payload = {}) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    if (!this.powerWait || this.powerWait.kind !== "rakhi_choices") {
+      return { ok: false, error: "No swayamvar choice is pending." };
+    }
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (team.key === this.powerWait.actorKey) {
+      return { ok: false, error: "You already threw the invitation." };
+    }
+    if (isOut(team)) return { ok: false, error: "You cannot answer." };
+    const choice = payload.choice === "pay" ? "pay" : "refuse";
+    this.powerWait.choices = this.powerWait.choices || {};
+    if (this.powerWait.choices[team.key]) {
+      return { ok: false, error: "You already chose." };
+    }
+    this.powerWait.choices[team.key] = choice;
+    const expected = (this.franchises || []).filter((f) => f.key !== this.powerWait.actorKey && !isOut(f));
+    const allIn = expected.every((f) => this.powerWait.choices[f.key]);
+    this.emitDelta({
+      type: "powerChoice",
+      name: team.name,
+      choice,
+      remaining: expected.filter((f) => !this.powerWait.choices[f.key]).map((f) => f.name),
+    });
+    if (allIn) {
+      const actor = this.findByKey(this.powerWait.actorKey);
+      return this.finishPowerWait(actor, this.powerWait, { choices: this.powerWait.choices });
+    }
+    return { ok: true };
+  }
+
+  endChaiBreak(byName, opts = {}) {
+    if (!this.chaiBreak && !(this.powerWait && this.powerWait.kind === "chai")) {
+      return { ok: false, error: "There is no chai break." };
+    }
+    const actorKey = (this.chaiBreak && this.chaiBreak.actorKey) || (this.powerWait && this.powerWait.actorKey);
+    if (!opts.auto) {
+      const team = this.findByName(byName);
+      if (!team || team.key !== actorKey) {
+        return { ok: false, error: "Only Dolly can end the chai break." };
+      }
+    }
+    this.clearChaiDisconnectTimer();
+    this.chaiBreak = null;
+    this.paused = false;
+    this.pausedBy = null;
+    this.pauseRemainingMs = null;
+    this.pauseTimerKind = null;
+    this.powerWait = null;
+    const endsAt = this.thawPowerFreeze();
+    const message = opts.auto
+      ? "Chai break ended after Dolly disconnected"
+      : "Chai khatam — the auction is back on";
+    this.appendPowerLog(message, { powerId: "chai_break", auto: Boolean(opts.auto) });
+    this.emitDelta({
+      type: "chaiEnded",
+      auto: Boolean(opts.auto),
+      message,
+      endsAt,
+      auctionEndsAt: this.auction ? this.auction.endsAt : null,
+      soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
+      captainEndsAt: this.captainEndsAt,
+      toast: this.powerToast,
+    });
+    return { ok: true };
+  }
+
+  quickChat(byName, lineId) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.phase !== "auction") return { ok: false, error: "Quick chat is available during the auction." };
+    if (!this.powerWait && !this.chaiBreak && !this.paused && !this.powerReveal) {
+      return { ok: false, error: "Quick chat is only open during a power wait." };
+    }
+    if (!isValidQuickChatId(lineId)) return { ok: false, error: "Unknown line." };
+    const now = Date.now();
+    if (team.lastQuickChatAt && now - team.lastQuickChatAt < QUICK_CHAT_COOLDOWN_MS) {
+      return { ok: false, error: "Wait a moment before sending another line." };
+    }
+    team.lastQuickChatAt = now;
+    const line = getQuickChat(lineId);
+    const payload = { teamId: team.key, name: team.name, lineId, text: line.text };
+    this.emit("quickChat", payload);
+    return { ok: true, ...payload };
+  }
+
+  /**
+   * Use the team's character power once. Auction phase only. One power per
+   * lot, except Prabhas's Adipurush VFX (and Orry copying it) which consume
+   * the next lot's slot and may be used even if this lot's slot is taken.
+   */
+  usePower(byName, payload = {}) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    const gate = this.canTeamUsePower(team);
+    if (!gate.ok) return gate;
+    const def = gate.def;
+    let plannedId = def.id;
+    let copied = null;
+    let applyParams = { ...(def.params || {}) };
+    if (def.id === "what_do_you_even_do") {
+      const options = listValidCopyPowers(this, team);
+      if (!options.length) return { ok: false, error: "No other power is valid right now." };
+      copied = options[this.rng.int(options.length)];
+      plannedId = copied.powerId;
+      applyParams.forcedPowerId = copied.powerId;
+    }
+    const usesNext = usesNextLotSlot(plannedId);
+    if (usesNext) {
+      if (this.pendingLotEffects && this.pendingLotEffects.powerLocked) {
+        return { ok: false, error: "The next lot's power slot is already taken." };
+      }
+    } else if (this.lotPowerUsed) {
+      return { ok: false, error: "A power has already been used on this lot." };
+    }
+
+    const left = team.powerUsesLeft != null ? team.powerUsesLeft : def.uses;
     team.powerUsesLeft = left - 1;
     team.powerUsedCount = (team.powerUsedCount || 0) + 1;
+    if (usesNext) {
+      this.pendingLotEffects = this.pendingLotEffects || {};
+      this.pendingLotEffects.powerLocked = true;
+    } else {
+      this.lotPowerUsed = true;
+    }
 
     const revealMs = Math.max(0, Number(this.timers.powerRevealMs) || 0);
-    const payload = {
+    const copiedName = copied ? (copied.powerName || plannedId) : null;
+    const description = copied
+      ? `${def.description} Copied ${copiedName}.`
+      : def.description;
+    const payloadReveal = {
       teamKey: team.key,
       teamId: team.key,
       name: team.name,
       characterId: characterIdOf(team.franchise),
       powerId: def.id,
-      powerName: def.name,
-      description: def.description,
-      params: def.params,
+      powerName: copiedName ? `${def.name} → ${copiedName}` : def.name,
+      description,
+      params: applyParams,
       color: team.franchise && (team.franchise.color || null),
       image: team.franchise && (team.franchise.image || team.franchise.logo || null),
       revealMs,
       endsAt: Date.now() + revealMs,
       applied: false,
+      copiedPowerId: copied ? copied.powerId : null,
+      copiedPowerName: copiedName,
+      copiedFrom: copied ? copied.characterName : null,
+      message: copied
+        ? `${displayName(team)} used What Do You Even Do? and got ${copiedName}`
+        : `${displayName(team)} used ${def.name}`,
     };
     this.freezeForPower();
-    this.powerReveal = payload;
+    this.powerReveal = payloadReveal;
     this.lastEvent = { type: "powerReveal", ...this.packPowerReveal() };
     this.emitDelta({
       type: "powerReveal",
@@ -1413,7 +1933,7 @@ class GameRoom extends EventEmitter {
     } else {
       this.armTimer(() => this.finishPowerReveal(), revealMs);
     }
-    return { ok: true };
+    return { ok: true, copiedPowerId: payloadReveal.copiedPowerId };
   }
 
   finishPowerReveal() {
@@ -1431,16 +1951,24 @@ class GameRoom extends EventEmitter {
         params: reveal.params,
         uses: 1,
       });
-      if (applied.ok && this.auction && this.auction.lotSnapshot) {
-        const row = this.auction.lotSnapshot.find((r) => r.name === team.name);
-        if (row) {
-          row.purseLakhs = team.purseLakhs;
-          row.powerUsed = true;
-        }
-      }
+      this.refreshLotSnapshot();
     }
     this.powerReveal = null;
-    const endsAt = this.thawPowerFreeze();
+    const message = (applied && applied.message) || reveal.message || `${reveal.name} used ${reveal.powerName}`;
+    this.appendPowerLog(message, {
+      name: reveal.name,
+      powerId: reveal.powerId,
+      copiedPowerId: reveal.copiedPowerId,
+      effect: applied && applied.effect,
+    });
+    const wait = applied && applied.ok && applied.wait;
+    const sellNow = applied && applied.ok && applied.sellNow;
+    let endsAt = null;
+    if (wait) {
+      this.startPowerWait(wait, team);
+    } else {
+      endsAt = this.thawPowerFreeze();
+    }
     const packed = {
       type: "powerApplied",
       teamId: reveal.teamId,
@@ -1449,10 +1977,16 @@ class GameRoom extends EventEmitter {
       powerId: reveal.powerId,
       powerName: reveal.powerName,
       description: reveal.description,
-      points: applied.points != null ? applied.points : 0,
+      copiedPowerId: reveal.copiedPowerId,
+      copiedPowerName: reveal.copiedPowerName,
+      message,
+      toast: this.powerToast,
+      preview: undefined,
+      effect: applied && applied.effect,
       purseLakhs: team ? team.purseLakhs : null,
       powerUsesLeft: team ? team.powerUsesLeft : 0,
       powerUsed: true,
+      waiting: Boolean(wait),
       endsAt,
       auctionEndsAt: this.auction ? this.auction.endsAt : null,
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
@@ -1460,9 +1994,14 @@ class GameRoom extends EventEmitter {
     };
     this.lastEvent = packed;
     this.emitDelta(packed);
+    if (sellNow && this.auction) {
+      this.sellCurrent();
+    } else {
+      this.maybeResolveAfterPower();
+    }
   }
 
-  emote(byName, emoteId) {
+    emote(byName, emoteId) {
     if (this.ended) return { ok: false, error: "This game has ended." };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
@@ -1491,6 +2030,19 @@ class GameRoom extends EventEmitter {
     };
   }
 
+
+  decorateYou(pack, you) {
+    if (!pack || !you) return pack;
+    const gate = this.canTeamUsePower(you);
+    pack.canUsePower = Boolean(gate.ok);
+    pack.canUsePowerReason = gate.ok ? null : gate.error;
+    if (you.samayPreview) pack.samayPreview = you.samayPreview;
+    if (this.powerWait && this.powerWait.kind === "chai" && this.powerWait.actorKey === you.key) {
+      pack.chaiTable = this.packChaiTable();
+    }
+    return pack;
+  }
+
   getState(forName, opts = {}) {
     const includeMatches = Boolean(opts.includeMatches);
     const you = forName ? this.findByName(forName) : null;
@@ -1500,12 +2052,19 @@ class GameRoom extends EventEmitter {
     let auction = null;
     if (this.phase === "auction" && this.auction) {
       auction = this.packAuctionPublic();
+      auction.nominee = this.maskNomineeFor(you);
       auction.stillIn = auction.stillIn.map((row) => ({ ...row, isYou: you && row.name === you.name }));
       let youCanBid = false;
       let youCanOptOut = false;
       let youReason = null;
       if (you && this.powerReveal) {
         youReason = "A power is being revealed.";
+      } else if (you && this.powerWait) {
+        youReason = "A power is waiting for a choice.";
+      } else if (you && you.banned) {
+        youReason = "You are banned for match fixing.";
+      } else if (you && isBidBlocked(this, you)) {
+        youReason = "You are blocked from bidding on this lot.";
       } else if (you) {
         if (this.auction.optedOut.has(you.key)) {
           youReason = "You opted out of this player.";
@@ -1537,12 +2096,17 @@ class GameRoom extends EventEmitter {
       pausedBy: this.pausedBy,
       pauseRemainingMs: this.paused ? this.pauseRemainingMs : null,
       powerReveal: this.packPowerReveal(),
+      powerWait: this.packPowerWait(forKey),
+      powerLog: this.powerLog || [],
+      powerToast: this.powerToast,
+      lotPowerUsed: Boolean(this.lotPowerUsed),
+      chaiBreak: Boolean(this.chaiBreak),
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
       characters: CHARACTERS.map((t) => publicCharacter(t.id)),
       identities: CHARACTERS.map((t) => publicCharacter(t.id)),
       ratingsNote: this.meta.ratingsNote || null,
       hostName: this.host ? this.host.name : null,
-      you: you ? this.publicFranchise(you, forKey) : null,
+      you: you ? this.decorateYou(this.publicFranchise(you, forKey), you) : null,
       franchises,
       auction,
       lastEvent: this.lastEvent,
