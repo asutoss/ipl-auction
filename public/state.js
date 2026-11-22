@@ -358,6 +358,15 @@
       default:
         break;
     }
+    if (Object.prototype.hasOwnProperty.call(evt, "lotPowerUsed")) {
+      state.lotPowerUsed = Boolean(evt.lotPowerUsed);
+    }
+    if (evt.youPower && state.you) {
+      state.you.canUsePower = Boolean(evt.youPower.canUsePower);
+      state.you.canUsePowerReason = evt.youPower.canUsePowerReason || null;
+      if (evt.youPower.powerUsesLeft != null) state.you.powerUsesLeft = evt.youPower.powerUsesLeft;
+      if (evt.youPower.powerUsed != null) state.you.powerUsed = Boolean(evt.youPower.powerUsed);
+    }
     return state;
   }
 

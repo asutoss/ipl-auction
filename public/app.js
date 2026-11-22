@@ -115,6 +115,7 @@ function goHome() {
   lastError = "";
   lastNomineeId = null;
   hideSoldModal(true);
+  closePowerConfirm();
   render();
 }
 
@@ -428,6 +429,7 @@ function syncOverlays() {
   syncPowerModal();
   syncWaitModal();
   syncSamayPreview();
+  syncPowerConfirm();
 }
 
 function meter(value) {
@@ -682,6 +684,24 @@ function teamStripHtml(a) {
 }
 
 
+
+function isStaleLobbyPowerGate(you) {
+  return Boolean(
+    state
+    && state.phase === "auction"
+    && you
+    && you.canUsePower === false
+    && you.canUsePowerReason === "Powers can only be used during the auction."
+  );
+}
+
+function powerUseBlocked(you, used) {
+  if (!you) return true;
+  if (you.eliminated || you.banned) return true;
+  if (you.canUsePower === false && !used && !isStaleLobbyPowerGate(you)) return true;
+  return false;
+}
+
 function yourPower() {
   const you = state && state.you;
   if (!you) return null;
@@ -696,7 +716,7 @@ function powerButtonHtml() {
   if (!you || !power || (state && state.phase !== "auction")) return "";
   const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || (power.used);
   const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()));
-  const blocked = you.eliminated || you.banned || (you.canUsePower === false && !used);
+  const blocked = powerUseBlocked(you, used);
   const disabled = used || busy || blocked;
   const title = you.canUsePowerReason || power.description || power.name;
   const label = used ? `${power.name} used` : power.name;
@@ -704,6 +724,60 @@ function powerButtonHtml() {
     ${teamMark(you.franchise, "sm", you.name)}
     <span class="power-btn-copy"><small>Power${used ? " used" : " · once"}</small><strong>${esc(power.name)}</strong></span>
   </button>`;
+}
+
+function canShowPowerConfirm() {
+  const you = state && state.you;
+  const power = yourPower();
+  if (!you || !power || !state || state.phase !== "auction") return false;
+  const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || power.used;
+  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()));
+  const blocked = powerUseBlocked(you, used);
+  return !used && !busy && !blocked;
+}
+
+function isPowerConfirmOpen() {
+  const modal = document.getElementById("power-confirm");
+  return Boolean(modal && !modal.hidden);
+}
+
+function closePowerConfirm() {
+  const modal = document.getElementById("power-confirm");
+  if (modal) modal.hidden = true;
+}
+
+function openPowerConfirm() {
+  if (!canShowPowerConfirm()) return false;
+  const you = state.you;
+  const power = yourPower();
+  const modal = document.getElementById("power-confirm");
+  if (!modal) return false;
+  const face = document.getElementById("power-confirm-face");
+  if (face) face.innerHTML = you.franchise ? teamMark(you.franchise, "lg", you.name) : "";
+  const nameEl = document.getElementById("power-confirm-name");
+  if (nameEl) nameEl.textContent = power.name || "Power";
+  const descEl = document.getElementById("power-confirm-desc");
+  if (descEl) descEl.textContent = power.shortDesc || power.description || "";
+  modal.hidden = false;
+  const useBtn = document.getElementById("power-confirm-use");
+  if (useBtn) useBtn.focus();
+  return true;
+}
+
+function syncPowerConfirm() {
+  if (isPowerConfirmOpen() && !canShowPowerConfirm()) closePowerConfirm();
+}
+
+async function confirmAndUsePower() {
+  closePowerConfirm();
+  if (!canShowPowerConfirm()) return;
+  lastError = "";
+  const res = await emit("usePower", {});
+  if (!res || !res.ok) {
+    lastError = (res && res.error) || "Could not use your power.";
+    toast(lastError);
+    render();
+  }
 }
 
 function fillPowerModal(evt) {
@@ -980,6 +1054,7 @@ function patchAuction() {
   if (strip) strip.innerHTML = teamStripHtml(a);
   const powerWrap = document.getElementById("power-btn-wrap");
   if (powerWrap) powerWrap.innerHTML = powerButtonHtml();
+  syncPowerConfirm();
   const purse = document.querySelector(".side .purse");
   if (purse && state.you) purse.textContent = money(state.you.purseLakhs);
   updateAuctionTimer();
@@ -1543,13 +1618,19 @@ function wireGlobal() {
       return;
     }
     if (e.target.closest("#use-power")) {
-      lastError = "";
-      const res = await emit("usePower", {});
-      if (!res || !res.ok) {
-        lastError = (res && res.error) || "Could not use your power.";
-        toast(lastError);
-        render();
-      }
+      openPowerConfirm();
+      return;
+    }
+    if (e.target.closest("#power-confirm-use")) {
+      await confirmAndUsePower();
+      return;
+    }
+    if (e.target.closest("#power-confirm-cancel")) {
+      closePowerConfirm();
+      return;
+    }
+    if (e.target.id === "power-confirm") {
+      closePowerConfirm();
       return;
     }
     if (e.target.closest("#pause")) {
@@ -1818,9 +1899,15 @@ window.addEventListener("resize", () => {
   if (state && state.phase === "auction") fitHubName();
 });
 window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && emotePickerOpen) closeEmotePicker();
+  if (e.key !== "Escape") return;
+  if (isPowerConfirmOpen()) {
+    closePowerConfirm();
+    e.preventDefault();
+    return;
+  }
+  if (emotePickerOpen) closeEmotePicker();
 });
 render();
 
 
-window.IplApp = { get state() { return state; }, emit, socket, showEmote, syncEmoteDock };
+window.IplApp = { get state() { return state; }, emit, socket, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm };

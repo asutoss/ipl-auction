@@ -23,6 +23,7 @@
         "id": "demonetisation",
         "name": "Demonetisation",
         "description": "Every other team loses 10 points. A team that reaches 0 is banned for match fixing.",
+        "shortDesc": "Every other team loses 10 points.",
         "uses": 1,
         "params": {}
       },
@@ -47,6 +48,7 @@
         "id": "adipurush_vfx",
         "name": "Adipurush VFX",
         "description": "The next auctioned player is visible only to you. Everyone else sees a glitched VFX loading card and bids blind.",
+        "shortDesc": "Only you can see the next player.",
         "uses": 1,
         "params": {}
       },
@@ -71,6 +73,7 @@
         "id": "what_do_you_even_do",
         "name": "What Do You Even Do?",
         "description": "Use a random other character's power, chosen only from powers that are valid right now. If that power needs a target, you pick it.",
+        "shortDesc": "Copy a random valid power right now.",
         "uses": 1,
         "params": {}
       },
@@ -92,6 +95,7 @@
         "id": "chai_break",
         "name": "Chai Break",
         "description": "Unlimited pause. Only you can end it with Chai khatam. While it lasts you can read every team's squad and remaining points.",
+        "shortDesc": "Pause the auction until you end it.",
         "uses": 1,
         "params": {}
       },
@@ -114,6 +118,7 @@
         "id": "lock_kiya_jaaye",
         "name": "Lock Kiya Jaaye",
         "description": "A 50-50 coin flip on the current lot. Win the flip: if you win the player, you pay half. Lose the flip: whoever wins pays double.",
+        "shortDesc": "A coin flip halves or doubles the price.",
         "uses": 1,
         "params": {}
       },
@@ -139,6 +144,7 @@
         "id": "broadcast_rights",
         "name": "Broadcast Rights",
         "description": "On the next lot, each bid by a rival costs them 1 extra point, paid to you.",
+        "shortDesc": "Rivals pay you 1 point per bid next lot.",
         "uses": 1,
         "params": {}
       },
@@ -163,6 +169,7 @@
         "id": "chess_blundermaster",
         "name": "Chess Blundermaster",
         "description": "Privately see the next 3 players in auction order. A VFX-hidden player shows as ??? (VFX).",
+        "shortDesc": "Privately see the next 3 players.",
         "uses": 1,
         "params": {}
       },
@@ -186,6 +193,7 @@
         "id": "mute_the_room",
         "name": "Elvish Bhai Ke Aage Koi Bol Sakta Hai Kya.. Elvish Bhaiiii",
         "description": "Mute the room: nobody can bid against you on this lot. You win at the current bid plus 1. Exempt from Broadcast Rights fees.",
+        "shortDesc": "Nobody can bid against you this lot.",
         "uses": 1,
         "params": {}
       },
@@ -209,6 +217,7 @@
         "id": "parents_wala_sawaal",
         "name": "Parents Wala Sawaal",
         "description": "Pick a rival who cannot bid for this lot and the next one.",
+        "shortDesc": "A rival cannot bid this lot or the next.",
         "uses": 1,
         "params": {}
       },
@@ -232,6 +241,7 @@
         "id": "kala_hiran",
         "name": "Kala Hiran",
         "description": "Pause and pick one of the last 10 sold rival players still on a squad, into a role you have open. You pay the sold price; the rival is refunded. 30 seconds; the power is used even if you time out.",
+        "shortDesc": "Buy a recently sold rival at their price.",
         "uses": 1,
         "params": {}
       },
@@ -256,6 +266,7 @@
         "id": "ghamand_tax",
         "name": "Ghamand Tax",
         "description": "Every team with more points than you pays you 5 points.",
+        "shortDesc": "Richer teams each pay you 5 points.",
         "uses": 1,
         "params": {}
       },
@@ -280,6 +291,7 @@
         "id": "rakhi_ka_swayamvar",
         "name": "Rakhi Ka Swayamvar",
         "description": "Each rival may pay you 3 points or refuse. Refusers cannot bid on the next lot. On timeout they refuse.",
+        "shortDesc": "Rivals pay 3 points or skip the next lot.",
         "uses": 1,
         "params": {}
       },
@@ -302,6 +314,7 @@
         "id": "travis_kelce_trade",
         "name": "Travis Kelce Trade",
         "description": "Pause, pick one of the last 10 sold rival players still on a squad, then swap with one of your own same-role players. No points change. 30 seconds; the power is used even if you time out.",
+        "shortDesc": "Swap a recently sold rival with one of yours.",
         "uses": 1,
         "params": {}
       },
@@ -325,6 +338,7 @@
         "id": "kahan_hai_points",
         "name": "Kahan Hai Points?",
         "description": "The richest other team (random tie-break) gives you 10 points.",
+        "shortDesc": "The richest other team gives you 10 points.",
         "uses": 1,
         "params": {}
       },
@@ -348,6 +362,7 @@
         "id": "big_red_button",
         "name": "Big Red Button",
         "description": "Choose a team. Half of its squad (rounded down) is wiped at random and returns to the pool. That team is refunded a quarter of the points it has spent so far.",
+        "shortDesc": "Wipe half a chosen team's squad at random.",
         "uses": 1,
         "params": {}
       },

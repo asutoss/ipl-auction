@@ -4,6 +4,7 @@ const { loadPlayers } = require("../server/players");
 const { GameRoom } = require("../server/game");
 const { CHARACTERS, characterLines } = require("../public/characters");
 const { POWERS, applyPower, listValidCopyPowers } = require("../server/powers");
+const { applyDelta } = require("../public/state");
 
 const { meta, players } = loadPlayers();
 
@@ -85,6 +86,51 @@ describe("power registry", () => {
       assert.equal(typeof POWERS[id].apply, "function");
     }
     assert.equal(POWERS.bonus_points, undefined);
+  });
+});
+
+describe("power confirm copy", () => {
+  test("getState exposes a short one-line description on you.power", () => {
+    const room = roomWith(["A", "B"]);
+    setChar(room, "A", IDS.modi);
+    setChar(room, "B", IDS.dolly);
+    start(room);
+    const you = room.getState("A").you;
+    assert.equal(you.power.shortDesc, "Every other team loses 10 points.");
+    const dolly = room.getState("B").you;
+    assert.equal(dolly.power.shortDesc, "Pause the auction until you end it.");
+    assert.ok(you.power.shortDesc.trim().split(/\s+/).length <= 10);
+  });
+
+  test("usePower still works without a confirm step on the server", () => {
+    const room = roomWith(["A", "B"]);
+    setChar(room, "A", IDS.modi);
+    setChar(room, "B", IDS.dolly);
+    start(room);
+    assert.equal(room.usePower("A").ok, true);
+    assert.equal(room.findByName("B").purseLakhs, 90);
+  });
+
+  test("lotStart deltas refresh canUsePower so a confirm can open", () => {
+    const room = roomWith(["A", "B"]);
+    setChar(room, "A", IDS.modi);
+    setChar(room, "B", IDS.dolly);
+    const lobby = room.getState("A");
+    assert.equal(lobby.you.canUsePower, false);
+    assert.match(lobby.you.canUsePowerReason, /during the auction/i);
+    start(room);
+    const personalized = room.personalizeDelta({ type: "lotStart", ...room.packAuctionPublic() }, "A");
+    assert.equal(personalized.youPower.canUsePower, true);
+    assert.equal(personalized.lotPowerUsed, false);
+    const state = JSON.parse(JSON.stringify(lobby));
+    applyDelta(state, personalized);
+    assert.equal(state.phase, "auction");
+    assert.equal(state.you.canUsePower, true);
+    assert.equal(state.lotPowerUsed, false);
+    assert.equal(room.usePower("A").ok, true);
+    const after = room.personalizeDelta({ type: "powerApplied", name: "A" }, "B");
+    assert.equal(after.youPower.canUsePower, false);
+    assert.match(after.youPower.canUsePowerReason, /already been used on this lot/i);
   });
 });
 

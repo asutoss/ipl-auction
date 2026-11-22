@@ -584,6 +584,46 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 }
 .confirm-card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; max-width: 400px; width: 100%; }
 
+.power-confirm {
+  position: fixed; inset: 0; z-index: 125;
+  background: rgba(4, 8, 16, 0.8);
+  backdrop-filter: blur(8px);
+  display: grid; place-items: center;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.power-confirm[hidden] { display: none !important; }
+.power-confirm-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px 20px 20px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.power-confirm-face { display: grid; place-items: center; margin: 0 auto 12px; }
+.power-confirm-face .team-mark-wrap,
+.power-confirm-face .team-mark,
+.power-confirm-face .team-mark-img { width: 96px; height: 96px; }
+.power-confirm-card h2 {
+  margin: 0 0 8px;
+  font-size: clamp(20px, 4.5vw, 28px);
+  line-height: 1.15;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.power-confirm-card .lede { margin: 0 0 18px; }
+.power-confirm-card .actions { display: flex; gap: 10px; justify-content: center; margin: 0; }
+@media (max-width: 700px) {
+  .power-confirm-card { padding: 22px 16px 16px; }
+  .power-confirm-face .team-mark-wrap,
+  .power-confirm-face .team-mark,
+  .power-confirm-face .team-mark-img { width: 88px; height: 88px; }
+  .power-confirm-card .actions { flex-direction: column; }
+  .power-confirm-card .actions .btn { width: 100%; min-height: 44px; }
+}
+
 @media (max-width: 700px) {
   .character-picker, .logo-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .character-choice .team-mark, .character-choice svg, .character-choice .team-mark-img,

@@ -1022,6 +1022,8 @@ describe("team names and character catalog", () => {
       assert.ok(t.power && t.power.id && t.power.id !== "bonus_points", t.id);
       assert.ok(t.power.name && t.power.name.length > 1, t.id);
       assert.ok(t.power.description && t.power.description.length > 8, t.id);
+      assert.ok(t.power.shortDesc && t.power.shortDesc.length > 4, t.id);
+      assert.ok(t.power.shortDesc.trim().split(/\s+/).length <= 10, `${t.id} shortDesc too long: ${t.power.shortDesc}`);
       assert.equal(t.power.uses, 1);
       const filePower = fromFile.find((row) => row.id === t.id).power;
       assert.deepEqual(t.power, filePower);
@@ -1063,6 +1065,27 @@ describe("team names and character catalog", () => {
     for (const t of CHARACTERS) {
       assert.ok(EXPECTED_LINES[t.id], t.id);
       assert.deepEqual(t.lines.map((l) => l.text), EXPECTED_LINES[t.id], t.id);
+    }
+    const EXPECTED_SHORT = {
+      "narendra-modi": "Every other team loses 10 points.",
+      "prabhas": "Only you can see the next player.",
+      "orry": "Copy a random valid power right now.",
+      "dolly-chaiwala": "Pause the auction until you end it.",
+      "amitabh-bachchan": "A coin flip halves or doubles the price.",
+      "jay-shah": "Rivals pay you 1 point per bid next lot.",
+      "samay-raina": "Privately see the next 3 players.",
+      "elvish-yadav": "Nobody can bid against you this lot.",
+      "ranveer-allahbadia": "A rival cannot bid this lot or the next.",
+      "salman-khan": "Buy a recently sold rival at their price.",
+      "ravi-kishan": "Richer teams each pay you 5 points.",
+      "rakhi-sawant": "Rivals pay 3 points or skip the next lot.",
+      "taylor-swift": "Swap a recently sold rival with one of yours.",
+      "arnab-goswami": "The richest other team gives you 10 points.",
+      "kim-jong-un": "Wipe half a chosen team's squad at random.",
+    };
+    for (const t of CHARACTERS) {
+      assert.equal(t.power.shortDesc, EXPECTED_SHORT[t.id], t.id);
+      assert.equal(publicCharacter(t.id).power.shortDesc, EXPECTED_SHORT[t.id], t.id);
     }
     const src = fs.readFileSync(path.join(__dirname, "../public/characters.js"), "utf8");
     const embeddedMatch = src.match(/const embedded = (\[[\s\S]*?\n  \];)/);

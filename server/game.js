@@ -180,13 +180,14 @@ class GameRoom extends EventEmitter {
   packTeamPower(team) {
     const def = publicPower(team && team.franchise && team.franchise.power);
     if (!def) {
-      return { id: null, name: null, description: null, uses: 0, usesLeft: 0, used: false };
+      return { id: null, name: null, description: null, shortDesc: null, uses: 0, usesLeft: 0, used: false };
     }
     const usesLeft = team.powerUsesLeft != null ? team.powerUsesLeft : def.uses;
     return {
       id: def.id,
       name: def.name,
       description: def.description,
+      shortDesc: def.shortDesc || "",
       uses: def.uses,
       usesLeft,
       used: usesLeft <= 0 || (team.powerUsedCount || 0) > 0,
@@ -1663,6 +1664,16 @@ class GameRoom extends EventEmitter {
       if (copy.type === "powerWait") Object.assign(copy, packed);
       copy.powerWait = packed;
     }
+    if (you) {
+      const packed = this.decorateYou(this.publicFranchise(you, you.key), you);
+      copy.youPower = {
+        canUsePower: Boolean(packed.canUsePower),
+        canUsePowerReason: packed.canUsePowerReason || null,
+        powerUsed: Boolean(packed.powerUsed),
+        powerUsesLeft: packed.powerUsesLeft,
+      };
+    }
+    copy.lotPowerUsed = Boolean(this.lotPowerUsed);
     return copy;
   }
 
