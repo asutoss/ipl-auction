@@ -51,9 +51,9 @@
         "params": {}
       },
       "lines": [
-        "Katappa ne Bahubali ko kyun maara?",
-        "Jai Shri Ram",
-        "Darling!"
+        "Bahubali!",
+        "Devasena!",
+        "Seesfire!"
       ]
     },
     {
@@ -74,8 +74,7 @@
         "params": {}
       },
       "lines": [
-        "I'm just a liver",
-        "What do I do? I work on myself"
+        "I'm just a liver"
       ]
     },
     {
@@ -231,9 +230,8 @@
         "params": {}
       },
       "lines": [
-        "Ek baar jo maine commitment kar di…",
-        "Tiger zinda hai",
-        "Bhai ka bday"
+        "Ehsaan mat karna",
+        "Dil mein aata hoon"
       ]
     },
     {
