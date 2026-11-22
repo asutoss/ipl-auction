@@ -165,8 +165,9 @@
         "params": {}
       },
       "lines": [
-        "Kya hi bolun",
-        "Dark hai, pasand aaya?"
+        "Blunder!",
+        "Ye episode delete karo",
+        "This too shall pass"
       ]
     },
     {
