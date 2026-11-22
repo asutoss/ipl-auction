@@ -30,7 +30,7 @@
         "Mitron!",
         "Bhaiyon aur behno",
         "Jhola uthake chal padenge",
-        "Aap chronology samajhiye"
+        "Is sajjan ko kya taklif hai?"
       ]
     },
     {
@@ -237,7 +237,6 @@
       },
       "lines": [
         "Ehsaan mat karna",
-        "Dil mein aata hoon",
         "Mai aa jau kya apni pe?",
         "Hiran kidhar hai?",
         "Footpath pe mil"

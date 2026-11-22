@@ -1044,7 +1044,7 @@ describe("team names and character catalog", () => {
     const powerIds = CHARACTERS.map((t) => t.power.id);
     assert.equal(new Set(powerIds).size, 15);
     const EXPECTED_LINES = {
-      "narendra-modi": ["Mitron!", "Bhaiyon aur behno", "Jhola uthake chal padenge", "Aap chronology samajhiye"],
+      "narendra-modi": ["Mitron!", "Bhaiyon aur behno", "Jhola uthake chal padenge", "Is sajjan ko kya taklif hai?"],
       "prabhas": ["Bahubali!", "Devasena!", "Seesfire!", "All excited, fingers crossed..."],
       "orry": ["I'm just a liver"],
       "dolly-chaiwala": ["Ek cutting!", "Chai peelo"],
@@ -1053,7 +1053,7 @@ describe("team names and character catalog", () => {
       "samay-raina": ["Blunder!", "Ye episode delete karo", "This too shall pass"],
       "elvish-yadav": ["Elvish bhaiiii!", "Systumm hang kar diya", "Kaatenge kaatenge"],
       "ranveer-allahbadia": ["Hello dosto", "Would you rather...", "Maut ke baare mein socha hai?"],
-      "salman-khan": ["Ehsaan mat karna", "Dil mein aata hoon", "Mai aa jau kya apni pe?", "Hiran kidhar hai?", "Footpath pe mil"],
+      "salman-khan": ["Ehsaan mat karna", "Mai aa jau kya apni pe?", "Hiran kidhar hai?", "Footpath pe mil"],
       "ravi-kishan": ["Zindagi jhand ba, fir bhi ghamand ba", "Jai Mahakal", "Money follows my brother", "Naam ya daam? Naam."],
       "rakhi-sawant": ["Mera dimaag kharab hai!", "Main media bulaungi"],
       "taylor-swift": ["Shake it off", "Look what you made me do", "We are never ever getting back together"],
