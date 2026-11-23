@@ -519,3 +519,106 @@ describe("emotes", () => {
     assert.match(leftover.error, /unknown emote/i);
   });
 });
+
+const {
+  parseRoomCode,
+  roomUrl,
+  roomPath,
+  shareMessage,
+  whatsAppShareUrl,
+  normalizeRoomCode,
+  SHARE_TEXT_PREFIX,
+} = require("../public/room-link");
+
+describe("room invite links", () => {
+  test("builds /r/CODE URLs from the current origin and parses either form", () => {
+    assert.equal(normalizeRoomCode("ab12cd"), null);
+    assert.equal(normalizeRoomCode("ABC12I"), null); // I is not in the alphabet
+    assert.equal(normalizeRoomCode("k7mq2p"), "K7MQ2P");
+    assert.equal(roomPath("k7mq2p"), "/r/K7MQ2P");
+    assert.equal(roomUrl("https://ipl-auction-45i3.onrender.com/", "k7mq2p"), "https://ipl-auction-45i3.onrender.com/r/K7MQ2P");
+    assert.equal(roomUrl("http://localhost:3000", "K7MQ2P"), "http://localhost:3000/r/K7MQ2P");
+    assert.equal(parseRoomCode("/r/K7MQ2P"), "K7MQ2P");
+    assert.equal(parseRoomCode("https://example.com/r/k7mq2p"), "K7MQ2P");
+    assert.equal(parseRoomCode("/?room=K7MQ2P"), "K7MQ2P");
+    assert.equal(parseRoomCode("https://example.com/?room=k7mq2p"), "K7MQ2P");
+    assert.equal(parseRoomCode({ pathname: "/r/K7MQ2P", search: "" }), "K7MQ2P");
+    assert.equal(parseRoomCode({ pathname: "/", search: "?room=K7MQ2P" }), "K7MQ2P");
+    assert.equal(parseRoomCode("/r/nope"), null);
+    assert.equal(parseRoomCode("/"), null);
+  });
+
+  test("builds a short WhatsApp invite that includes the room link", () => {
+    const link = "https://ipl-auction-45i3.onrender.com/r/K7MQ2P";
+    assert.equal(SHARE_TEXT_PREFIX, "Join my IPL Auction room 🏏");
+    assert.equal(shareMessage(link), `Join my IPL Auction room 🏏 ${link}`);
+    assert.equal(
+      whatsAppShareUrl(link),
+      `https://wa.me/?text=${encodeURIComponent(`Join my IPL Auction room 🏏 ${link}`)}`
+    );
+  });
+});
+
+describe("ended room records", () => {
+  test("lookup reports open, ended, and missing rooms, and remembers evicted codes", () => {
+    const clock = new FakeClock();
+    const mgr = new RoomManager({
+      idleTtlMs: 10 * 60 * 1000,
+      finishedTtlMs: 30 * 60 * 1000,
+      endedTtlMs: 6 * 60 * 60 * 1000,
+      clock,
+    });
+
+    mgr.add(dummyRoom("OPEN01", { phase: "lobby" }));
+    assert.equal(mgr.lookup("open01").status, "open");
+    assert.equal(mgr.lookup("OPEN01").phase, "lobby");
+
+    const mid = dummyRoom("LIVE01", { phase: "auction" });
+    mgr.add(mid);
+    assert.equal(mgr.lookup("LIVE01").status, "open");
+
+    const done = dummyRoom("DONE03", { phase: "results" });
+    mgr.add(done);
+    const finished = mgr.lookup("DONE03");
+    assert.equal(finished.status, "ended");
+    assert.equal(finished.reason, "finished");
+
+    const hostEnded = dummyRoom("END001", { phase: "ended" });
+    hostEnded.ended = true;
+    mgr.add(hostEnded);
+    mgr.evict("END001", "ended");
+    assert.equal(mgr.get("END001"), null);
+    const remembered = mgr.lookup("END001");
+    assert.equal(remembered.status, "ended");
+    assert.equal(remembered.reason, "ended");
+    assert.equal(mgr.isCodeTaken("END001"), true);
+
+    mgr.evict("LIVE01", "idle");
+    assert.equal(mgr.lookup("LIVE01").status, "ended");
+    assert.equal(mgr.lookup("LIVE01").reason, "idle");
+
+    mgr.evict("OPEN01", "idle");
+    const expiredLobby = mgr.lookup("OPEN01");
+    assert.equal(expiredLobby.status, "missing");
+
+    assert.equal(mgr.lookup("NOPE01").status, "missing");
+    assert.match(mgr.lookup("NOPE01").error, /not found/i);
+  });
+
+  test("ended room codes are reserved until the record expires, then can be reused", () => {
+    const clock = new FakeClock();
+    const mgr = new RoomManager({ endedTtlMs: 60 * 60 * 1000, clock });
+    const room = dummyRoom("KEEP01", { phase: "auction" });
+    mgr.add(room);
+    mgr.evict("KEEP01", "ended");
+    assert.equal(mgr.isCodeTaken("KEEP01"), true);
+    const taken = { has: (c) => mgr.isCodeTaken(c) };
+    for (let i = 0; i < 40; i++) {
+      const code = makeRoomCode(taken);
+      assert.notEqual(code, "KEEP01");
+    }
+    clock.advance(60 * 60 * 1000);
+    assert.equal(mgr.lookup("KEEP01").status, "missing");
+    assert.equal(mgr.isCodeTaken("KEEP01"), false);
+  });
+});

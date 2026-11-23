@@ -83,9 +83,27 @@ input:focus, select:focus { border-color: var(--gold); }
 }
 .lobby-start { align-items: center; }
 .lobby-start .hint { margin: 0; }
+.lobby-share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.lobby-share-actions .btn { font-size: 14px; padding: 10px 14px; }
+
+.game-over-page, .join-link { max-width: 480px; margin: 8px auto 0; }
+.game-over-page .kicker, .join-link .kicker {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.game-over-page h2, .join-link h2 { margin-bottom: 10px; }
+.join-link input { margin-bottom: 4px; }
+
 @media (max-width: 700px) {
   .room-code { font-size: 40px; letter-spacing: 0.14em; }
   .lobby-settings { margin-bottom: 16px; }
+  .lobby-share-actions { flex-direction: column; align-items: stretch; }
+  .lobby-share-actions .btn { width: 100%; }
+  .game-over-page .actions, .join-link .actions { flex-direction: column; }
+  .game-over-page .btn, .join-link .btn { width: 100%; }
 }
 .franchise-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 0; }
 .franchise-card { background: var(--card-2); border-radius: 16px; padding: 14px; border: 1px solid transparent; border-left: 5px solid var(--c, var(--gold)); }

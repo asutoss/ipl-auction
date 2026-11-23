@@ -6,6 +6,7 @@ process.env.BID_TIMER_MS = process.env.BID_TIMER_MS || "250";
 process.env.CAPTAIN_TIMER_MS = process.env.CAPTAIN_TIMER_MS || "250";
 process.env.PLAYER_INTRO_MS = process.env.PLAYER_INTRO_MS || "0";
 process.env.RESULTS_REVEAL_STEP_MS = process.env.RESULTS_REVEAL_STEP_MS || "0";
+if (process.env.CREATE_LIMIT == null) process.env.CREATE_LIMIT = "0";
 
 const { io: ioc } = require("socket.io-client");
 const { start } = require("../server/index");
@@ -515,6 +516,188 @@ describe("e2e: Kim wipe updates every client's squad", () => {
     const fresh = await waitState(again, (s) => s.you?.name === "Victim" && Array.isArray(s.you.squad));
     assert.deepEqual(fresh.you.squad.map((s) => s.player.id), serverIds);
     assert.ok(!fresh.you.squad.some((s) => s.player.id === wiped[0]));
+  });
+
+  after(async () => {
+    for (const s of sockets) {
+      try { s.close(); } catch {}
+    }
+    if (ctx?.io) ctx.io.close();
+    if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
+  });
+});
+
+const http = require("http");
+const { parseRoomCode, roomUrl, shareMessage } = require("../public/room-link");
+
+function httpGet(urlPath, { port, headers } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({ hostname: "127.0.0.1", port, path: urlPath, headers: headers || {} }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => {
+        const body = Buffer.concat(chunks).toString("utf8");
+        resolve({ status: res.statusCode, headers: res.headers, body });
+      });
+    });
+    req.on("error", reject);
+  });
+}
+
+describe("e2e: room links, join via URL, and ended rooms", () => {
+  let ctx;
+  let sockets = [];
+  let url;
+  let port;
+
+  async function startFresh() {
+    for (const s of sockets) {
+      try { s.close(); } catch {}
+    }
+    sockets = [];
+    if (ctx?.io) ctx.io.close();
+    if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
+    ctx = await start(0);
+    ctx.manager.createLimit = 0;
+    port = ctx.port;
+    url = `http://127.0.0.1:${port}`;
+  }
+
+  test("shareable /r/CODE route, OG tags, join without typing a code, and ended/missing states", async () => {
+    await startFresh();
+    const origin = `http://127.0.0.1:${port}`;
+    const host = await connect(url, "Host");
+    sockets.push(host);
+    const created = await ack(host, "createRoom", { name: "Host", mode: "classical" });
+    assert.equal(created.ok, true, created.error);
+    const code = created.code;
+    const invite = roomUrl(origin, code);
+    assert.equal(invite, `${origin}/r/${code}`);
+    assert.equal(parseRoomCode(invite), code);
+    assert.equal(shareMessage(invite), `Join my IPL Auction room 🏏 ${invite}`);
+
+    const page = await httpGet(`/r/${code}`, { port, headers: { host: `127.0.0.1:${port}` } });
+    assert.equal(page.status, 200);
+    assert.match(page.body, /og:title/);
+    assert.match(page.body, /IPL Auction Night/);
+    assert.match(page.body, /og:image/);
+    assert.match(page.body, new RegExp(`/og-image\\.png`));
+    assert.match(page.body, new RegExp(`/r/${code}`));
+
+    const queryPage = await httpGet(`/?room=${code}`, { port });
+    assert.equal(queryPage.status, 200);
+    assert.match(queryPage.body, /og:title/);
+
+    const open = await httpGet(`/api/rooms/${code}`, { port });
+    assert.equal(open.status, 200);
+    const openBody = JSON.parse(open.body);
+    assert.equal(openBody.status, "open");
+    assert.equal(openBody.code, code);
+    assert.equal(openBody.phase, "lobby");
+
+    // Guest joins using only the code from the link (no manual code entry).
+    const guest = await connect(url, "Guest");
+    sockets.push(guest);
+    const joined = await ack(guest, "joinRoom", { name: "Guest", code: parseRoomCode(invite) });
+    assert.equal(joined.ok, true, joined.error);
+    assert.equal(joined.code, code);
+    const guestState = await waitState(guest, (s) => s.phase === "lobby" && s.franchises?.some((f) => f.name === "Guest"));
+    assert.equal(guestState.code, code);
+
+    const started = await ack(host, "startAuction");
+    assert.equal(started.ok, true, started.error);
+    await waitState(host, (s) => s.phase === "auction");
+
+    // Mid-game, a new name is rejected with the existing server message.
+    const late = await connect(url, "Late");
+    sockets.push(late);
+    const lateJoin = await ack(late, "joinRoom", { name: "Late", code });
+    assert.equal(lateJoin.ok, false);
+    assert.match(lateJoin.error, /already started/i);
+
+    // Same-name rejoin still works while the auction is live.
+    guest.disconnect();
+    const guest2 = await connect(url, "Guest");
+    sockets.push(guest2);
+    const rejoined = await ack(guest2, "joinRoom", { name: "Guest", code });
+    assert.equal(rejoined.ok, true, rejoined.error);
+    assert.equal(rejoined.rejoined, true);
+
+    const ended = await ack(host, "endGame");
+    assert.equal(ended.ok, true, ended.error);
+
+    const endedApi = await httpGet(`/api/rooms/${code}`, { port });
+    assert.equal(endedApi.status, 200);
+    const endedBody = JSON.parse(endedApi.body);
+    assert.equal(endedBody.status, "ended");
+
+    const endedPage = await httpGet(`/r/${code}`, { port, headers: { host: `127.0.0.1:${port}` } });
+    assert.equal(endedPage.status, 200);
+    assert.match(endedPage.body, new RegExp(`/r/${code}`));
+
+    const stray = await connect(url, "Stray");
+    sockets.push(stray);
+    const strayJoin = await ack(stray, "joinRoom", { name: "Stray", code });
+    assert.equal(strayJoin.ok, false);
+    assert.match(strayJoin.error, /game is done/i);
+    assert.equal(strayJoin.status, "ended");
+
+    // The ended code is not silently recreated as a new live room.
+    assert.equal(ctx.manager.lookup(code).status, "ended");
+    assert.equal(ctx.manager.get(code), null);
+    assert.equal(ctx.manager.isCodeTaken(code), true);
+
+    const missing = await httpGet("/api/rooms/ZZZZZZ", { port });
+    assert.equal(missing.status, 404);
+    const missingBody = JSON.parse(missing.body);
+    assert.equal(missingBody.status, "missing");
+    assert.match(missingBody.error, /not found/i);
+
+    const missingJoin = await ack(stray, "joinRoom", { name: "Stray", code: "ZZZZZZ" });
+    assert.equal(missingJoin.ok, false);
+    assert.match(missingJoin.error, /no room/i);
+  });
+
+  test("a finished results room is reported as ended on the room link, but players can still rejoin by name", async () => {
+    await startFresh();
+    const a = await connect(url, "Ash");
+    const b = await connect(url, "Bea");
+    sockets.push(a, b);
+    const created = await ack(a, "createRoom", { name: "Ash", mode: "classical" });
+    assert.equal(created.ok, true, created.error);
+    const code = created.code;
+    assert.equal((await ack(b, "joinRoom", { code, name: "Bea" })).ok, true);
+    await waitState(a, (s) => s.phase === "lobby" && s.franchises.length === 2);
+
+    const room = ctx.manager.get(code);
+    room.phase = "results";
+    room.finishedAt = Date.now();
+    room.auction = null;
+    if (!room.tournament) {
+      room.tournament = { table: [], playoffs: {}, champion: null, awards: {}, positions: [] };
+    }
+    room.bump("results");
+
+    const info = await httpGet(`/api/rooms/${code}`, { port });
+    assert.equal(info.status, 200);
+    const body = JSON.parse(info.body);
+    assert.equal(body.status, "ended");
+    assert.equal(body.reason, "finished");
+    assert.equal(ctx.manager.get(code) != null, true, "room stays in memory during results");
+
+    b.disconnect();
+    const b2 = await connect(url, "Bea");
+    sockets.push(b2);
+    const again = await ack(b2, "joinRoom", { code, name: "Bea" });
+    assert.equal(again.ok, true, again.error);
+    const st = await waitState(b2, (s) => s.phase === "results" && s.you?.name === "Bea");
+    assert.equal(st.phase, "results");
+
+    const newbie = await connect(url, "New");
+    sockets.push(newbie);
+    const blocked = await ack(newbie, "joinRoom", { code, name: "New" });
+    assert.equal(blocked.ok, false);
+    assert.match(blocked.error, /already started/i);
   });
 
   after(async () => {

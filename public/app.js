@@ -6,9 +6,11 @@ const topMeta = document.getElementById("top-meta");
 const toastEl = document.getElementById("toast");
 
 const STORE_KEY = "ipl-auction-session";
+const NAME_KEY = "ipl-auction-name";
 
 let state = null;
 let lastError = "";
+let landing = null; // { kind: "join"|"done"|"missing", code }
 let selectedMode = "classical";
 let bidDraft = null;
 let reveal = null; // { startedAt, skipped }
@@ -25,8 +27,58 @@ function money(points) {
   return `${n} pt${n === 1 ? "" : "s"}`;
 }
 
+function roomLinkApi() {
+  return window.IplRoomLink || {};
+}
+
+function currentOrigin() {
+  return window.location.origin;
+}
+
+function shareableRoomUrl(code) {
+  const api = roomLinkApi();
+  if (api.roomUrl) return api.roomUrl(currentOrigin(), code);
+  const c = String(code || "").trim().toUpperCase();
+  return c ? `${currentOrigin()}/r/${c}` : "";
+}
+
+function parseRoomFromLocation() {
+  const api = roomLinkApi();
+  return api.parseRoomCode ? api.parseRoomCode(window.location) : null;
+}
+
+function setRoomUrl(code) {
+  const api = roomLinkApi();
+  const path = api.roomPath ? api.roomPath(code) : (code ? `/r/${String(code).toUpperCase()}` : "/");
+  const here = `${window.location.pathname}${window.location.search}`;
+  if (here !== path) history.replaceState(null, "", path);
+}
+
+function clearRoomUrl() {
+  if (window.location.pathname !== "/" || window.location.search) {
+    history.replaceState(null, "", "/");
+  }
+}
+
+function saveName(name) {
+  try {
+    if (name) localStorage.setItem(NAME_KEY, name);
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadSavedName() {
+  try {
+    return localStorage.getItem(NAME_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 function saveSession(code, name) {
   sessionStorage.setItem(STORE_KEY, JSON.stringify({ code, name }));
+  saveName(name);
 }
 function loadSession() {
   try {
@@ -116,8 +168,10 @@ function goHome() {
   state = null;
   lastError = "";
   lastNomineeId = null;
+  landing = null;
   hideSoldModal(true);
   closePowerConfirm();
+  clearRoomUrl();
   render();
 }
 
@@ -764,6 +818,52 @@ function renderTop() {
   `;
 }
 
+function gameDoneView() {
+  const code = landing && landing.code;
+  return `
+    <section class="panel game-over-page" id="game-done">
+      ${code ? `<p class="kicker">Room ${esc(code)}</p>` : ""}
+      <h2>This game is done</h2>
+      <p class="lede">This room has ended. You can start or join a new game from the main page.</p>
+      <div class="actions">
+        <button class="btn" id="go-home" type="button">Go to main page</button>
+      </div>
+    </section>
+  `;
+}
+
+function roomNotFoundView() {
+  const code = landing && landing.code;
+  return `
+    <section class="panel game-over-page" id="room-not-found">
+      ${code ? `<p class="kicker">Room ${esc(code)}</p>` : ""}
+      <h2>Room not found</h2>
+      <p class="lede">This room doesn't exist or the link has expired.</p>
+      <div class="actions">
+        <button class="btn" id="go-home" type="button">Go to main page</button>
+      </div>
+    </section>
+  `;
+}
+
+function joinLinkView() {
+  const code = landing && landing.code;
+  return `
+    <section class="panel join-link" id="join-link">
+      <p class="kicker">Room ${esc(code || "")}</p>
+      <h2>Join this room</h2>
+      <p class="lede">Enter your team name to join. Rejoin with the same name if you were already in the game.</p>
+      <label for="name">Team name</label>
+      <input id="name" maxlength="24" placeholder="e.g. Night Owls" autocomplete="nickname" />
+      <div class="actions">
+        <button class="btn" id="join" type="button">Join room</button>
+        <button class="btn secondary" id="go-home" type="button">Main page</button>
+      </div>
+      <p class="error" id="home-error">${esc(lastError)}</p>
+    </section>
+  `;
+}
+
 function homeView() {
   return `
     <section class="home">
@@ -878,6 +978,11 @@ function lobbyView() {
       <div class="lobby-share">
         <p class="lobby-share-label">Share this code</p>
         <p class="room-code">${esc(state.code)}</p>
+        <div class="lobby-share-actions">
+          <button class="btn" id="share-whatsapp" type="button">Share on WhatsApp</button>
+          <button class="btn secondary" id="copy-link" type="button">Copy link</button>
+          ${typeof navigator !== "undefined" && navigator.share ? `<button class="btn secondary" id="share-native" type="button">Share</button>` : ""}
+        </div>
       </div>
       <div class="lobby-settings">
         <p class="lobby-mode">${esc(mode.name)} · ${esc(mode.compositionLabel)}</p>
@@ -2066,7 +2171,10 @@ function render() {
   if (!state || !state.phase || !state.code || state.phase === "ended") {
     lastNomineeId = null;
     lastBidShown = null;
-    main.innerHTML = homeView();
+    if (landing && landing.kind === "done") main.innerHTML = gameDoneView();
+    else if (landing && landing.kind === "missing") main.innerHTML = roomNotFoundView();
+    else if (landing && landing.kind === "join") main.innerHTML = joinLinkView();
+    else main.innerHTML = homeView();
     wireHome();
     syncEmoteDock();
     return;
@@ -2092,12 +2200,57 @@ function render() {
   syncEmoteDock();
 }
 
+function wireShare() {
+  const code = state && state.code;
+  if (!code) return;
+  const url = shareableRoomUrl(code);
+  const api = roomLinkApi();
+  document.getElementById("copy-link")?.addEventListener("click", async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      toast("Link copied");
+    } catch {
+      toast("Could not copy the link.");
+    }
+  });
+  document.getElementById("share-whatsapp")?.addEventListener("click", () => {
+    const wa = api.whatsAppShareUrl ? api.whatsAppShareUrl(url) : `https://wa.me/?text=${encodeURIComponent(`Join my IPL Auction room 🏏 ${url}`)}`;
+    window.open(wa, "_blank", "noopener");
+  });
+  document.getElementById("share-native")?.addEventListener("click", async () => {
+    if (!navigator.share) return;
+    try {
+      await navigator.share({
+        title: "IPL Auction Night",
+        text: api.SHARE_TEXT_PREFIX || "Join my IPL Auction room 🏏",
+        url,
+      });
+    } catch (err) {
+      if (err && err.name !== "AbortError") toast("Could not share.");
+    }
+  });
+}
+
 function wireHome() {
   const nameEl = document.getElementById("name");
   const codeEl = document.getElementById("code");
   const session = loadSession();
-  if (nameEl && session?.name && !nameEl.value) nameEl.value = session.name;
-  if (codeEl && session?.code && !codeEl.value) codeEl.value = session.code;
+  const savedName = (session && session.name) || loadSavedName();
+  if (nameEl && savedName && !nameEl.value) nameEl.value = savedName;
+  if (codeEl && session?.code && !codeEl.value && !(landing && landing.code)) codeEl.value = session.code;
+  document.getElementById("go-home")?.addEventListener("click", () => goHome());
   document.querySelectorAll("[data-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
       selectedMode = btn.getAttribute("data-mode") || "classical";
@@ -2118,24 +2271,28 @@ function wireHome() {
       return;
     }
     saveSession(res.code, res.name);
+    if (res.code) setRoomUrl(res.code);
   });
   document.getElementById("join")?.addEventListener("click", async () => {
     lastError = "";
     const name = (nameEl?.value || "").trim();
-    const code = (codeEl?.value || "").trim();
+    const code = ((landing && landing.code) || (codeEl?.value || "")).trim();
     const res = await emit("joinRoom", { name, code });
     if (!res.ok) {
       lastError = res.error || "Could not join room.";
       render();
       return;
     }
+    landing = null;
     saveSession(res.code, res.name);
+    if (res.code) setRoomUrl(res.code);
   });
 }
 
 function wireCurrent() {
   if (!state) return;
   if (state.phase === "lobby") {
+    wireShare();
     document.getElementById("purse")?.addEventListener("change", async (e) => {
       await emit("setPurse", { pursePoints: Number(e.target.value) });
     });
@@ -2205,14 +2362,65 @@ function startTicks() {
   }, 250);
 }
 
-socket.on("connect", async () => {
+async function fetchRoomStatus(code) {
+  try {
+    const res = await fetch(`/api/rooms/${encodeURIComponent(code)}`);
+    const body = await res.json();
+    if (body && body.status) return body;
+    return { ok: false, status: "missing", error: "Room not found." };
+  } catch {
+    return { ok: false, status: "missing", error: "Could not reach the server." };
+  }
+}
+
+async function bootFromUrlOrSession() {
+  if (state && state.code && state.phase && state.phase !== "ended") return;
+  const urlCode = parseRoomFromLocation();
   const session = loadSession();
+  if (urlCode) {
+    const info = await fetchRoomStatus(urlCode);
+    if (info.status === "open") {
+      landing = { kind: "join", code: urlCode };
+      setRoomUrl(urlCode);
+      if (session && session.name && session.code === urlCode) {
+        const res = await emit("joinRoom", { name: session.name, code: urlCode });
+        if (res.ok) {
+          landing = null;
+          saveSession(res.code, res.name);
+          setRoomUrl(res.code);
+          return;
+        }
+        lastError = res.error || "Could not join room.";
+      }
+      render();
+      return;
+    }
+    if (info.status === "ended") {
+      if (session && session.name && session.code === urlCode) {
+        const res = await emit("joinRoom", { name: session.name, code: urlCode });
+        if (res.ok) {
+          landing = null;
+          saveSession(res.code, res.name);
+          setRoomUrl(res.code);
+          return;
+        }
+      }
+      landing = { kind: "done", code: urlCode };
+      render();
+      return;
+    }
+    landing = { kind: "missing", code: urlCode };
+    render();
+    return;
+  }
   if (session?.code && session?.name && (!state || !state.code)) {
     const res = await emit("joinRoom", session);
-    if (!res.ok) {
-      /* stay on home */
-    }
+    if (res.ok && res.code) setRoomUrl(res.code);
   }
+}
+
+socket.on("connect", async () => {
+  await bootFromUrlOrSession();
 });
 
 let matchesLoading = false;
@@ -2246,7 +2454,10 @@ socket.on("state", (next) => {
   if (state?.phase === "results" && prevPhase !== "results" && !isResultsRevealPending()) {
     loadMatches();
   }
-  if (state?.you && state?.code) saveSession(state.code, state.you.name);
+  if (state?.you && state?.code) {
+    saveSession(state.code, state.you.name);
+    setRoomUrl(state.code);
+  }
   render();
 });
 
@@ -2284,6 +2495,9 @@ socket.on("quickChat", (evt) => {
 });
 
 socket.on("connect_error", () => toast("Connection issue — retrying…"));
+
+const initialCode = parseRoomFromLocation();
+if (initialCode) landing = { kind: "join", code: initialCode };
 
 wireGlobal();
 startTicks();

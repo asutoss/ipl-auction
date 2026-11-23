@@ -5,6 +5,7 @@ const DEFAULTS = {
   maxRooms: Number(process.env.MAX_ROOMS) || 20,
   finishedTtlMs: Number(process.env.FINISHED_TTL_MS) || 30 * 60 * 1000,
   idleTtlMs: Number(process.env.IDLE_TTL_MS) || 10 * 60 * 1000,
+  endedTtlMs: Number(process.env.ENDED_TTL_MS) || 6 * 60 * 60 * 1000,
   createLimit: process.env.CREATE_LIMIT == null ? 3 : Number(process.env.CREATE_LIMIT),
   createWindowMs: Number(process.env.CREATE_WINDOW_MS) || 10 * 60 * 1000,
 };
@@ -39,6 +40,7 @@ class RoomManager {
     this.idleTtlMs = opts.idleTtlMs ?? DEFAULTS.idleTtlMs;
     this.createLimit = opts.createLimit ?? DEFAULTS.createLimit;
     this.createWindowMs = opts.createWindowMs ?? DEFAULTS.createWindowMs;
+    this.endedTtlMs = opts.endedTtlMs ?? DEFAULTS.endedTtlMs;
     const clock = opts.clock || {};
     this.now = clock.now || Date.now;
     this.setTimeout = clock.setTimeout || setTimeout;
@@ -46,6 +48,12 @@ class RoomManager {
     this.evictTimers = new Map();
     this.createLog = new Map();
     this.evicted = [];
+    this.endedRooms = opts.endedRooms || new Map();
+    this.endedTimers = new Map();
+  }
+
+  normalizeCode(code) {
+    return code ? String(code).trim().toUpperCase() : "";
   }
 
   count() {
@@ -53,8 +61,97 @@ class RoomManager {
   }
 
   get(code) {
-    if (!code) return null;
-    return this.rooms.get(String(code).trim().toUpperCase()) || null;
+    const key = this.normalizeCode(code);
+    if (!key) return null;
+    return this.rooms.get(key) || null;
+  }
+
+  isCodeTaken(code) {
+    const key = this.normalizeCode(code);
+    if (!key) return true;
+    if (this.rooms.has(key)) return true;
+    this.pruneEnded(key);
+    return this.endedRooms.has(key);
+  }
+
+  pruneEnded(code) {
+    const now = this.now();
+    const drop = (key, rec) => {
+      if (!rec) return;
+      if (now - rec.at >= this.endedTtlMs) {
+        this.clearEndedTimer(key);
+        this.endedRooms.delete(key);
+      }
+    };
+    if (code) {
+      const key = this.normalizeCode(code);
+      drop(key, this.endedRooms.get(key));
+      return;
+    }
+    for (const [key, rec] of [...this.endedRooms]) drop(key, rec);
+  }
+
+  clearEndedTimer(code) {
+    const id = this.endedTimers.get(code);
+    if (id != null) {
+      this.clearTimeout(id);
+      this.endedTimers.delete(code);
+    }
+  }
+
+  rememberEnded(code, info = {}) {
+    const key = this.normalizeCode(code);
+    if (!key) return null;
+    const rec = {
+      status: info.status || "ended",
+      reason: info.reason || "ended",
+      phase: info.phase || null,
+      at: this.now(),
+    };
+    this.endedRooms.set(key, rec);
+    this.clearEndedTimer(key);
+    const remaining = this.endedTtlMs;
+    if (remaining <= 0) return rec;
+    const id = this.setTimeout(() => {
+      this.endedTimers.delete(key);
+      this.endedRooms.delete(key);
+    }, remaining);
+    if (id && typeof id.unref === "function") id.unref();
+    this.endedTimers.set(key, id);
+    return rec;
+  }
+
+  /**
+   * Public room-link status. Live lobby/auction rooms are "open".
+   * Finished or host-ended rooms (and a memory of evicted ones) are "ended".
+   * Unknown or expired-before-start codes are "missing".
+   */
+  lookup(code) {
+    const key = this.normalizeCode(code);
+    if (!key) return { ok: false, status: "missing", error: "Room not found." };
+    const room = this.get(key);
+    if (room) {
+      const finished = Boolean(room.ended || room.phase === "ended" || room.phase === "results");
+      if (finished) {
+        return {
+          ok: true,
+          status: "ended",
+          code: room.code,
+          phase: room.phase,
+          reason: room.phase === "results" ? "finished" : "ended",
+        };
+      }
+      return { ok: true, status: "open", code: room.code, phase: room.phase || "lobby" };
+    }
+    this.pruneEnded(key);
+    const rec = this.endedRooms.get(key);
+    if (rec) {
+      if (rec.status === "ended") {
+        return { ok: true, status: "ended", code: key, reason: rec.reason, phase: rec.phase };
+      }
+      return { ok: false, status: "missing", code: key, reason: rec.reason, error: "Room not found." };
+    }
+    return { ok: false, status: "missing", error: "Room not found." };
   }
 
   canAcceptRoom() {
@@ -153,6 +250,22 @@ class RoomManager {
       room.destroy();
     } catch (_) {
       /* ignore */
+    }
+    if (reason !== "create-failed") {
+      const started = Boolean(room.phase && room.phase !== "lobby");
+      const asEnded = Boolean(
+        reason === "ended" ||
+        reason === "finished" ||
+        room.ended ||
+        room.phase === "ended" ||
+        room.phase === "results" ||
+        started
+      );
+      this.rememberEnded(room.code, {
+        status: asEnded ? "ended" : "missing",
+        reason,
+        phase: room.phase,
+      });
     }
     this.rooms.delete(room.code);
     this.evicted.push({ code: room.code, reason, at: this.now() });

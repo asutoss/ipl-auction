@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const http = require("http");
 const express = require("express");
 const { Server } = require("socket.io");
@@ -13,8 +14,9 @@ const { meta, players } = loadPlayers();
 
 const app = express();
 const publicDir = path.join(__dirname, "..", "public");
+const { normalizeRoomCode } = require("../public/room-link");
 app.use("/logos", express.static(path.join(publicDir, "logos"), { maxAge: "7d", etag: true }));
-app.use(express.static(publicDir));
+app.use(express.static(publicDir, { index: false }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -144,9 +146,40 @@ app.get("/api/rooms/:code/matches", (req, res) => {
   res.json({ ok: true, ...matches });
 });
 
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(publicDir, "index.html"));
+app.get("/api/rooms/:code", (req, res) => {
+  const code = normalizeRoomCode(req.params.code);
+  if (!code) return res.status(404).json({ ok: false, status: "missing", error: "Room not found." });
+  const info = manager.lookup(code);
+  if (info.status === "missing") return res.status(404).json(info);
+  res.json(info);
 });
+
+function requestOrigin(req) {
+  const proto = String(req.headers["x-forwarded-proto"] || req.protocol || "https").split(",")[0].trim() || "https";
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "localhost").split(",")[0].trim();
+  return `${proto}://${host}`;
+}
+
+let indexHtmlCache = null;
+function loadIndexHtml() {
+  if (!indexHtmlCache) {
+    indexHtmlCache = fs.readFileSync(path.join(publicDir, "index.html"), "utf8");
+  }
+  return indexHtmlCache;
+}
+
+function sendIndex(req, res) {
+  const origin = requestOrigin(req);
+  const code = normalizeRoomCode(req.params && req.params.code) || normalizeRoomCode(req.query.room) || normalizeRoomCode(req.query.code);
+  const pageUrl = code ? `${origin}/r/${code}` : `${origin}/`;
+  const html = loadIndexHtml()
+    .replaceAll("__OG_URL__", pageUrl)
+    .replaceAll("__OG_IMAGE__", `${origin}/og-image.png`);
+  res.type("html").send(html);
+}
+
+app.get("/r/:code", sendIndex);
+app.get(["/", "*"], sendIndex);
 
 io.on("connection", (socket) => {
   socket.data = { code: null, name: null };
@@ -158,7 +191,7 @@ io.on("connection", (socket) => {
     if (!limited.ok) return cb && cb(limited);
     if (!manager.canAcceptRoom()) return cb && cb(manager.roomCapError());
 
-    const code = makeRoomCode(rooms);
+    const code = makeRoomCode({ has: (c) => manager.isCodeTaken(c) });
     const modeId = payload.mode != null && payload.mode !== "" ? payload.mode : DEFAULT_MODE;
     const mode = getMode(modeId);
     if (!mode) return cb && cb({ ok: false, error: "Unknown game type. Choose Classical, Rapid, or Bullet." });
@@ -213,7 +246,13 @@ io.on("connection", (socket) => {
     const code = String(payload.code || "").trim().toUpperCase();
     if (!name) return cb && cb({ ok: false, error: "Enter a display name." });
     const room = getRoom(code);
-    if (!room) return cb && cb({ ok: false, error: "No room with that code." });
+    if (!room) {
+      const info = manager.lookup(code);
+      if (info.status === "ended") {
+        return cb && cb({ ok: false, error: "This game is done.", status: "ended" });
+      }
+      return cb && cb({ ok: false, error: "No room with that code.", status: "missing" });
+    }
     const result = room.addPlayer(name, socket.id);
     if (!result.ok) return cb && cb(result);
     attach(socket, room, result.name);
