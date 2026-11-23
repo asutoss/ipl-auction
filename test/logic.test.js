@@ -39,7 +39,7 @@ function takeForQuota(room, need) {
   const picked = [];
   const left = { ...need };
   for (const p of players) {
-    if ((left[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+    if ((left[p.role] || 0) > 0 && !room.soldIds.has(p.id) && !(room.isRetired && room.isRetired(p.id))) {
       picked.push(p);
       room.soldIds.add(p.id);
       left[p.role] -= 1;
@@ -471,14 +471,15 @@ describe("squad completion and sold reveal", () => {
     assert.equal(room.phase, "auction");
   });
 
-  test("re-nominates leftover needed-role players when the queue runs out before every team is full", () => {
+  test("fills leftover needed-role players from the remaining pool when the queue runs out before every team is full", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
     giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
     giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
     const wk = players.find((p) => p.role === "WK" && !room.soldIds.has(p.id));
-    // Queue is empty; the leftover keeper is only in unsold / the pool.
+    // Queue is empty; the leftover keeper is only still sitting in the player database.
     room.queue = [];
-    room.unsold = [wk];
+    room.unsold = [];
+    room.allPlayers = [...room.franchises.flatMap((f) => f.squad.map((s) => s.player)), wk];
     room.pass = 2;
     room.phase = "auction";
     room.rrIndex = 0;
@@ -707,7 +708,7 @@ describe("nomination order and timers", () => {
     assert.ok(bidLeft > 24000 && bidLeft <= 25100, `bid reset ${bidLeft}`);
   });
 
-  test("default timers are 25s for lots and bids, 2s for the player intro, 2.8s for results steps, and 5s for the sold and power reveals", () => {
+  test("default timers are 25s for lots and bids, 3s for the player intro, 2.8s for results steps, and 5s for the sold and power reveals", () => {
     const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS", "PLAYER_INTRO_MS", "RESULTS_REVEAL_STEP_MS"];
     const prev = {};
     for (const k of keys) {
@@ -721,7 +722,7 @@ describe("nomination order and timers", () => {
       assert.equal(room.timers.soldRevealMs, 5000);
       assert.equal(room.timers.captainMs, 45000);
       assert.equal(room.timers.powerRevealMs, 5000);
-      assert.equal(room.timers.playerIntroMs, 2000);
+      assert.equal(room.timers.playerIntroMs, 3000);
       assert.equal(room.timers.resultsRevealStepMs, 2800);
     } finally {
       for (const k of keys) {
@@ -2149,5 +2150,98 @@ describe("bidding-screen headshots", () => {
     assert.equal(packed.includes("headshot"), false);
     const hidden = hiddenNomineePlaceholder();
     assert.equal("headshot" in hidden, false);
+  });
+});
+
+describe("retired players stay out of the auction", () => {
+  function neverNominated(room, id) {
+    assert.ok(!room.queue.some((p) => p && p.id === id), "still in the queue");
+    assert.ok(!(room.auction && room.auction.nominee && room.auction.nominee.id === id), "currently nominated");
+  }
+
+  test("an unsold player is never re-nominated or pulled into a refill", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const bats = players.filter((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    const unsold = bats[0];
+    const next = bats[1];
+    room.queue = [unsold, next];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.equal(room.auction.nominee.id, unsold.id);
+    room.auction.currentBidderKey = null;
+    room.auction.defaultBidderKey = null;
+    room.unsoldCurrent();
+    assert.equal(room.lastEvent.type, "unsold");
+    assert.ok(room.isRetired(unsold.id));
+    neverNominated(room, unsold.id);
+    assert.ok(room.auction);
+    assert.equal(room.auction.nominee.id, next.id);
+
+    // Refill must also skip them, even if they are the only leftover of a needed role.
+    room.queue = [];
+    room.unsold = [unsold];
+    room.allPlayers = [unsold];
+    giveSquad(room, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    const added = room.appendTopUpBatch();
+    assert.equal(added, false);
+    const fromUnsold = room.takeNeededFrom(room.unsold);
+    assert.equal(fromUnsold.out.length, 0);
+    room.autoFill();
+    assert.ok(!room.findByName("Ashutosh").squad.some((s) => s.player.id === unsold.id));
+    assert.ok(room.isRetired(unsold.id));
+  });
+
+  test("a Kim-wiped player is never re-nominated or pulled into a refill", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    // Mark sold, then wipe via returnPlayerToPool.
+    const bat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    const other = players.find((p) => p.role === "BAT" && p.id !== bat.id && !room.soldIds.has(p.id));
+    const ash = room.findByName("Ashutosh");
+    ash.squad.push({ player: bat, priceLakhs: 8 });
+    room.soldIds.add(bat.id);
+    room.soldLog.push({ player: bat, priceLakhs: 8, buyerName: ash.name, short: ash.name });
+    room.queue = [other];
+    room.phase = "auction";
+    room.returnPlayerToPool(bat);
+    ash.squad = ash.squad.filter((s) => s.player.id !== bat.id);
+    assert.ok(room.isRetired(bat.id));
+    neverNominated(room, bat.id);
+    const log = (room.soldLog || []).find((e) => e.player && e.player.id === bat.id);
+    assert.equal(log && log.wiped, true);
+
+    room.allPlayers = [bat, other];
+    const used = room.usedPlayerIdSet();
+    assert.ok(used.has(bat.id));
+    const added = room.appendTopUpBatch();
+    neverNominated(room, bat.id);
+    room.autoFill();
+    assert.ok(!room.franchises.some((f) => (f.squad || []).some((s) => s.player.id === bat.id)));
+    void added;
+  });
+
+  test("autoFill skips retired players and closes with the squads as they are if nobody eligible remains", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
+    const wk = players.find((p) => p.role === "WK" && !room.soldIds.has(p.id));
+    room.retirePlayer(wk);
+    room.queue = [];
+    room.unsold = [wk];
+    room.allPlayers = [...room.franchises.flatMap((f) => f.squad.map((s) => s.player)), wk];
+    room.phase = "auction";
+    const before = room.findByName("Ashutosh").squad.length;
+    room.closeAuctionForEmptyPool();
+    const ash = room.findByName("Ashutosh");
+    assert.equal(ash.squad.length, before);
+    assert.ok(!ash.squad.some((s) => s.player.id === wk.id));
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+    assert.ok(room.lastEvent);
+    // Existing fallback: either the poolExhausted notice or captains already started after it.
+    const msg = (room.lastEvent && room.lastEvent.message) || "";
+    if (room.lastEvent.type === "poolExhausted") {
+      assert.equal(room.lastEvent.added, 0);
+      assert.match(msg, /squads as they are/i);
+    }
   });
 });

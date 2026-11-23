@@ -273,7 +273,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
     text-overflow: ellipsis;
   }
   html.is-auction .ring-wrap {
-    width: min(260px, 72vw, calc(100dvh - var(--bid-sheet, 240px) - 250px));
+    width: var(--ring-size, min(260px, 72vw));
   }
   html.is-auction .auction-stage {
     display: flex;
@@ -401,7 +401,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
   html.is-auction .hub .hub-rates,
   html.is-auction .hub .tag.os { display: none; }
   html.is-auction .ring-wrap {
-    width: min(200px, 58vw, calc(100dvh - var(--bid-sheet, 230px) - 200px));
+    width: var(--ring-size, min(220px, 62vw));
   }
   .ring-seat-meta { --meta-out: -36px; }
   .ring-bubble { font-size: 9px; max-width: 80px; }
@@ -411,7 +411,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
 /* Landscape phones: keep bid + current bid usable, shrink the ring */
 @media (max-width: 900px) and (orientation: landscape) {
   html.is-auction #app { padding-bottom: calc(var(--bid-sheet, 180px) + 8px); }
-  html.is-auction .ring-wrap { width: min(200px, 42vh, 100%); }
+  html.is-auction .ring-wrap { width: var(--ring-size, min(200px, 42vw, 100%)); }
   html.is-auction .player-card > .lede { display: none; }
   .live-bid {
     grid-template-columns: auto 1fr auto;

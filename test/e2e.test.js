@@ -506,7 +506,8 @@ describe("e2e: Kim wipe updates every client's squad", () => {
       assert.deepEqual(ids, serverIds, `${s.playerName} still shows a wiped player`);
       assert.ok(!ids.includes(wiped[0]));
     }
-    assert.ok(room.queue.some((p) => p.id === wiped[0]));
+    assert.ok(!room.queue.some((p) => p.id === wiped[0]));
+    assert.ok(room.isRetired(wiped[0]));
 
     victim.disconnect();
     const again = await connect(url, "Victim");

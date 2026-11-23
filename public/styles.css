@@ -981,9 +981,29 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--gold); font-size: 13px; font-weight: 700; margin: 0 0 10px;
 }
-.sold-logo { display: grid; place-items: center; margin: 4px auto 10px; }
+.sold-logo, .sold-shot { display: grid; place-items: center; margin: 4px auto 10px; }
 .sold-logo .team-mark-wrap { width: 88px; height: 88px; }
 .sold-logo .team-mark-img { width: 88px; height: 88px; object-fit: cover; }
+.sold-shot.player-headshot,
+#sold-shot {
+  --ph-size: 96px;
+  margin: 4px auto 10px;
+}
+.sold-buyer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  color: var(--ct, var(--c, var(--gold)));
+}
+.sold-buyer-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ct, var(--c, var(--gold)));
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
+  flex: none;
+}
 .sold-card h2 { margin: 0 0 8px; font-size: clamp(28px, 8vw, 42px); line-height: 1; }
 .sold-card #sold-line { margin: 0; font-size: 16px; color: var(--text); }
 .sold-card #sold-line strong { color: var(--ct, var(--c, var(--gold))); }
@@ -1024,7 +1044,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   box-shadow: 0 18px 50px rgba(0,0,0,0.45);
 }
 .sold-modal.is-unsold .sold-card .kicker { color: #f0a0a0; }
-.sold-modal.is-unsold .sold-logo { display: none; }
+.sold-modal.is-unsold .sold-logo:not(.sold-shot) { display: none; }
 
 .last-team-fill .last-team-fill-card {
   max-width: 480px;
@@ -1100,6 +1120,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 @media (max-width: 700px) {
   .sold-card { padding: 22px 16px 28px; border-radius: 22px; }
   .sold-logo .team-mark-wrap, .sold-logo .team-mark-img { width: 76px; height: 76px; }
+  #sold-shot { --ph-size: 88px; }
   .sold-card #sold-continue { min-width: 140px; width: 100%; }
 }
 
@@ -1111,7 +1132,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   html.is-auction .brand h1 { font-size: 28px; }
   html.is-auction .panel { padding: 12px 12px 10px; }
   html.is-auction .player-card > .lede { font-size: 12px; margin-bottom: 8px; }
-  html.is-auction .ring-wrap { width: min(320px, 100%, calc(100dvh - 350px)); }
+  html.is-auction .ring-wrap { width: var(--ring-size, min(320px, 100%)); }
   html.is-auction .team-strip { margin-bottom: 2px; }
   .bid-box {
     position: fixed;

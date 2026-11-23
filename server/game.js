@@ -90,7 +90,7 @@ function defaultTimers() {
     soldRevealMs: envMs("SOLD_REVEAL_MS", 5000),
     powerRevealMs: envMs("POWER_REVEAL_MS", POWER_REVEAL_MS),
     lastTeamFillMs: envMs("LAST_TEAM_FILL_MS", 3000),
-    playerIntroMs: envMs("PLAYER_INTRO_MS", 2000),
+    playerIntroMs: envMs("PLAYER_INTRO_MS", 3000),
     resultsRevealStepMs: envMs("RESULTS_REVEAL_STEP_MS", 2800),
   };
 }
@@ -116,6 +116,7 @@ class GameRoom extends EventEmitter {
     this.soldLog = [];
     this.queue = [];
     this.unsold = [];
+    this.retiredIds = new Set();
     this.pass = 1;
     this.lotId = 0;
     this.lotTotal = 0;
@@ -687,6 +688,7 @@ class GameRoom extends EventEmitter {
     this.lotTotal = this.queue.length;
     this.lotId = 0;
     this.unsold = [];
+    this.retiredIds = new Set();
     this.pass = 1;
     this.soldIds = new Set();
     this.soldLog = [];
@@ -710,7 +712,7 @@ class GameRoom extends EventEmitter {
       allPlayers: this.allPlayers,
       soldIds: this.soldIds,
       excludeId,
-    });
+    }).filter((p) => p && !this.isRetired(p.id));
   }
 
   activeFranchises() {
@@ -738,12 +740,26 @@ class GameRoom extends EventEmitter {
     return roles;
   }
 
+  isRetired(id) {
+    return Boolean(id && this.retiredIds && this.retiredIds.has(id));
+  }
+
+  retirePlayer(player) {
+    const id = player && player.id;
+    if (!id) return;
+    if (!this.retiredIds) this.retiredIds = new Set();
+    this.retiredIds.add(id);
+    if (this.soldIds && this.soldIds.delete) this.soldIds.delete(id);
+    if (this.unaffordableIds && this.unaffordableIds.delete) this.unaffordableIds.delete(id);
+    this.queue = (this.queue || []).filter((p) => p && p.id !== id);
+  }
+
   takeNeededFrom(list) {
     const needed = this.neededRoles();
     const out = [];
     const rest = [];
     for (const p of list) {
-      if (!p || this.soldIds.has(p.id) || this.unaffordableIds.has(p.id)) continue;
+      if (!p || this.soldIds.has(p.id) || this.unaffordableIds.has(p.id) || this.isRetired(p.id)) continue;
       if (needed.has(p.role)) out.push(p);
       else rest.push(p);
     }
@@ -758,6 +774,7 @@ class GameRoom extends EventEmitter {
     return new Set([
       ...this.soldIds,
       ...this.unaffordableIds,
+      ...(this.retiredIds || []),
       ...this.queueIds(),
       ...(this.unsold || []).map((p) => p && p.id).filter(Boolean),
     ]);
@@ -819,13 +836,13 @@ class GameRoom extends EventEmitter {
   countRemainingLots() {
     const needed = this.neededRoles();
     if (needed.size === 0) return 0;
-    const seen = new Set([...this.soldIds, ...this.unaffordableIds]);
+    const seen = new Set([...this.soldIds, ...this.unaffordableIds, ...(this.retiredIds || [])]);
     let n = 0;
-    // Only the live auction list (queue + any unsold not yet re-queued).
+    // Only the live auction list (queue + any unsold not yet retired).
     // Players still sitting unused in the full DB are not "still to come"
     // until appendNeededPlayers pulls them in.
     for (const p of [...this.queue, ...this.unsold]) {
-      if (!p || seen.has(p.id)) continue;
+      if (!p || seen.has(p.id) || this.isRetired(p.id)) continue;
       seen.add(p.id);
       if (needed.has(p.role)) n += 1;
     }
@@ -959,7 +976,7 @@ class GameRoom extends EventEmitter {
         if (!this.refillQueue()) break;
       }
       const player = this.queue.shift();
-      if (!player || this.soldIds.has(player.id) || this.unaffordableIds.has(player.id)) continue;
+      if (!player || this.soldIds.has(player.id) || this.unaffordableIds.has(player.id) || this.isRetired(player.id)) continue;
       if (!this.neededRoles().has(player.role)) continue;
       const startBid = this.rollStartBid();
       const defaultTeam = this.pickDefaultTeam(player, startBid);
@@ -1404,8 +1421,8 @@ class GameRoom extends EventEmitter {
       return;
     }
     const player = this.auction.nominee;
+    this.retirePlayer(player);
     if (!this.unsold.some((p) => p.id === player.id)) this.unsold.push(player);
-    if (!this.queue.some((p) => p.id === player.id)) this.queue.push(player);
     const revealMs = this.revealDelayMs();
     const revealUntil = revealMs > 0 ? Date.now() + revealMs : null;
     this.playerIntro = null;
@@ -1544,7 +1561,7 @@ class GameRoom extends EventEmitter {
     const leftover = [];
     const seen = new Set(this.soldIds);
     for (const p of [...this.unsold, ...this.queue, ...this.allPlayers]) {
-      if (seen.has(p.id)) continue;
+      if (!p || seen.has(p.id) || this.isRetired(p.id)) continue;
       seen.add(p.id);
       leftover.push(p);
     }
@@ -1930,14 +1947,10 @@ class GameRoom extends EventEmitter {
 
   returnPlayerToPool(player) {
     if (!player) return;
-    if (this.soldIds && this.soldIds.delete) this.soldIds.delete(player.id);
-    if (this.unaffordableIds && this.unaffordableIds.delete) this.unaffordableIds.delete(player.id);
-    this.queue = this.queue || [];
-    if (!this.queue.some((p) => p.id === player.id)) this.queue.unshift(player);
+    this.retirePlayer(player);
     for (const entry of this.soldLog || []) {
       if (entry.player && entry.player.id === player.id) entry.wiped = true;
     }
-    this.lotTotal = (this.lotTotal || 0) + 1;
   }
 
   banForMatchFixing(team) {

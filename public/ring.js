@@ -786,5 +786,36 @@
     return { x: sp.x, y: sp.y, angle: mid };
   }
 
-  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml };
+  /**
+   * Mobile ring size from width (and orientation) only — never from viewport
+   * height, so URL-bar show/hide or an innerHeight-only resize cannot change it.
+   */
+  function ringSizePx(width, opts) {
+    const w = Number(width);
+    const landscape = Boolean(opts && opts.landscape);
+    if (!Number.isFinite(w) || w <= 0) return null;
+    if (landscape && w <= 900) return Math.round(Math.min(200, w * 0.42, Math.max(0, w - 24)));
+    if (w <= 700) {
+      const cap = w <= 430 ? 220 : 260;
+      const frac = w <= 430 ? 0.62 : 0.72;
+      return Math.round(Math.min(cap, w * frac, Math.max(0, w - 24)));
+    }
+    return null;
+  }
+
+  function shouldRefreshRingSize(prev, next) {
+    if (!next) return false;
+    if (!prev) return true;
+    return Number(prev.width) !== Number(next.width) || Boolean(prev.landscape) !== Boolean(next.landscape);
+  }
+
+  function applyRingSize(el, dims) {
+    if (!el || !el.style) return null;
+    const size = ringSizePx(dims && dims.width, { landscape: dims && dims.landscape });
+    if (size) el.style.setProperty("--ring-size", `${size}px`);
+    else el.style.removeProperty("--ring-size");
+    return size;
+  }
+
+  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize };
 });

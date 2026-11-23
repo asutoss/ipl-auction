@@ -148,6 +148,7 @@ function peekNextPlayers(room, n = 3) {
   const out = [];
   for (const p of room.queue || []) {
     if (!p || seen.has(p.id)) continue;
+    if (room.isRetired && room.isRetired(p.id)) continue;
     if (room.unaffordableIds && room.unaffordableIds.has(p.id)) continue;
     out.push(p);
     seen.add(p.id);
@@ -741,10 +742,13 @@ definePower({
       names.push(slot.player.name);
       if (typeof room.returnPlayerToPool === "function") {
         room.returnPlayerToPool(slot.player);
+      } else if (typeof room.retirePlayer === "function") {
+        room.retirePlayer(slot.player);
       } else {
         if (room.soldIds && room.soldIds.delete) room.soldIds.delete(slot.player.id);
-        room.queue = room.queue || [];
-        room.queue.unshift(slot.player);
+        if (!room.retiredIds) room.retiredIds = new Set();
+        room.retiredIds.add(slot.player.id);
+        room.queue = (room.queue || []).filter((p) => p && p.id !== slot.player.id);
       }
     }
     const spent = Math.max(0, Number(target.spentLakhs) || 0);

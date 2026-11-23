@@ -282,12 +282,8 @@ function fillSoldModal(evt) {
   }
   const kicker = document.getElementById("sold-kicker");
   if (kicker) kicker.textContent = unsold ? "Unsold" : "Sold";
-  const logo = document.getElementById("sold-logo");
-  if (logo) {
-    const cid = characterIdOf(evt);
-    const fr = cid ? { id: cid, characterId: cid, color, color2: evt.color2, text: textColor, character: evt.buyerName } : null;
-    logo.innerHTML = (!unsold && fr) ? teamMark(fr, "lg", evt.buyerName || "") : "";
-  }
+  const shot = document.getElementById("sold-shot");
+  if (shot && window.IplHeadshot) IplHeadshot.mount(shot, evt.player || {}, { id: "sold-shot" });
   const playerEl = document.getElementById("sold-player");
   if (playerEl) playerEl.textContent = (evt.player && evt.player.name) || "";
   const line = document.getElementById("sold-line");
@@ -295,7 +291,8 @@ function fillSoldModal(evt) {
     if (unsold) {
       line.innerHTML = "Went unsold.";
     } else {
-      line.innerHTML = `SOLD to <strong>${esc(evt.buyerName || evt.short || "a team")}</strong> for ${money(evt.priceLakhs)}`;
+      const buyer = esc(evt.buyerName || evt.short || "a team");
+      line.innerHTML = `SOLD to <span class="sold-buyer"><span class="sold-buyer-swatch" aria-hidden="true"></span><strong>${buyer}</strong></span> for ${money(evt.priceLakhs)}`;
     }
   }
   return modal;
@@ -673,21 +670,8 @@ function fillPlayerIntro() {
 }
 
 function updatePlayerIntroUi() {
-  const modal = document.getElementById("player-intro");
-  if (!modal || modal.hidden) return;
-  const intro = playerIntroSource();
-  const total = Number(intro && intro.revealMs) || 2000;
-  const left = playerIntroLeftMs();
-  const bar = document.getElementById("player-intro-progress-bar");
-  if (bar) bar.style.width = `${Math.max(0, Math.min(100, total ? (left / total) * 100 : 0))}%`;
-  const count = document.getElementById("player-intro-countdown");
-  if (count) {
-    if (state && state.paused) count.textContent = "Paused";
-    else {
-      const secs = Math.ceil(left / 1000);
-      count.textContent = secs > 0 ? `Bidding opens in ${secs}s` : "Opening bids…";
-    }
-  }
+  // Intro duration is handled on the server. The modal itself has no
+  // countdown or bid-timer display.
 }
 
 function syncPlayerIntro() {
@@ -1570,9 +1554,28 @@ function mountBidHeadshot() {
   IplHeadshot.prefetch(state.auction.nextHeadshot);
 }
 
+let lastRingViewport = null;
+
+function currentRingViewport() {
+  const landscape = typeof window.matchMedia === "function" && window.matchMedia("(orientation: landscape)").matches;
+  return { width: window.innerWidth, landscape: Boolean(landscape) };
+}
+
+function syncRingSize(force) {
+  if (!window.IplRing || !IplRing.applyRingSize) return null;
+  const next = currentRingViewport();
+  if (!force && lastRingViewport && IplRing.shouldRefreshRingSize && !IplRing.shouldRefreshRingSize(lastRingViewport, next)) {
+    return lastRingViewport.size;
+  }
+  const size = IplRing.applyRingSize(document.documentElement, next);
+  lastRingViewport = { ...next, size };
+  return size;
+}
+
 function mountAuctionRing() {
   const svg = document.getElementById("auction-ring");
   if (!svg || !state || !state.auction || !window.IplRing) return;
+  syncRingSize();
   IplRing.mount(svg);
   IplRing.update(svg, IplRing.seatsFromState ? IplRing.seatsFromState(state) : state.auction.stillIn || []);
   updateAuctionTimer();
@@ -2708,8 +2711,10 @@ if (initialCode) landing = { kind: "join", code: initialCode };
 wireGlobal();
 startTicks();
 window.addEventListener("resize", () => {
+  syncRingSize();
   if (state && state.phase === "auction") fitHubName();
 });
+window.addEventListener("orientationchange", () => syncRingSize(true));
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (isPowerConfirmOpen()) {
@@ -2722,4 +2727,4 @@ window.addEventListener("keydown", (e) => {
 render();
 
 
-window.IplApp = { get state() { return state; }, emit, socket, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm };
+window.IplApp = { get state() { return state; }, emit, socket, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize };

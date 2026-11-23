@@ -611,7 +611,7 @@ describe("Arnab — Kahan Hai Points?", () => {
 });
 
 describe("Kim — Big Red Button", () => {
-  test("wipes floor(half) of a squad, returns them to the pool, and refunds 1/4 of spent", () => {
+  test("wipes floor(half) of a squad, retires them from the auction, and refunds 1/4 of spent", () => {
     const room = roomWith(["A", "B"]);
     setChar(room, "A", IDS.kim);
     setChar(room, "B", IDS.ravi);
@@ -634,7 +634,8 @@ describe("Kim — Big Red Button", () => {
     assert.equal(room.findByName("B").purseLakhs, purse + 6);
     const wiped = [p1, p2, p3].filter((p) => !room.findByName("B").squad.some((s) => s.player.id === p.id));
     assert.equal(wiped.length, 1);
-    assert.ok(room.queue.some((p) => p.id === wiped[0].id));
+    assert.ok(!room.queue.some((p) => p.id === wiped[0].id));
+    assert.ok(room.isRetired(wiped[0].id));
     assert.ok(!room.soldIds.has(wiped[0].id));
     // A 1-player squad cannot be targeted
     const room2 = roomWith(["A", "B"]);
@@ -704,7 +705,8 @@ describe("Kim — Big Red Button", () => {
     }
     const rejoin = room.getState("B");
     assert.deepEqual(rejoin.you.squad.map((s) => s.player.id), serverIds);
-    assert.ok(room.queue.some((p) => p.id === wipedIds[0]));
+    assert.ok(!room.queue.some((p) => p.id === wipedIds[0]));
+    assert.ok(room.isRetired(wipedIds[0]));
     const snap = clientB.auction && clientB.auction.lotSnapshot && clientB.auction.lotSnapshot.find((r) => r.name === "B");
     assert.ok(snap);
     assert.equal(snap.squadSize, 2);
@@ -843,6 +845,74 @@ describe("disabled power reasons", () => {
       const personalized = room.personalizeDelta(last, "B");
       assert.equal(personalized.youPower.canUsePower, false);
       assert.equal(personalized.youPower.canUsePowerHint, "One power per lot, already used");
+    }
+  });
+});
+
+describe("retired players are not re-nominated after powers", () => {
+  test("a Kim-wiped player is never re-nominated", () => {
+    const room = roomWith(["A", "B"], { powerRevealMs: 0 });
+    setChar(room, "A", IDS.kim);
+    setChar(room, "B", IDS.ravi);
+    start(room);
+    const used = new Set((room.queue || []).map((p) => p && p.id));
+    if (room.auction && room.auction.nominee) used.add(room.auction.nominee.id);
+    const p1 = firstOfRole("BAT", used); used.add(p1.id);
+    const p2 = firstOfRole("WK", used); used.add(p2.id);
+    givePlayer(room, "B", p1, 8);
+    givePlayer(room, "B", p2, 8);
+    room.findByName("B").spentLakhs = 16;
+    room.rng.int = () => 0;
+    assert.equal(room.usePower("A").ok, true);
+    const res = room.pickPowerTarget("A", { targetKey: room.findByName("B").key });
+    assert.equal(res.ok, true, res.error);
+    const kept = room.findByName("B").squad.map((s) => s.player.id);
+    const wipedId = [p1, p2].map((p) => p.id).find((id) => !kept.includes(id));
+    assert.ok(wipedId);
+    assert.ok(room.isRetired(wipedId));
+    assert.ok(!room.queue.some((p) => p.id === wipedId));
+    // Drain the current lot and a few more; the wiped player must not come up.
+    for (let i = 0; i < 8 && room.phase === "auction"; i++) {
+      if (room.auction && room.auction.nominee) {
+        assert.notEqual(room.auction.nominee.id, wipedId);
+        const leader = room.auction.currentBidderKey;
+        const other = room.franchises.find((f) => f.key !== leader);
+        if (other) room.optOut(other.name);
+        else break;
+      } else break;
+    }
+    assert.ok(room.isRetired(wipedId));
+    assert.ok(!room.queue.some((p) => p.id === wipedId));
+  });
+
+  test("a swapped-out player stays with the other team and is never re-nominated", () => {
+    const room = roomWith(["A", "B"], { powerRevealMs: 0 });
+    setChar(room, "A", IDS.taylor);
+    setChar(room, "B", IDS.ravi);
+    start(room);
+    const used = new Set();
+    if (room.auction && room.auction.nominee) used.add(room.auction.nominee.id);
+    const mine = firstOfRole("BAT", used); used.add(mine.id);
+    const theirs = firstOfRole("BAT", used); used.add(theirs.id);
+    givePlayer(room, "A", mine, 6);
+    givePlayer(room, "B", theirs, 7);
+    room.queue = (room.queue || []).filter((p) => p && p.id !== mine.id && p.id !== theirs.id);
+    assert.equal(room.usePower("A").ok, true);
+    const res = room.pickPowerTarget("A", { playerId: theirs.id, swapPlayerId: mine.id });
+    assert.equal(res.ok, true, res.error);
+    const teamA = room.findByName("A").squad.map((s) => s.player.id);
+    const teamB = room.findByName("B").squad.map((s) => s.player.id);
+    assert.ok(teamA.includes(theirs.id));
+    assert.ok(teamB.includes(mine.id));
+    assert.ok(!teamA.includes(mine.id));
+    assert.ok(!room.isRetired(mine.id) && !room.isRetired(theirs.id), "swapped players stay sold, not retired");
+    assert.ok(!room.queue.some((p) => p.id === mine.id || p.id === theirs.id));
+    room.queue = room.queue.filter((p) => p && p.id !== mine.id && p.id !== theirs.id);
+    room.appendTopUpBatch();
+    assert.ok(!room.queue.some((p) => p.id === mine.id || p.id === theirs.id));
+    if (room.auction && room.auction.nominee) {
+      assert.notEqual(room.auction.nominee.id, mine.id);
+      assert.notEqual(room.auction.nominee.id, theirs.id);
     }
   });
 });
