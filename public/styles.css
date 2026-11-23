@@ -814,6 +814,65 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .sold-modal.is-unsold .sold-card .kicker { color: #f0a0a0; }
 .sold-modal.is-unsold .sold-logo { display: none; }
 
+.last-team-fill .last-team-fill-card {
+  max-width: 480px;
+  width: min(480px, 100%);
+  padding-bottom: 40px;
+  text-align: center;
+}
+.last-team-fill-card h2 {
+  font-size: clamp(24px, 6vw, 36px);
+  margin: 0 0 6px;
+}
+.last-team-fill-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  max-height: min(42vh, 340px);
+  overflow-y: auto;
+  text-align: left;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.last-team-fill-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 15px;
+}
+.last-team-fill-list .fill-name {
+  font-weight: 700;
+  min-width: 0;
+}
+.last-team-fill-list .fill-meta {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: 8px;
+}
+.last-team-fill-list .fill-price {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--ct, var(--c, var(--gold)));
+  font-weight: 800;
+}
+#last-team-fill-continue {
+  margin: 18px auto 0;
+  min-width: 160px;
+  padding: 12px 22px;
+}
+
+@media (max-width: 700px) {
+  .last-team-fill .last-team-fill-card { padding: 20px 14px 32px; border-radius: 22px; }
+  #last-team-fill-continue { min-width: 140px; width: 100%; min-height: 44px; }
+  .last-team-fill-list { max-height: min(36vh, 280px); }
+  .last-team-fill-list li { font-size: 14px; padding: 10px 2px; }
+}
+
 @keyframes sold-pop {
   0% { transform: scale(0.72) rotate(-3deg); opacity: 0; }
   55% { transform: scale(1.08) rotate(1deg); opacity: 1; }

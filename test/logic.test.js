@@ -24,7 +24,7 @@ function roomWith(names, timers, opts = {}) {
     code: "TEST",
     purseLakhs: purse,
     mode,
-    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, ...(timers || {}) },
+    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, lastTeamFillMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
     seed: opts.seed,
@@ -339,7 +339,10 @@ describe("default bid, round-robin and elimination", () => {
     assert.ok(!b.squad.some((s) => s.player.id === nextBat.id));
     assert.ok(!c.squad.some((s) => s.player.id === nextBat.id));
     assert.ok(!a.squad.some((s) => s.player.id === after.id), "auction should stop once every squad is complete");
-    assert.ok(events.some((e) => e.type === "sold" && e.buyerName === "Ashutosh" && e.player.id === nextBat.id));
+    assert.ok(
+      events.some((e) => e.type === "lastTeamFill" && e.buyerName === "Ashutosh" && (e.entries || []).some((row) => row.player.id === nextBat.id))
+      || events.some((e) => e.type === "sold" && e.buyerName === "Ashutosh" && e.player.id === nextBat.id)
+    );
   });
 
   test("default bid is awarded even when a voluntary reserve check would block it", () => {
@@ -1132,6 +1135,62 @@ describe("team names and character catalog", () => {
     assert.equal(room.findByName("Night Owls").franchise.id, logo);
     assert.equal(room.franchises.length, 2);
   });
+
+  test("rejoins mid-auction, mid-captains, or results with the same franchise and full state", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.startAuction("Ashutosh");
+    const purse = room.findByName("Priya").purseLakhs;
+    const sock = room.findByName("Priya").socketId;
+    room.disconnect(sock);
+    const again = room.addPlayer("Priya", "priya-auction");
+    assert.equal(again.ok, true);
+    assert.equal(again.rejoined, true);
+    const midAuction = room.getState("Priya");
+    assert.equal(midAuction.phase, "auction");
+    assert.ok(midAuction.auction && midAuction.auction.nominee);
+    assert.equal(midAuction.you.name, "Priya");
+    assert.equal(midAuction.you.purseLakhs, purse);
+
+    room.phase = "captains";
+    room.auction = null;
+    room.findByName("Priya").captainId = room.findByName("Priya").squad[0] ? room.findByName("Priya").squad[0].player.id : null;
+    room.disconnect(room.findByName("Priya").socketId);
+    assert.equal(room.addPlayer("Priya", "priya-captains").rejoined, true);
+    const midCaptains = room.getState("Priya");
+    assert.equal(midCaptains.phase, "captains");
+    assert.equal(midCaptains.you.name, "Priya");
+
+    room.phase = "results";
+    room.disconnect(room.findByName("Priya").socketId);
+    assert.equal(room.addPlayer("Priya", "priya-results").rejoined, true);
+    const midResults = room.getState("Priya");
+    assert.equal(midResults.phase, "results");
+    assert.equal(midResults.you.purseLakhs, purse);
+  });
+
+  test("hands host to the next connected team on a mid-auction disconnect and does not restore it on rejoin", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    assert.equal(room.host.name, "Ashutosh");
+    room.startAuction("Ashutosh");
+    room.disconnect(room.findByName("Ashutosh").socketId);
+    assert.equal(room.host.name, "Priya");
+    assert.equal(room.addPlayer("Ashutosh", "ash-back").ok, true);
+    assert.equal(room.host.name, "Priya", "returning host should not steal the role back");
+    assert.equal(room.getState("Ashutosh").hostName, "Priya");
+  });
+
+  test("replaces a stale socket of the same name instead of rejecting the rejoin", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const priya = room.findByName("Priya");
+    priya.connected = true;
+    priya.socketId = "stale-socket";
+    room.isSocketLive = (id) => id !== "stale-socket";
+    const again = room.addPlayer("Priya", "fresh-socket");
+    assert.equal(again.ok, true);
+    assert.equal(again.rejoined, true);
+    assert.equal(room.findByName("Priya").socketId, "fresh-socket");
+    assert.equal(room.findByName("Priya").connected, true);
+  });
 });
 
 
@@ -1544,5 +1603,185 @@ describe("character powers", () => {
     const overlapping = room.usePower("Priya");
     assert.equal(overlapping.ok, false);
     assert.match(overlapping.error, /already being revealed/i);
+  });
+});
+
+
+describe("match-fixing ban rule", () => {
+  test("does not ban a team that spends its last points to complete the squad", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    room.findByName("Ashutosh").purseLakhs = 2;
+    const nextBat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.queue = [nextBat];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.equal(room.optOut("Priya").ok, true);
+    const a = room.findByName("Ashutosh");
+    assert.ok(a.squad.some((s) => s.player.id === nextBat.id));
+    assert.equal(isSquadComplete(a.squad), true);
+    assert.equal(a.purseLakhs, 0);
+    assert.equal(Boolean(a.banned), false);
+    assert.notEqual(a.eliminatedReason, "match_fixing");
+  });
+
+  test("bans a team that hits 0 points with an open squad slot", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.findByName("Ashutosh").purseLakhs = 2;
+    const bat = players.find((p) => p.role === "BAT");
+    room.queue = [bat];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.equal(room.optOut("Priya").ok, true);
+    const a = room.findByName("Ashutosh");
+    assert.ok(a.squad.some((s) => s.player.id === bat.id));
+    assert.equal(a.purseLakhs, 0);
+    assert.equal(isSquadComplete(a.squad), false);
+    assert.equal(a.banned, true);
+    assert.equal(a.eliminatedReason, "match_fixing");
+  });
+
+  test("bans a team already at 0 points with open slots", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.findByName("Ashutosh").purseLakhs = 0;
+    const bat = players.find((p) => p.role === "BAT");
+    room.queue = [bat];
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.nominateNext();
+    const a = room.findByName("Ashutosh");
+    assert.equal(a.banned, true);
+    assert.equal(a.eliminatedReason, "match_fixing");
+    assert.ok(events.some((e) => e.type === "banned" && e.name === "Ashutosh"));
+    assert.ok(!a.squad.some((s) => s.player.id === bat.id));
+  });
+
+  test("does not ban a complete squad sitting at 0 points, and does not unban later", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.findByName("Ashutosh").purseLakhs = 0;
+    room.phase = "auction";
+    room.nominateNext();
+    const a = room.findByName("Ashutosh");
+    assert.equal(Boolean(a.banned), false);
+    a.squad = a.squad.slice(0, 5);
+    a.purseLakhs = 0;
+    a.banned = true;
+    a.eliminated = true;
+    a.eliminatedReason = "match_fixing";
+    // Completing after the ban must not clear it.
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    const { banBrokeIncompleteTeams } = require("../server/powers");
+    banBrokeIncompleteTeams(room);
+    assert.equal(room.findByName("Ashutosh").banned, true);
+  });
+});
+
+describe("last-team fill reveal", () => {
+  test("reveals remaining players and prices for about 3 seconds before moving on", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { lastTeamFillMs: 50, soldRevealMs: 0 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Ashutosh", { BAT: 3, WK: 0, AR: 2, BOWL: 4 });
+    const bat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    const wk = players.find((p) => p.role === "WK" && !room.soldIds.has(p.id));
+    room.queue = [bat, wk];
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.nominateNext();
+    assert.equal(room.phase, "auction");
+    assert.ok(room.lastTeamFill);
+    assert.equal(room.lastTeamFill.buyerName, "Ashutosh");
+    assert.equal(room.lastTeamFill.entries.length, 2);
+    const ids = room.lastTeamFill.entries.map((e) => e.player.id);
+    assert.ok(ids.includes(bat.id) && ids.includes(wk.id));
+    room.lastTeamFill.entries.forEach((e) => {
+      assert.equal(e.priceLakhs, 2);
+    });
+    const a = room.findByName("Ashutosh");
+    assert.ok(a.squad.some((s) => s.player.id === bat.id));
+    assert.ok(a.squad.some((s) => s.player.id === wk.id));
+    assert.equal(isSquadComplete(a.squad), true);
+    assert.ok(events.some((e) => e.type === "lastTeamFill" && e.entries.length === 2));
+    const snap = room.getState("Priya");
+    assert.ok(snap.lastTeamFill && snap.lastTeamFill.entries.length === 2);
+    await new Promise((r) => setTimeout(r, 90));
+    assert.equal(room.lastTeamFill, null);
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+  });
+
+  test("Continue skips the last-team fill wait", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { lastTeamFillMs: 4000, soldRevealMs: 0 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    const bat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.queue = [bat];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.ok(room.lastTeamFill);
+    assert.equal(room.continueReveal("Ashutosh").ok, true);
+    assert.equal(room.lastTeamFill, null);
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+  });
+});
+
+describe("auction pool top-up", () => {
+  test("fetches unused players in batches of 10 when the queue runs out", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
+    const extras = players.filter((p) => p.role === "WK" && !room.soldIds.has(p.id));
+    assert.ok(extras.length >= 12, `need leftover keepers, got ${extras.length}`);
+    const already = room.franchises.flatMap((f) => f.squad.map((s) => s.player));
+    room.allPlayers = [...already, ...extras.slice(0, 15)];
+    room.queue = [];
+    room.unsold = [];
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.nominateNext();
+    const top = events.find((e) => e.type === "poolTopUp");
+    assert.ok(top, "expected a room-wide top-up message");
+    assert.equal(top.count, 10);
+    assert.match(top.message, /10 more player/i);
+    assert.ok(room.auction, "should auction the new batch, not auto-fill");
+    assert.equal(room.auction.nominee.role, "WK");
+    assert.equal(room.queue.length, 9);
+  });
+
+  test("auto-fills and announces when no unused players remain", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.allPlayers = room.franchises.flatMap((f) => f.squad.map((s) => s.player));
+    room.queue = [];
+    room.unsold = [];
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.nominateNext();
+    const ev = events.find((e) => e.type === "poolExhausted");
+    assert.ok(ev, "expected a room-wide empty-pool message");
+    assert.match(ev.message, /no more players/i);
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+  });
+
+  test("nextAuctionBatch prefers needed roles and caps at 10", () => {
+    const { nextAuctionBatch } = require("../server/auction-pool");
+    const bats = players.filter((p) => p.role === "BAT").slice(0, 8);
+    const bowls = players.filter((p) => p.role === "BOWL").slice(0, 8);
+    const used = new Set();
+    const batch = nextAuctionBatch({
+      allPlayers: [...bats, ...bowls],
+      usedIds: used,
+      neededRoles: new Set(["BAT"]),
+      rng: 1,
+      size: 10,
+    });
+    assert.equal(batch.length, 10);
+    assert.equal(batch.filter((p) => p.role === "BAT").length, 8);
+    assert.equal(batch.filter((p) => p.role === "BOWL").length, 2);
   });
 });

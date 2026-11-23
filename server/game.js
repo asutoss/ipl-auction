@@ -59,11 +59,13 @@ const {
   isBidBlocked,
   credit,
   debit,
+  maybeBanBrokeIncomplete,
+  banBrokeIncompleteTeams,
   transfer,
   peekNextPlayers,
 } = require("./powers");
 const { QUICK_CHAT_COOLDOWN_MS } = require("../public/quick-chat");
-const { buildAuctionList, extraPlayersForNeeds } = require("./auction-pool");
+const { buildAuctionList, nextAuctionBatch, TOP_UP_BATCH } = require("./auction-pool");
 
 function normalizeName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
@@ -86,6 +88,7 @@ function defaultTimers() {
     captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 45000,
     soldRevealMs: envMs("SOLD_REVEAL_MS", 5000),
     powerRevealMs: envMs("POWER_REVEAL_MS", POWER_REVEAL_MS),
+    lastTeamFillMs: envMs("LAST_TEAM_FILL_MS", 3000),
   };
 }
 
@@ -138,6 +141,7 @@ class GameRoom extends EventEmitter {
     this.powerToast = null;
     this.chaiBreak = null;
     this.chaiDisconnectTimer = null;
+    this.lastTeamFill = null;
   }
 
   rollStartBid() {
@@ -245,6 +249,12 @@ class GameRoom extends EventEmitter {
     this.clearTimer();
     this.timer = setTimeout(fn, ms);
     if (typeof this.timer.unref === "function") this.timer.unref();
+  }
+
+  socketIsLive(socketId) {
+    if (!socketId) return false;
+    if (typeof this.isSocketLive === "function") return Boolean(this.isSocketLive(socketId));
+    return true;
   }
 
   bump(reason = "update") {
@@ -355,7 +365,8 @@ class GameRoom extends EventEmitter {
 
     const existing = this.findByName(name);
     if (existing) {
-      if (existing.connected && existing.socketId && existing.socketId !== socketId) {
+      const claimedByOther = existing.socketId && existing.socketId !== socketId;
+      if (claimedByOther && existing.connected && this.socketIsLive(existing.socketId)) {
         return { ok: false, error: "That team name is already in this room." };
       }
       existing.socketId = socketId;
@@ -418,8 +429,8 @@ class GameRoom extends EventEmitter {
     if (this.chaiBreak && this.chaiBreak.actorKey === f.key) {
       this.armChaiDisconnect();
     }
-    if (this.phase === "lobby" && f.key === this.hostKey) {
-      const next = this.franchises.find((x) => x.connected);
+    if (f.key === this.hostKey) {
+      const next = this.franchises.find((x) => x.connected && x.key !== f.key);
       if (next) this.hostKey = next.key;
     }
     if (this.phase === "lobby") this.bump("lobby");
@@ -523,6 +534,9 @@ class GameRoom extends EventEmitter {
     if (this.phase === "auction" && this.auction) {
       this.pauseRemainingMs = Math.max(0, (this.auction.endsAt || Date.now()) - Date.now());
       this.pauseTimerKind = "lot";
+    } else if (this.phase === "auction" && this.lastTeamFill && this.lastTeamFill.endsAt) {
+      this.pauseRemainingMs = Math.max(0, this.lastTeamFill.endsAt - Date.now());
+      this.pauseTimerKind = "lastTeamFill";
     } else if (this.phase === "auction" && this.revealUntil) {
       this.pauseRemainingMs = Math.max(0, this.revealUntil - Date.now());
       this.pauseTimerKind = "reveal";
@@ -567,6 +581,10 @@ class GameRoom extends EventEmitter {
       this.auction.endsAt = Date.now() + remaining;
       endsAt = this.auction.endsAt;
       this.armTimer(() => this.onLotTimeout(lotId), remaining);
+    } else if (kind === "lastTeamFill" && this.phase === "auction" && this.lastTeamFill && remaining != null) {
+      this.lastTeamFill.endsAt = Date.now() + remaining;
+      endsAt = this.lastTeamFill.endsAt;
+      this.armTimer(() => this.finishLastTeamFill(), remaining);
     } else if (kind === "reveal" && this.phase === "auction" && remaining != null) {
       this.revealUntil = Date.now() + remaining;
       endsAt = this.revealUntil;
@@ -582,6 +600,7 @@ class GameRoom extends EventEmitter {
       captainEndsAt: this.captainEndsAt,
       auctionEndsAt: this.auction ? this.auction.endsAt : null,
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
+      lastTeamFillUntil: this.phase === "auction" && this.lastTeamFill && this.lastTeamFill.endsAt ? this.lastTeamFill.endsAt : null,
     });
     return { ok: true };
   }
@@ -678,23 +697,48 @@ class GameRoom extends EventEmitter {
     return new Set((this.queue || []).map((p) => p && p.id).filter(Boolean));
   }
 
-  appendNeededPlayers() {
-    const extras = extraPlayersForNeeds({
+  usedPlayerIdSet() {
+    return new Set([
+      ...this.soldIds,
+      ...this.unaffordableIds,
+      ...this.queueIds(),
+      ...(this.unsold || []).map((p) => p && p.id).filter(Boolean),
+    ]);
+  }
+
+  appendTopUpBatch() {
+    const needed = this.neededRoles();
+    if (needed.size === 0) return false;
+    const batch = nextAuctionBatch({
       allPlayers: this.allPlayers,
-      mode: this.mode,
-      teams: this.incompleteTeams(),
-      usedIds: new Set([
-        ...this.soldIds,
-        ...this.unaffordableIds,
-        ...this.queueIds(),
-        ...(this.unsold || []).map((p) => p.id),
-      ]),
+      usedIds: this.usedPlayerIdSet(),
+      neededRoles: needed,
       rng: this.rng,
+      size: TOP_UP_BATCH,
     });
-    if (!extras.length) return false;
-    this.queue.push(...extras);
-    this.lotTotal += extras.length;
+    if (!batch.length) return false;
+    this.queue.push(...batch);
+    this.lotTotal += batch.length;
+    const message = `${batch.length} more player${batch.length === 1 ? " has" : "s have"} been added to the auction.`;
+    this.lastEvent = { type: "poolTopUp", count: batch.length, message };
+    this.emitDelta({ type: "poolTopUp", count: batch.length, message });
     return true;
+  }
+
+  appendNeededPlayers() {
+    return this.appendTopUpBatch();
+  }
+
+  closeAuctionForEmptyPool() {
+    const before = this.franchises.reduce((n, team) => n + ((team.squad || []).length), 0);
+    this.autoFill();
+    const added = this.franchises.reduce((n, team) => n + ((team.squad || []).length), 0) - before;
+    const message = added > 0
+      ? "No more players are left in the pool. Remaining gaps were filled at the starting bid where possible."
+      : "No more players are left in the pool. The auction will close with the squads as they are.";
+    this.lastEvent = { type: "poolExhausted", added, message };
+    this.emitDelta({ type: "poolExhausted", added, message });
+    this.beginCaptainPhase();
   }
 
   refillQueue() {
@@ -829,13 +873,126 @@ class GameRoom extends EventEmitter {
     else this.unsoldCurrent();
   }
 
+  lastTeamFillDelayMs() {
+    const n = Number(this.timers && this.timers.lastTeamFillMs);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  packLastTeamFill() {
+    const fill = this.lastTeamFill;
+    if (!fill) return null;
+    return {
+      buyerName: fill.buyerName,
+      buyerShort: fill.buyerShort,
+      characterId: fill.characterId,
+      color: fill.color,
+      color2: fill.color2,
+      text: fill.text,
+      entries: fill.entries,
+      endsAt: fill.endsAt,
+      revealMs: fill.revealMs,
+      purseLakhs: fill.purseLakhs,
+    };
+  }
+
+  assignRemainingToLastTeam() {
+    const team = this.incompleteTeams()[0];
+    if (!team) return { team: null, entries: [] };
+    const entries = [];
+    for (;;) {
+      if (isOut(team) || isSquadComplete(team.squad, this.mode)) break;
+      if (this.queue.length === 0) {
+        if (!this.refillQueue()) break;
+      }
+      const player = this.queue.shift();
+      if (!player || this.soldIds.has(player.id) || this.unaffordableIds.has(player.id)) continue;
+      if (!this.neededRoles().has(player.role)) continue;
+      const startBid = this.rollStartBid();
+      const defaultTeam = this.pickDefaultTeam(player, startBid);
+      if (!defaultTeam || defaultTeam.key !== team.key) {
+        if (!defaultTeam) this.unaffordableIds.add(player.id);
+        if (isOut(team)) break;
+        continue;
+      }
+      team.squad.push({ player, priceLakhs: startBid });
+      const paid = debit(this, team, startBid);
+      team.spentLakhs = (team.spentLakhs || 0) + paid;
+      this.soldIds.add(player.id);
+      this.soldLog.push({
+        player,
+        priceLakhs: startBid,
+        buyerName: team.name,
+        short: team.name,
+        color: team.franchise && team.franchise.color,
+        auto: true,
+        lastTeamFill: true,
+      });
+      entries.push({
+        player,
+        priceLakhs: startBid,
+        paid,
+        buyerName: team.name,
+      });
+    }
+    return { team, entries };
+  }
+
+  beginLastTeamFill(team, entries) {
+    this.auction = null;
+    const ms = this.lastTeamFillDelayMs();
+    this.lastTeamFill = {
+      buyerName: team.name,
+      buyerShort: team.name,
+      characterId: characterIdOf(team.franchise),
+      color: team.franchise && team.franchise.color,
+      color2: team.franchise && team.franchise.color2,
+      text: team.franchise && (team.franchise.text || team.franchise.color),
+      entries,
+      endsAt: ms > 0 ? Date.now() + ms : Date.now(),
+      revealMs: ms,
+      purseLakhs: team.purseLakhs,
+    };
+    const packed = this.packLastTeamFill();
+    const message = `${team.name} is being filled with the remaining players.`;
+    this.lastEvent = { type: "lastTeamFill", ...packed, message };
+    this.emitDelta({ type: "lastTeamFill", ...packed, message });
+    if (ms <= 0 || this.ended) {
+      this.finishLastTeamFill();
+      return;
+    }
+    this.clearTimer();
+    this.armTimer(() => this.finishLastTeamFill(), ms);
+  }
+
+  finishLastTeamFill() {
+    if (this.paused || this.ended) return;
+    if (this.phase !== "auction" || !this.lastTeamFill) return;
+    this.clearTimer();
+    this.lastTeamFill = null;
+    this.emitDelta({ type: "lastTeamFillEnded" });
+    this.nominateNext();
+  }
+
+  tryLastTeamFill() {
+    if (this.ended || this.phase !== "auction") return false;
+    if (this.lastTeamFill) return true;
+    if (this.incompleteTeams().length !== 1) return false;
+    const { team, entries } = this.assignRemainingToLastTeam();
+    if (!team || !entries.length) return false;
+    this.beginLastTeamFill(team, entries);
+    return true;
+  }
+
   nominateNext() {
     this.clearTimer();
     this.revealUntil = null;
+    banBrokeIncompleteTeams(this);
+    if (this.lastTeamFill) return;
     if (this.allTeamsFull() || this.activeFranchises().length === 0) {
       this.beginCaptainPhase();
       return;
     }
+    if (this.tryLastTeamFill()) return;
 
     for (;;) {
       if (this.allTeamsFull()) {
@@ -844,8 +1001,7 @@ class GameRoom extends EventEmitter {
       }
       if (this.queue.length === 0) {
         if (!this.refillQueue()) {
-          this.autoFill();
-          this.beginCaptainPhase();
+          this.closeAuctionForEmptyPool();
           return;
         }
       }
@@ -918,6 +1074,10 @@ class GameRoom extends EventEmitter {
     if (!gate.ok) return gate;
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.phase === "auction" && this.lastTeamFill && !this.auction) {
+      this.finishLastTeamFill();
+      return { ok: true };
+    }
     if (this.phase !== "auction" || this.auction || !this.revealUntil) {
       return { ok: true, already: true };
     }
@@ -1183,6 +1343,8 @@ class GameRoom extends EventEmitter {
     this.clearTimer();
     this.phase = "captains";
     this.auction = null;
+    this.lastTeamFill = null;
+    this.revealUntil = null;
     for (const f of this.franchises) {
       if (!Array.isArray(f.boosters)) f.boosters = [];
     }
@@ -1611,6 +1773,7 @@ class GameRoom extends EventEmitter {
     if (this.powerReveal) return { ok: false, error: "A power is already being revealed." };
     if (this.powerWait) return { ok: false, error: "A power is waiting for a choice." };
     if (this.paused) return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
+    if (this.lastTeamFill) return { ok: false, error: "The last team's remaining players are being revealed." };
     if (this.revealUntil && !this.auction) return { ok: false, error: "Wait until the next player is on the block." };
     if (team.eliminated || team.banned) {
       return { ok: false, error: team.banned ? "Banned teams cannot use a power." : "Eliminated teams cannot use a power." };
@@ -2139,6 +2302,8 @@ class GameRoom extends EventEmitter {
       lotPowerUsed: Boolean(this.lotPowerUsed),
       chaiBreak: Boolean(this.chaiBreak),
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
+      lastTeamFill: this.phase === "auction" ? this.packLastTeamFill() : null,
+      lastTeamFillUntil: this.phase === "auction" && this.lastTeamFill && this.lastTeamFill.endsAt ? this.lastTeamFill.endsAt : null,
       characters: CHARACTERS.map((t) => publicCharacter(t.id)),
       identities: CHARACTERS.map((t) => publicCharacter(t.id)),
       ratingsNote: this.meta.ratingsNote || null,

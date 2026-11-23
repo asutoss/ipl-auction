@@ -175,6 +175,9 @@ io.on("connection", (socket) => {
       if (payload.testTimers.powerRevealMs != null && Number.isFinite(Number(payload.testTimers.powerRevealMs))) {
         timers.powerRevealMs = Math.max(0, Number(payload.testTimers.powerRevealMs));
       }
+      if (payload.testTimers.lastTeamFillMs != null && Number.isFinite(Number(payload.testTimers.lastTeamFillMs))) {
+        timers.lastTeamFillMs = Math.max(0, Number(payload.testTimers.lastTeamFillMs));
+      }
     }
     const room = new GameRoom({
       code,
@@ -184,6 +187,10 @@ io.on("connection", (socket) => {
       meta,
       mode: mode.id,
     });
+    room.isSocketLive = (id) => {
+      const sock = io.sockets.sockets.get(id);
+      return Boolean(sock && sock.connected);
+    };
     manager.add(room);
     bindRoom(room);
     const result = room.addPlayer(name, socket.id);

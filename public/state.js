@@ -143,6 +143,8 @@
         delete next.type;
         state.auction = next;
         state.soldRevealUntil = null;
+        state.lastTeamFill = null;
+        state.lastTeamFillUntil = null;
         decorateAuctionYou(state);
         break;
       }
@@ -220,6 +222,8 @@
       }
       case "revealContinued": {
         state.soldRevealUntil = null;
+        state.lastTeamFill = null;
+        state.lastTeamFillUntil = null;
         break;
       }
       case "resumed": {
@@ -232,8 +236,15 @@
         if (evt.captainEndsAt) state.captainEndsAt = evt.captainEndsAt;
         if (Object.prototype.hasOwnProperty.call(evt, "soldRevealUntil")) {
           state.soldRevealUntil = evt.soldRevealUntil || null;
-        } else if (!state.auction && evt.endsAt) {
+        } else if (!state.auction && evt.endsAt && !state.lastTeamFill) {
           state.soldRevealUntil = evt.endsAt;
+        }
+        if (Object.prototype.hasOwnProperty.call(evt, "lastTeamFillUntil")) {
+          state.lastTeamFillUntil = evt.lastTeamFillUntil || null;
+          if (state.lastTeamFill) state.lastTeamFill.endsAt = state.lastTeamFillUntil;
+        } else if (evt.endsAt && state.lastTeamFill && !state.auction) {
+          state.lastTeamFillUntil = evt.endsAt;
+          state.lastTeamFill.endsAt = evt.endsAt;
         }
         break;
       }
@@ -335,6 +346,57 @@
         if (Object.prototype.hasOwnProperty.call(evt, "soldRevealUntil")) {
           state.soldRevealUntil = evt.soldRevealUntil || null;
         }
+        break;
+      }
+      case "lastTeamFill": {
+        state.phase = "auction";
+        state.auction = null;
+        state.soldRevealUntil = null;
+        state.lastTeamFill = {
+          buyerName: evt.buyerName,
+          buyerShort: evt.buyerShort,
+          characterId: evt.characterId,
+          color: evt.color,
+          color2: evt.color2,
+          text: evt.text,
+          entries: evt.entries || [],
+          endsAt: evt.endsAt || null,
+          revealMs: evt.revealMs,
+          purseLakhs: evt.purseLakhs,
+        };
+        state.lastTeamFillUntil = evt.endsAt || evt.lastTeamFillUntil || null;
+        state.lastEvent = evt;
+        const team = findTeam(state, evt.buyerName);
+        if (team) {
+          team.squad = team.squad || [];
+          for (const row of evt.entries || []) {
+            const id = row.player && row.player.id;
+            if (!id) continue;
+            if (!team.squad.some((s) => s.player && s.player.id === id)) {
+              team.squad.push({ player: row.player, priceLakhs: row.priceLakhs, isCaptain: false });
+            }
+          }
+          if (evt.purseLakhs != null) team.purseLakhs = evt.purseLakhs;
+          recomputeTeam(team, quotas, squadSize);
+        }
+        state.soldLog = state.soldLog || [];
+        for (const row of evt.entries || []) {
+          if (!row.player) continue;
+          if (!state.soldLog.some((s) => s.player && row.player && s.player.id === row.player.id)) {
+            state.soldLog.push({ player: row.player, priceLakhs: row.priceLakhs, buyerName: evt.buyerName });
+          }
+        }
+        syncYou(state);
+        break;
+      }
+      case "lastTeamFillEnded": {
+        state.lastTeamFill = null;
+        state.lastTeamFillUntil = null;
+        break;
+      }
+      case "poolTopUp":
+      case "poolExhausted": {
+        state.lastEvent = evt;
         break;
       }
       case "banned": {

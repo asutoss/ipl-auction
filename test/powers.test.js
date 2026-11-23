@@ -31,7 +31,7 @@ function roomWith(names, timers, opts = {}) {
     code: "PWR",
     purseLakhs: opts.purseLakhs != null ? opts.purseLakhs : 100,
     mode: opts.mode || "classical",
-    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, powerRevealMs: 0, ...(timers || {}) },
+    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, lastTeamFillMs: 0, powerRevealMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
     seed: opts.seed,
@@ -187,6 +187,28 @@ describe("Modi — Demonetisation", () => {
     assert.match(snap.powerToast.message, /lost 10/i);
     assert.equal(snap.franchises.find((f) => f.name === "C").banned, true);
     assert.equal(snap.franchises.find((f) => f.name === "C").eliminatedReason, "Banned for match fixing");
+  });
+
+  test("does not ban a complete team that is taxed to 0 points", () => {
+    const room = roomWith(["A", "B", "C"]);
+    setChar(room, "A", IDS.modi);
+    setChar(room, "B", IDS.ravi);
+    setChar(room, "C", IDS.arnab);
+    const take = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+    const left = { ...take };
+    const c = room.findByName("C");
+    for (const p of players) {
+      if ((left[p.role] || 0) > 0) {
+        c.squad.push({ player: p, priceLakhs: 2 });
+        room.soldIds.add(p.id);
+        left[p.role] -= 1;
+      }
+    }
+    start(room);
+    c.purseLakhs = 6;
+    assert.equal(room.usePower("A").ok, true);
+    assert.equal(c.purseLakhs, 0);
+    assert.equal(Boolean(c.banned), false);
   });
 });
 

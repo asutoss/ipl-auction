@@ -69,15 +69,31 @@ function credit(room, team, amount) {
   return n;
 }
 
+function maybeBanBrokeIncomplete(room, team) {
+  if (!room || !team) return false;
+  if (isOut(team)) return false;
+  if ((Number(team.purseLakhs) || 0) > 0) return false;
+  if (isSquadComplete(team.squad, room.mode)) return false;
+  if (typeof room.banForMatchFixing === "function") room.banForMatchFixing(team);
+  return true;
+}
+
+function banBrokeIncompleteTeams(room) {
+  if (!room || !Array.isArray(room.franchises)) return 0;
+  let n = 0;
+  for (const team of room.franchises) {
+    if (maybeBanBrokeIncomplete(room, team)) n += 1;
+  }
+  return n;
+}
+
 function debit(room, team, amount) {
   const want = Math.max(0, Math.round(Number(amount) || 0));
   if (!team || want <= 0) return 0;
   const have = Math.max(0, Number(team.purseLakhs) || 0);
   const paid = Math.min(have, want);
   team.purseLakhs = have - paid;
-  if (team.purseLakhs <= 0 && !isOut(team)) {
-    if (typeof room.banForMatchFixing === "function") room.banForMatchFixing(team);
-  }
+  maybeBanBrokeIncomplete(room, team);
   return paid;
 }
 
@@ -842,6 +858,8 @@ module.exports = {
   isBidBlocked,
   credit,
   debit,
+  maybeBanBrokeIncomplete,
+  banBrokeIncompleteTeams,
   transfer,
   lastSoldRivalTargets,
   peekNextPlayers,

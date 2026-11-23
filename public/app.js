@@ -17,6 +17,8 @@ let lastNomineeId = null;
 let lastBidShown = null;
 let soldModalTimer = null;
 let soldModalKey = null;
+let lastTeamFillTimer = null;
+let lastTeamFillKey = null;
 
 function money(points) {
   const n = Number(points) || 0;
@@ -268,12 +270,152 @@ function syncSoldModal() {
     hideSoldModal(true);
     return;
   }
+  if (isLastTeamFillActive()) {
+    hideSoldModal(true);
+    return;
+  }
   if (isSoldRevealActive()) {
     const evt = state.lastEvent;
     showSoldModal({ ...evt, revealUntil: state.soldRevealUntil });
     return;
   }
   hideSoldModal();
+}
+
+function lastTeamFillLeftMs() {
+  if (state && state.paused) return Math.max(0, state.pauseRemainingMs || 0);
+  const until = state && (state.lastTeamFillUntil || (state.lastTeamFill && state.lastTeamFill.endsAt));
+  return Math.max(0, (until || 0) - Date.now());
+}
+
+function isLastTeamFillActive() {
+  if (!state || state.phase === "ended" || state.auction) return false;
+  const fill = state.lastTeamFill;
+  if (!fill || !fill.entries || !fill.entries.length) return false;
+  const until = state.lastTeamFillUntil || fill.endsAt;
+  if (until && until > Date.now()) return true;
+  if (state.paused && until && !state.auction) return true;
+  // Keep the overlay up until the server ends it, even if the clock just finished.
+  if (fill && !state.paused) return Boolean(until);
+  return false;
+}
+
+function hideLastTeamFill(force) {
+  if (lastTeamFillTimer) {
+    clearTimeout(lastTeamFillTimer);
+    lastTeamFillTimer = null;
+  }
+  const modal = document.getElementById("last-team-fill");
+  if (modal) {
+    modal.hidden = true;
+    modal.classList.remove("is-in");
+  }
+  if (force) lastTeamFillKey = null;
+}
+
+function updateLastTeamFillUi() {
+  const modal = document.getElementById("last-team-fill");
+  if (!modal || modal.hidden) return;
+  const fill = state && state.lastTeamFill;
+  const total = Number(fill && fill.revealMs) || 3000;
+  const left = lastTeamFillLeftMs();
+  const bar = document.getElementById("last-team-fill-progress-bar");
+  if (bar) {
+    const pct = total > 0 ? Math.max(0, Math.min(100, (left / total) * 100)) : 0;
+    bar.style.width = `${pct}%`;
+  }
+  const count = document.getElementById("last-team-fill-countdown");
+  if (count) {
+    if (state && state.paused) count.textContent = "Paused";
+    else {
+      const secs = Math.ceil(left / 1000);
+      count.textContent = secs > 0 ? `Continuing in ${secs}s` : "Moving on…";
+    }
+  }
+  const btn = document.getElementById("last-team-fill-continue");
+  if (btn) btn.disabled = Boolean(state && state.paused);
+}
+
+function fillLastTeamFillModal(fill) {
+  const modal = document.getElementById("last-team-fill");
+  if (!modal || !fill) return null;
+  const color = fill.color || "#f5c518";
+  const textColor = fill.text || color;
+  const card = document.getElementById("last-team-fill-card");
+  if (card) {
+    card.style.setProperty("--c", color);
+    card.style.setProperty("--ct", textColor);
+    card.style.setProperty("--c2", fill.color2 || "");
+  }
+  const teamName = fill.buyerName || fill.buyerShort || "The last team";
+  const kicker = document.getElementById("last-team-fill-kicker");
+  if (kicker) kicker.textContent = "Squad filled";
+  const logo = document.getElementById("last-team-fill-logo");
+  if (logo) {
+    const cid = characterIdOf(fill);
+    const fr = cid ? { id: cid, characterId: cid, color, color2: fill.color2, text: textColor, character: teamName } : null;
+    logo.innerHTML = fr ? teamMark(fr, "lg", teamName) : "";
+  }
+  const title = document.getElementById("last-team-fill-team");
+  if (title) title.textContent = teamName;
+  const line = document.getElementById("last-team-fill-line");
+  if (line) {
+    const n = (fill.entries || []).length;
+    line.textContent = n === 1
+      ? "This player joins the squad at the starting bid."
+      : "These players join the squad at the starting bid.";
+  }
+  const list = document.getElementById("last-team-fill-list");
+  if (list) {
+    list.innerHTML = (fill.entries || []).map((row) => {
+      const p = row.player || {};
+      const role = p.role ? `<span class="fill-meta">${esc(p.role)}</span>` : "";
+      return `<li><span class="fill-name">${esc(p.name || "")}${role}</span><span class="fill-price">${money(row.priceLakhs)}</span></li>`;
+    }).join("");
+  }
+  return modal;
+}
+
+function showLastTeamFillModal(fill) {
+  if (!fill) return;
+  const key = `${fill.buyerName || ""}:${(fill.entries || []).map((r) => (r.player && r.player.id) || "").join(",")}`;
+  const already = lastTeamFillKey === key;
+  const modal = already ? document.getElementById("last-team-fill") : fillLastTeamFillModal(fill);
+  if (!modal) return;
+  lastTeamFillKey = key;
+  if (!already) {
+    modal.hidden = false;
+    modal.classList.remove("is-in");
+    void modal.offsetWidth;
+    modal.classList.add("is-in");
+  } else {
+    modal.hidden = false;
+  }
+  if (lastTeamFillTimer) {
+    clearTimeout(lastTeamFillTimer);
+    lastTeamFillTimer = null;
+  }
+  if (!(state && state.paused)) {
+    lastTeamFillTimer = setTimeout(() => {
+      lastTeamFillTimer = null;
+      if (state && state.paused && isLastTeamFillActive()) return;
+      // The server advances the game; keep the overlay until state says it's over.
+      if (!isLastTeamFillActive()) hideLastTeamFill();
+    }, Math.max(0, lastTeamFillLeftMs()));
+  }
+  updateLastTeamFillUi();
+}
+
+function syncLastTeamFill() {
+  if (!state || state.phase === "ended" || state.phase === "captains" || state.phase === "results" || state.phase === "simulating") {
+    hideLastTeamFill(true);
+    return;
+  }
+  if (isLastTeamFillActive()) {
+    showLastTeamFillModal(state.lastTeamFill);
+    return;
+  }
+  hideLastTeamFill();
 }
 
 
@@ -426,6 +568,7 @@ function syncOverlays() {
     }
   }
   syncSoldModal();
+  syncLastTeamFill();
   syncPowerModal();
   syncWaitModal();
   syncSamayPreview();
@@ -737,7 +880,7 @@ function powerButtonHtml() {
   const power = yourPower();
   if (!you || !power || (state && state.phase !== "auction")) return "";
   const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || (power.used);
-  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()));
+  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()) || (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()));
   const blocked = powerUseBlocked(you, used);
   const disabled = used || busy || blocked;
   const title = you.canUsePowerReason || power.description || power.name;
@@ -753,7 +896,7 @@ function canShowPowerConfirm() {
   const power = yourPower();
   if (!you || !power || !state || state.phase !== "auction") return false;
   const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || power.used;
-  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()));
+  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()) || (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()));
   const blocked = powerUseBlocked(you, used);
   return !used && !busy && !blocked;
 }
@@ -1400,7 +1543,7 @@ function syncEmoteDock() {
     dock.innerHTML = emotePickerHtml();
     dock.dataset.lines = linesKey;
   }
-  const overlayUp = isSoldRevealActive() || Boolean(state.paused);
+  const overlayUp = isSoldRevealActive() || isLastTeamFillActive() || Boolean(state.paused);
   const wrap = document.querySelector(".ring-wrap");
   if (wrap && !overlayUp) {
     if (dock.parentElement !== wrap) wrap.appendChild(dock);
@@ -1673,7 +1816,7 @@ function wireGlobal() {
       await emitOrToast("resume", {}, "Could not resume.");
       return;
     }
-    if (e.target.closest("#sold-continue")) {
+    if (e.target.closest("#sold-continue") || e.target.closest("#last-team-fill-continue")) {
       await emitOrToast("continueReveal", {}, "Could not continue.");
       return;
     }
@@ -1896,7 +2039,7 @@ socket.on("delta", (evt) => {
   if (!state) return;
   const prevNominee = state.auction?.nominee?.id;
   const prevPhase = state.phase;
-  if (evt && evt.message && (evt.type === "powerApplied" || evt.type === "powerWaitEnded" || evt.type === "chaiEnded" || evt.type === "banned" || evt.type === "chaiDisconnectArmed")) {
+  if (evt && evt.message && (evt.type === "powerApplied" || evt.type === "powerWaitEnded" || evt.type === "chaiEnded" || evt.type === "banned" || evt.type === "chaiDisconnectArmed" || evt.type === "poolTopUp" || evt.type === "poolExhausted")) {
     toast(evt.message);
   }
   IplState.applyDelta(state, evt);

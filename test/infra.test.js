@@ -392,7 +392,7 @@ describe("emotes", () => {
     const room = new GameRoom({
       code: "EMO001",
       purseLakhs: 100,
-      timers: { lotStartMs: 60_000, bidMs: 60_000, captainMs: 45_000, soldRevealMs: 0 },
+      timers: { lotStartMs: 60_000, bidMs: 60_000, captainMs: 45_000, soldRevealMs: 0, lastTeamFillMs: 0 },
       allPlayers: players,
       meta,
     });
@@ -431,7 +431,7 @@ describe("emotes", () => {
     const lobby = new GameRoom({
       code: "EMO002",
       purseLakhs: 100,
-      timers: { lotStartMs: 1000, bidMs: 1000, captainMs: 1000, soldRevealMs: 0 },
+      timers: { lotStartMs: 1000, bidMs: 1000, captainMs: 1000, soldRevealMs: 0, lastTeamFillMs: 0 },
       allPlayers: players,
       meta,
     });

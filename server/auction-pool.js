@@ -106,10 +106,45 @@ function extraPlayersForNeeds({ allPlayers, mode, teams, usedIds, rng }) {
   return shuffle(extras, r);
 }
 
+
+const TOP_UP_BATCH = 10;
+
+/**
+ * Up to `size` unused players from the full database, preferring roles
+ * that incomplete teams still need, then filling the rest of the batch
+ * with whoever is left. Used when the auction list runs out.
+ */
+function nextAuctionBatch({ allPlayers, usedIds, neededRoles, rng, size = TOP_UP_BATCH } = {}) {
+  const r = resolveRng(rng);
+  const cap = Math.max(1, Math.floor(Number(size) || TOP_UP_BATCH));
+  const used = usedPlayerIds([usedIds]);
+  const unused = (allPlayers || []).filter((p) => p && p.id && !used.has(p.id));
+  if (!unused.length) return [];
+  const needed = neededRoles instanceof Set ? neededRoles : new Set(neededRoles || []);
+  const preferred = [];
+  const rest = [];
+  for (const p of unused) {
+    if (needed.size && needed.has(p.role)) preferred.push(p);
+    else rest.push(p);
+  }
+  const picked = [];
+  for (const list of [preferred, rest]) {
+    const shuffled = shuffle(list, r);
+    for (const p of shuffled) {
+      if (picked.length >= cap) return picked;
+      picked.push(p);
+      used.add(p.id);
+    }
+  }
+  return picked;
+}
+
 module.exports = {
   roleBuffer,
   rolePickCount,
   expectedAuctionComposition,
   buildAuctionList,
   extraPlayersForNeeds,
+  nextAuctionBatch,
+  TOP_UP_BATCH,
 };
