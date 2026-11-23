@@ -126,7 +126,7 @@ describe("captain bonus", () => {
     }
   });
 
-  test("bonus is 0–5%, log-scaled, and caps at Rohit Sharma's 158 matches", () => {
+  test("bonus is 0% only if they never captained, then 1–5% log-scaled, capped at Rohit Sharma's 158 matches", () => {
     assert.equal(CAPTAIN_MATCHES_FOR_MAX, 158);
     assert.equal(CAPTAIN_BONUS_MAX, 0.05);
     assert.equal(captainBonus(0), 0);
@@ -136,9 +136,10 @@ describe("captain bonus", () => {
     assert.equal(captainBonusPct(158), 5);
     assert.equal(captainBonusPct(235), 5);
     assert.equal(captainBonusPct(143), 4.9);
-    assert.equal(captainBonusPct(43), 3.7);
-    assert.equal(captainBonusPct(5), 1.8);
-    assert.equal(captainBonusPct(1), 0.7);
+    assert.equal(captainBonusPct(43), 4);
+    assert.equal(captainBonusPct(5), 2.3);
+    assert.equal(captainBonus(1), 0.01);
+    assert.equal(captainBonusPct(1), 1);
     let prev = -1;
     for (let n = 0; n <= 158; n++) {
       const b = captainBonus(n);
@@ -147,8 +148,8 @@ describe("captain bonus", () => {
       prev = b;
     }
     assert.equal(formatCaptainBonus(0), "+0.0%");
-    assert.equal(formatCaptainBonus(1), "+0.7%");
-    assert.equal(formatCaptainBonus(43), "+3.7%");
+    assert.equal(formatCaptainBonus(1), "+1.0%");
+    assert.equal(formatCaptainBonus(43), "+4.0%");
     assert.equal(formatCaptainBonus(143), "+4.9%");
     assert.equal(formatCaptainBonus(158), "+5.0%");
     assert.equal(formatCaptainBonus(235), "+5.0%");

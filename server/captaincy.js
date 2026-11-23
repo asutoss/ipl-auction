@@ -1,9 +1,12 @@
 /** IPL captaincy-match bonus: 0–5%, revealed after a captain is picked. */
 
-// Log curve reaches the 5% ceiling at Rohit Sharma's IPL games as captain
-// (158, through 2023). MS Dhoni (235, through 2025) and anyone else at or
-// above that mark are capped at 5%.
+// 0 matches (never captained) is 0%. Anyone who has captained even once
+// starts at 1%, then a log curve adds up to 4% more and reaches the 5%
+// ceiling at Rohit Sharma's IPL games as captain (158, through 2023).
+// MS Dhoni (235, through 2025) and anyone else at or above that mark
+// are capped at 5%.
 const CAPTAIN_BONUS_MAX = 0.05;
+const CAPTAIN_BONUS_FLOOR = 0.01;
 const CAPTAIN_MATCHES_FOR_MAX = 158;
 
 const matchesById = new Map();
@@ -26,7 +29,7 @@ function captainBonus(matches) {
   const n = Math.max(0, Math.floor(Number(matches) || 0));
   if (n <= 0) return 0;
   if (n >= CAPTAIN_MATCHES_FOR_MAX) return CAPTAIN_BONUS_MAX;
-  return CAPTAIN_BONUS_MAX * Math.log(1 + n) / Math.log(1 + CAPTAIN_MATCHES_FOR_MAX);
+  return CAPTAIN_BONUS_FLOOR + (CAPTAIN_BONUS_MAX - CAPTAIN_BONUS_FLOOR) * Math.log(n) / Math.log(CAPTAIN_MATCHES_FOR_MAX);
 }
 
 function captainBonusPct(matches) {
@@ -68,6 +71,7 @@ function captainBonusFields(team) {
 
 module.exports = {
   CAPTAIN_BONUS_MAX,
+  CAPTAIN_BONUS_FLOOR,
   CAPTAIN_MATCHES_FOR_MAX,
   registerCaptainMatches,
   captainMatchesOf,
