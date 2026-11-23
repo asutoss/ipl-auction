@@ -1,0 +1,582 @@
+/* Cricket / IPL-auction theme. Visual only. Respects prefers-reduced-motion. */
+
+:root {
+  --bg: #06110d;
+  --bg-2: #0a1a14;
+  --card: #10201c;
+  --card-2: #163028;
+  --line: rgba(245, 197, 24, 0.22);
+  --gold: #f5c518;
+  --gold-2: #ffd56a;
+  --purple: #8b5cf6;
+  --orange: #ff7a18;
+  --pitch: #146334;
+  --pitch-2: #0e4a26;
+  --text: #f4f7ff;
+  --muted: #b7c3b8;
+  --danger: #ff5d6c;
+  --ok: #3ee0a0;
+  --score: "Rajdhani", "Teko", "DM Sans", sans-serif;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+html, body {
+  background: #06110d;
+  min-height: 100%;
+}
+
+body {
+  background-color: #06110d;
+  background-image: none;
+}
+
+/* --- Stadium night backdrop --- */
+.stadium {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(900px 420px at 50% -8%, rgba(255, 232, 160, 0.16), transparent 55%),
+    radial-gradient(700px 380px at 8% 0%, rgba(139, 92, 246, 0.14), transparent 50%),
+    radial-gradient(700px 380px at 92% 0%, rgba(255, 122, 24, 0.12), transparent 50%),
+    linear-gradient(180deg, #07161c 0%, #0a1e16 42%, #0c2418 70%, #07140f 100%);
+}
+
+.stadium-pitch {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(980px, 96vw);
+  height: min(560px, 72vh);
+  transform: translate(-50%, -50%) perspective(640px) rotateX(58deg);
+  border-radius: 50%;
+  background:
+    linear-gradient(90deg, transparent 46%, rgba(244, 236, 200, 0.28) 49.6%, rgba(244, 236, 200, 0.28) 50.4%, transparent 54%),
+    repeating-linear-gradient(90deg, #125a30 0 32px, #17703a 32px 64px);
+  box-shadow:
+    inset 0 0 80px rgba(0, 0, 0, 0.35),
+    0 0 0 8px rgba(212, 175, 55, 0.12),
+    0 0 0 10px rgba(255, 255, 255, 0.05);
+  opacity: 0.32;
+}
+
+.stadium-floods,
+.stadium-floods::before,
+.stadium-floods::after {
+  position: absolute;
+  pointer-events: none;
+  inset: 0;
+  content: "";
+}
+.stadium-floods::before,
+.stadium-floods::after {
+  top: -8%;
+  width: 46%;
+  height: 78%;
+  background: linear-gradient(180deg, rgba(255, 244, 200, 0.2), rgba(255, 244, 200, 0.05) 42%, transparent 72%);
+  clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%);
+  opacity: 0.55;
+  animation: flood-glow 7s ease-in-out infinite alternate;
+}
+.stadium-floods::before { left: 2%; transform-origin: top center; }
+.stadium-floods::after { left: auto; right: 2%; animation-delay: -3.5s; }
+
+.stadium-crowd {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 110px;
+  opacity: 0.7;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80' preserveAspectRatio='none'><g fill='%2305080c'><ellipse cx='12' cy='28' rx='10' ry='12'/><path d='M2 38 Q12 62 22 38Z'/><ellipse cx='36' cy='26' rx='11' ry='13'/><path d='M24 38 Q36 66 48 38Z'/><ellipse cx='62' cy='30' rx='10' ry='11'/><path d='M52 40 Q62 64 72 40Z'/><ellipse cx='86' cy='24' rx='11' ry='13'/><path d='M74 36 Q86 68 98 36Z'/><ellipse cx='112' cy='29' rx='10' ry='12'/><path d='M102 40 Q112 64 122 40Z'/><ellipse cx='136' cy='25' rx='11' ry='13'/><path d='M124 38 Q136 66 148 38Z'/><ellipse cx='160' cy='30' rx='10' ry='11'/><path d='M150 40 Q160 62 170 40Z'/><ellipse cx='184' cy='26' rx='11' ry='13'/><path d='M172 38 Q184 68 196 38Z'/><ellipse cx='210' cy='29' rx='10' ry='12'/><path d='M200 40 Q210 64 220 40Z'/><ellipse cx='232' cy='25' rx='9' ry='11'/><path d='M223 36 Q232 60 241 36Z'/></g></svg>");
+  background-repeat: repeat-x;
+  background-position: bottom;
+  background-size: 240px 80px;
+  filter: drop-shadow(0 -8px 10px rgba(0, 0, 0, 0.35));
+}
+
+#app { position: relative; z-index: 1; }
+
+/* --- Brand as a broadcast lower-third --- */
+.brand {
+  background: linear-gradient(90deg, rgba(8, 20, 14, 0.92), rgba(8, 20, 14, 0.55) 72%, transparent);
+  border-left: 4px solid var(--gold);
+  padding: 6px 18px 6px 10px;
+  border-radius: 0 8px 8px 0;
+  gap: 10px;
+}
+.brand-ball {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: block;
+  filter: drop-shadow(0 0 8px rgba(245, 197, 24, 0.55));
+}
+.brand-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  color: var(--gold);
+  font-weight: 700;
+}
+.brand h1 {
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Scoreboard type for purse, timer, and bids */
+.purse,
+.hub-bid-num,
+.hub-timer,
+.bid-amt-num,
+.room-code,
+.timer,
+.result-score strong,
+.champion .name,
+.hub-bid-unit {
+  font-family: var(--score);
+  font-variant-numeric: tabular-nums;
+}
+
+.pill {
+  background: rgba(12, 28, 22, 0.9);
+  border-color: rgba(245, 197, 24, 0.28);
+}
+
+.panel {
+  background:
+    linear-gradient(180deg, rgba(245, 197, 24, 0.05), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%),
+    var(--card);
+  border-color: rgba(245, 197, 24, 0.2);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Primary buttons get a small cricket bat */
+.btn:not(.secondary):not(.danger):not(.bid-amt):not(.bid-optout)::before {
+  content: "";
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  margin-right: 0.4em;
+  vertical-align: -0.12em;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M3.2 21.6c.8.8 2.2.6 3.3-.3l6.4-6.4 1.6 1.6c.4.4 1 .4 1.4 0l1.1-1.1c.4-.4.4-1 0-1.4l-1.6-1.6 5.2-5.2c1.2-1.2 1.6-3.2.6-4.2s-3-.6-4.2.6l-5.2 5.2-1.6-1.6c-.4-.4-1-.4-1.4 0L7.8 7.8c-.4.4-.4 1 0 1.4l1.6 1.6-6.4 6.4c-.9 1.1-1.1 2.5-.3 3.3z'/></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M3.2 21.6c.8.8 2.2.6 3.3-.3l6.4-6.4 1.6 1.6c.4.4 1 .4 1.4 0l1.1-1.1c.4-.4.4-1 0-1.4l-1.6-1.6 5.2-5.2c1.2-1.2 1.6-3.2.6-4.2s-3-.6-4.2.6l-5.2 5.2-1.6-1.6c-.4-.4-1-.4-1.4 0L7.8 7.8c-.4.4-.4 1 0 1.4l1.6 1.6-6.4 6.4c-.9 1.1-1.1 2.5-.3 3.3z'/></svg>") center / contain no-repeat;
+}
+.btn { font-weight: 800; }
+
+/* --- Lobby scoreboard plate --- */
+.lobby-share {
+  position: relative;
+  background: linear-gradient(180deg, #0c2a1c, #07170f);
+  border: 2px solid var(--gold);
+  border-radius: 14px;
+  padding: 14px 16px 16px;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(245, 197, 24, 0.15);
+  overflow: hidden;
+}
+.lobby-share::before,
+.lobby-share::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  width: 8px;
+  height: calc(100% - 24px);
+  background:
+    linear-gradient(#d9c48a, #d9c48a) 0 0 / 100% 8px no-repeat,
+    linear-gradient(#d9c48a, #d9c48a) 0 100% / 100% 8px no-repeat,
+    repeating-linear-gradient(#c4a35a 0 22%, transparent 22% 33%);
+  border-radius: 2px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+.lobby-share::before { left: 8px; }
+.lobby-share::after { right: 8px; }
+.lobby-share-label {
+  color: var(--gold-2);
+  letter-spacing: 0.14em;
+}
+.room-code {
+  padding: 0 18px;
+  text-shadow: 0 0 14px rgba(245, 197, 24, 0.45);
+  letter-spacing: 0.22em;
+}
+
+/* Auction hub as a broadcast scoreboard */
+.hub {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(245, 197, 24, 0.1), transparent 46%),
+    #07140f;
+  border-color: rgba(245, 197, 24, 0.28);
+  box-shadow: 0 0 0 6px #07140f, inset 0 0 22px rgba(0, 0, 0, 0.45);
+}
+.hub .hub-bid-num {
+  font-weight: 700;
+  text-shadow: 0 0 16px color-mix(in srgb, var(--c, var(--gold)) 55%, transparent);
+}
+.hub .hub-timer {
+  font-family: var(--score);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(245, 197, 24, 0.4);
+}
+.hub .hub-bid.flip .hub-bid-num {
+  animation: score-flip 320ms cubic-bezier(0.2, 1.4, 0.3, 1);
+}
+@keyframes score-flip {
+  0% { transform: rotateX(85deg); opacity: 0.45; }
+  55% { transform: rotateX(-8deg); opacity: 1; }
+  100% { transform: rotateX(0); }
+}
+
+/* Auction paddles for bid amounts */
+.bid-amt {
+  background: linear-gradient(#fff6d8, #f0d56a);
+  color: #1a1400;
+  border: 2px solid #c9a217;
+  border-radius: 8px 8px 12px 12px;
+  box-shadow: 0 3px 0 #8a6a10, 0 6px 12px rgba(0, 0, 0, 0.25);
+  min-height: 56px;
+}
+.bid-amt-num { font-size: 1.35em; font-weight: 700; line-height: 1; }
+.bid-amt:not(:disabled):active { transform: translateY(2px); box-shadow: 0 1px 0 #8a6a10; }
+
+/* Leading bidder: paddle-raise pulse */
+.team-chip.is-leader {
+  animation: leader-glow 1.6s ease-in-out infinite;
+}
+.team-chip.is-leader::after {
+  content: "";
+  width: 16px;
+  height: 20px;
+  margin-left: 2px;
+  flex: none;
+  background: #f5c518;
+  border: 2px solid #1a1400;
+  border-radius: 3px 3px 4px 4px;
+  box-shadow: 0 1px 0 #8a6a10;
+  transform-origin: 50% 100%;
+  animation: paddle-raise 900ms cubic-bezier(0.2, 1.3, 0.3, 1) both, paddle-pulse 1.6s ease-in-out 900ms infinite;
+}
+@keyframes paddle-raise {
+  0% { transform: rotate(-48deg) translateY(8px); opacity: 0; }
+  60% { transform: rotate(-6deg) translateY(-3px); opacity: 1; }
+  100% { transform: rotate(-12deg) translateY(0); opacity: 1; }
+}
+@keyframes paddle-pulse {
+  0%, 100% { transform: rotate(-12deg) translateY(0); }
+  50% { transform: rotate(-20deg) translateY(-3px); }
+}
+@keyframes leader-glow {
+  0%, 100% { box-shadow: 0 0 0 1px var(--c, var(--gold)); }
+  50% { box-shadow: 0 0 0 1px var(--c, var(--gold)), 0 0 16px color-mix(in srgb, var(--c, var(--gold)) 50%, transparent); }
+}
+
+/* Stumps + flying bails at the foot of the auction ring */
+.auction-stumps {
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  z-index: 5;
+  width: 54px;
+  height: 42px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.auction-stumps .stump {
+  position: absolute;
+  bottom: 0;
+  width: 6px;
+  height: 32px;
+  background: linear-gradient(#f0e0b8, #c9b07a);
+  border-radius: 1px 1px 0 0;
+  box-shadow: inset -1px 0 0 rgba(0,0,0,0.2);
+}
+.auction-stumps .stump.s1 { left: 8px; }
+.auction-stumps .stump.s2 { left: 24px; height: 34px; }
+.auction-stumps .stump.s3 { left: 40px; }
+.auction-stumps .bail {
+  position: absolute;
+  top: 2px;
+  height: 4px;
+  width: 18px;
+  background: #e8d19a;
+  border-radius: 1px;
+  transform-origin: 50% 50%;
+}
+.auction-stumps .bail.b1 { left: 7px; }
+.auction-stumps .bail.b2 { left: 29px; }
+.ring-wrap.bails-off .bail.b1 {
+  animation: bail-fly-l 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.ring-wrap.bails-off .bail.b2 {
+  animation: bail-fly-r 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes bail-fly-l {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(-28px, -36px) rotate(-130deg); opacity: 0; }
+}
+@keyframes bail-fly-r {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(30px, -40px) rotate(140deg); opacity: 0; }
+}
+
+/* --- Sold / unsold: gavel + stamp --- */
+.sold-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  overflow: visible;
+}
+.gavel-slam {
+  position: absolute;
+  left: 6%;
+  top: -6%;
+  width: 70px;
+  height: 70px;
+  color: #e8d19a;
+  opacity: 0;
+  transform: rotate(-48deg) translateY(-24px);
+}
+.gavel-slam svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.45)); }
+.sold-modal.is-in:not(.is-unsold) .gavel-slam {
+  animation: gavel-hit 480ms cubic-bezier(0.2, 1.25, 0.3, 1) both;
+}
+@keyframes gavel-hit {
+  0% { transform: rotate(-52deg) translateY(-36px); opacity: 0; }
+  55% { transform: rotate(8deg) translateY(6px); opacity: 1; }
+  75% { transform: rotate(-6deg) translateY(0); }
+  100% { transform: rotate(-12deg) translateY(0); opacity: 1; }
+}
+.auction-stamp {
+  position: absolute;
+  top: 14%;
+  right: 5%;
+  transform: rotate(-18deg) scale(2);
+  opacity: 0;
+  border: 4px solid #ff3b3b;
+  color: #ff3b3b;
+  font-family: var(--score);
+  font-weight: 700;
+  font-size: clamp(22px, 6vw, 34px);
+  letter-spacing: 0.1em;
+  line-height: 1;
+  padding: 6px 12px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  background: rgba(20, 0, 0, 0.08);
+  box-shadow: 0 0 0 2px rgba(255, 59, 59, 0.15);
+}
+.stamp-unsold {
+  border-color: #c8c8c8;
+  color: #d8d8d8;
+  background: rgba(0, 0, 0, 0.15);
+  box-shadow: none;
+}
+.sold-modal.is-in:not(.is-unsold) .stamp-sold {
+  animation: stamp-slam 520ms cubic-bezier(0.15, 1.45, 0.3, 1) 160ms both;
+}
+.sold-modal.is-in.is-unsold .stamp-unsold {
+  animation: stamp-slam 520ms cubic-bezier(0.15, 1.45, 0.3, 1) 80ms both;
+}
+@keyframes stamp-slam {
+  0% { transform: rotate(-28deg) scale(2.3); opacity: 0; filter: blur(2px); }
+  55% { transform: rotate(-14deg) scale(1.06); opacity: 1; filter: blur(0); }
+  100% { transform: rotate(-18deg) scale(1); opacity: 1; }
+}
+
+.sold-card {
+  background: linear-gradient(180deg, rgba(245, 197, 24, 0.08), transparent 30%), var(--card);
+  overflow: visible;
+}
+
+/* Player intro spotlight sweep */
+.player-intro-card {
+  overflow: hidden;
+}
+.player-intro-card::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(from 220deg, transparent 0 62%, rgba(255, 244, 200, 0.22) 72%, transparent 82%);
+  animation: spotlight-sweep 1.8s ease-out both;
+  pointer-events: none;
+  z-index: 0;
+}
+.player-intro-card > * { position: relative; z-index: 1; }
+@keyframes spotlight-sweep {
+  0% { transform: rotate(-40deg) translateX(-8%); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: rotate(50deg) translateX(8%); opacity: 0.35; }
+}
+
+/* Champion fireworks / confetti */
+.result-card,
+.champion {
+  position: relative;
+}
+.result-card.is-champion,
+.champion {
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(245, 197, 24, 0.12), transparent 40%),
+    var(--card);
+}
+.champ-burst {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+.champ-burst::before,
+.champ-burst::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  background: var(--gold);
+  box-shadow:
+    18px -22px 0 0 var(--gold),
+    -24px -10px 0 0 var(--orange),
+    28px 8px 0 1px var(--purple),
+    -16px 20px 0 0 #fff,
+    8px 26px 0 0 var(--orange),
+    -32px 4px 0 0 var(--gold-2),
+    36px -8px 0 0 #fff,
+    4px -30px 0 0 var(--purple),
+    -8px -28px 0 0 var(--gold),
+    22px 22px 0 0 var(--gold-2);
+  animation: confetti-burst 1.35s ease-out both;
+}
+.champ-burst::after {
+  top: 45%;
+  animation-delay: 90ms;
+  box-shadow:
+    -20px -18px 0 0 var(--orange),
+    26px -14px 0 0 var(--gold),
+    14px 16px 0 0 #fff,
+    -28px 12px 0 0 var(--purple),
+    32px 6px 0 0 var(--gold-2),
+    -10px 24px 0 0 var(--orange);
+}
+.result-card.is-champion > *:not(.champ-burst),
+.champion > *:not(.champ-burst) { position: relative; z-index: 1; }
+@keyframes confetti-burst {
+  0% { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translate(-50%, 28px) scale(1.15); opacity: 0; }
+}
+.result-card.is-champion::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(245, 197, 24, 0.65);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0.4);
+  animation: firework-ring 1.1s ease-out both;
+  pointer-events: none;
+}
+@keyframes firework-ring {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(8); opacity: 0; }
+}
+
+.result-score strong {
+  text-shadow: 0 0 12px rgba(245, 197, 24, 0.35);
+}
+
+.purse {
+  font-family: var(--score);
+  letter-spacing: 0.02em;
+}
+
+/* Cricket-ball spinner for waiting/simulating copy */
+.cricket-spinner {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  vertical-align: -5px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4), transparent 36%),
+    #c41212;
+  box-shadow: inset 0 0 0 2px #7a0c0c;
+  position: relative;
+  animation: ball-spin 0.9s linear infinite;
+}
+.cricket-spinner::before,
+.cricket-spinner::after {
+  content: "";
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  width: 2px;
+  border-radius: 1px;
+  background: #f4f7ff;
+}
+.cricket-spinner::before { left: 28%; transform: rotate(-18deg); }
+.cricket-spinner::after { right: 28%; transform: rotate(18deg); }
+@keyframes ball-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes flood-glow {
+  0% { opacity: 0.35; }
+  100% { opacity: 0.7; }
+}
+
+@media (max-width: 700px) {
+  .stadium-pitch { opacity: 0.22; height: min(420px, 58vh); }
+  .stadium-crowd { height: 64px; background-size: 180px 64px; opacity: 0.55; }
+  .stadium-floods::before,
+  .stadium-floods::after { opacity: 0.35; height: 60%; }
+  .brand h1 { letter-spacing: 0; }
+  .lobby-share { padding-left: 20px; padding-right: 20px; }
+  .auction-stamp { font-size: 22px; padding: 5px 9px; right: 4%; }
+  .gavel-slam { width: 56px; height: 56px; }
+  .auction-stumps { transform: translateX(-50%) scale(0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stadium-floods::before,
+  .stadium-floods::after,
+  .gavel-slam,
+  .auction-stamp,
+  .champ-burst::before,
+  .champ-burst::after,
+  .result-card.is-champion::after,
+  .hub .hub-bid.pop,
+  .hub .hub-bid.flip .hub-bid-num,
+  .team-chip.is-leader,
+  .team-chip.is-leader::after,
+  .player-intro-card::before,
+  .ring-wrap.bails-off .bail,
+  .cricket-spinner,
+  .result-card.is-fresh,
+  .result-card.is-champion,
+  .sold-modal.is-in .sold-card {
+    animation: none !important;
+  }
+  .sold-modal.is-in:not(.is-unsold) .stamp-sold,
+  .sold-modal.is-in.is-unsold .stamp-unsold,
+  .sold-modal.is-in:not(.is-unsold) .gavel-slam {
+    opacity: 1;
+    transform: rotate(-18deg) scale(1);
+  }
+  .sold-modal.is-in:not(.is-unsold) .gavel-slam { transform: rotate(-12deg); }
+  .team-chip.is-leader::after { opacity: 1; transform: rotate(-12deg); }
+  .player-intro-card::before { opacity: 0.2; transform: none; }
+}

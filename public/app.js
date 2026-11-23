@@ -1333,7 +1333,7 @@ function auctionView() {
   const a = state.auction;
   const you = state.you;
   if (!a) {
-    return `<section class="panel"><p class="lede">Preparing the next player…</p></section>`;
+    return `<section class="panel"><p class="lede"><span class="cricket-spinner" aria-hidden="true"></span>Preparing the next player…</p></section>`;
   }
   const p = a.nominee;
   const secs = Math.ceil(remainingMs(a.endsAt) / 1000);
@@ -1361,6 +1361,10 @@ function auctionView() {
               <div class="ring-tilt">
                 <svg id="auction-ring" role="img" aria-label="Teams still bidding"></svg>
               </div>
+            </div>
+            <div class="auction-stumps" aria-hidden="true">
+              <span class="bail b1"></span><span class="bail b2"></span>
+              <span class="stump s1"></span><span class="stump s2"></span><span class="stump s3"></span>
             </div>
             <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
               <div class="hub-inner">
@@ -1422,7 +1426,10 @@ function updateAuctionTimer() {
     t.textContent = intro ? "Soon" : (frozen ? "Paused" : (a.endsAt ? `${secs}s` : "Soon"));
     t.classList.toggle("low", !intro && secs <= 3 && !frozen && a.endsAt);
     t.classList.toggle("paused", frozen || intro || !a.endsAt);
+    t.classList.toggle("is-zero", !intro && secs <= 0 && !frozen && a.endsAt);
   }
+  const wrap = document.querySelector(".ring-wrap");
+  if (wrap) wrap.classList.toggle("bails-off", !intro && secs <= 0 && !frozen && Boolean(a.endsAt));
 }
 
 function setHubBid(points) {
@@ -1445,9 +1452,9 @@ function animateBid(from, to) {
   const t0 = performance.now();
   const dur = 280;
   if (wrap) {
-    wrap.classList.remove("pop");
+    wrap.classList.remove("pop", "flip");
     void wrap.offsetWidth;
-    wrap.classList.add("pop");
+    wrap.classList.add("pop", "flip");
   }
   function frame(now) {
     const t = Math.min(1, (now - t0) / dur);
@@ -1621,6 +1628,7 @@ function resultStandingsCard(pos, fresh) {
   const cid = characterIdOf(pos);
   const mark = teamMark({ id: cid, characterId: cid, color: pos.color, color2: pos.color2, text: pos.text }, "lg", pos.name);
   return `<article class="result-card ${champ ? "is-champion" : ""} ${fresh ? "is-fresh" : ""}" style="--c:${esc(pos.color || "")};--ct:${esc(pos.text || pos.color || "")};--c2:${esc(pos.color2 || "")}">
+    ${champ ? `<div class="champ-burst" aria-hidden="true"></div>` : ""}
     <span class="result-pos">${esc(pos.position)}</span>
     ${mark}
     <div class="result-card-body">
@@ -1710,7 +1718,7 @@ function teamReportCard(team) {
 function resultsView() {
   const t = state.tournament;
   if (!t) {
-    return `<section class="panel"><h2>Simulating…</h2><p class="lede">Results incoming.</p></section>`;
+    return `<section class="panel"><h2><span class="cricket-spinner" aria-hidden="true"></span>Simulating…</h2><p class="lede">Results incoming.</p></section>`;
   }
   const pending = isResultsRevealPending();
   if (pending) {
@@ -1725,6 +1733,7 @@ function resultsView() {
       ${
         champ
           ? `<div class="panel champion">
+              <div class="champ-burst" aria-hidden="true"></div>
               <h2>Champion</h2>
               ${teamMark({ id: characterIdOf(champ) || characterIdOf((state.franchises || []).find((f) => f.name === champ.name)?.franchise), color: champ.color, color2: champ.color2, text: champ.text }, "lg", champ.name)}
               <p class="name" style="color:${esc(champ.text || champ.color)}">${esc(champ.name || champ.short)}</p>

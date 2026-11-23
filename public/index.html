@@ -21,17 +21,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Teko:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Teko:wght@500;600;700&family=Rajdhani:wght@600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/theme-cricket.css" />
   </head>
   <body>
+    <div class="stadium" aria-hidden="true">
+      <div class="stadium-floods"></div>
+      <div class="stadium-pitch"></div>
+      <div class="stadium-crowd"></div>
+    </div>
     <div id="app">
       <header class="topbar">
         <div class="brand">
-          <span class="brand-mark">●</span>
+          <svg class="brand-ball" viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="16" cy="16" r="15" fill="#c41212"/>
+            <path d="M9 3.8c5.4 4.2 5.4 20.2 0 24.4" fill="none" stroke="#f4f7ff" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M23 3.8c-5.4 4.2-5.4 20.2 0 24.4" fill="none" stroke="#f4f7ff" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="11.5" cy="11" r="2.2" fill="rgba(255,255,255,0.18)"/>
+          </svg>
           <div>
+            <p class="brand-kicker">Live auction</p>
             <h1>IPL Auction Night</h1>
           </div>
         </div>
@@ -84,6 +96,17 @@
     </div>
     <div id="sold-modal" class="sold-modal" hidden>
       <div class="sold-card" id="sold-card">
+        <div class="sold-fx" aria-hidden="true">
+          <div class="gavel-slam">
+            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <rect x="28" y="28" width="8" height="28" rx="2" fill="#5b3a1a"/>
+              <rect x="14" y="16" width="36" height="14" rx="3" fill="currentColor" transform="rotate(-20 32 23)"/>
+              <rect x="10" y="20" width="12" height="8" rx="2" fill="#d7b56a" transform="rotate(-20 16 24)"/>
+            </svg>
+          </div>
+          <div class="auction-stamp stamp-sold">Sold!</div>
+          <div class="auction-stamp stamp-unsold">Unsold</div>
+        </div>
         <div class="sold-claps" aria-hidden="true">
           <span>👏</span><span>👏</span><span>👏</span><span>👏</span><span>👏</span>
         </div>
