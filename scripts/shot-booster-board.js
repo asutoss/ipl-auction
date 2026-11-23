@@ -141,7 +141,7 @@ async function main() {
     room.findByName("Ravi").formPct = 88;
     room.beginCaptainPhase();
     room.bump("captains");
-
+    await sleep(800);
     await waitFor(host, () => {
       const st = window.IplApp && window.IplApp.state;
       return Boolean(st && st.phase === "captains" && document.getElementById("prep-screen"));
@@ -166,6 +166,13 @@ async function main() {
     }, "purchases on board");
     await sleep(1600);
     await shot(host, "booster-board.png", PHONE, { scroll: "#prep-screen", hideTopbar: true });
+
+    await waitFor(host, () => {
+      const shop = document.getElementById("prep-shop");
+      const text = shop ? shop.innerText : "";
+      return Boolean(shop && document.querySelectorAll(".impact-tag").length >= 8 && /Win chance about/.test(text) && /big impact/i.test(text));
+    }, "shop impact lines");
+    await shot(host, "booster-shop-impact.png", PHONE, { scroll: "#prep-shop", hideTopbar: true });
 
     await host.evaluate(() => {
       const card = document.querySelector('[data-prep-team="Mitron"]');

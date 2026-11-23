@@ -757,7 +757,8 @@ describe("booster shop", () => {
   test("catalog has priced funny boosters and enforces one of each", () => {
     assert.ok(BOOSTERS.length >= 6);
     for (const b of BOOSTERS) {
-      assert.ok(b.pricePoints >= 15 && b.pricePoints <= 40, b.id);
+      assert.ok(b.pricePoints >= 10 && b.pricePoints <= 30, b.id);
+      assert.ok(b.impact && b.impact.line && b.impact.size, b.id);
       assert.ok(b.name && b.blurb);
     }
     const room = primedRoom();
@@ -775,10 +776,10 @@ describe("booster shop", () => {
   test("boosters appear in results and can create moments, including rain no-results", () => {
     const room = primedRoom();
     room.findByName("Ashutosh").boosters = [
-      { id: "rain-dance", name: "Rain Dance", pricePoints: 28 },
-      { id: "lucky-toss", name: "Lucky Toss Coin", pricePoints: 16 },
+      { id: "rain-dance", name: "Rain Dance", pricePoints: 11 },
+      { id: "lucky-toss", name: "Lucky Toss Coin", pricePoints: 12 },
     ];
-    room.findByName("Priya").boosters = [{ id: "cheerleaders", name: "Cheerleader Squad", pricePoints: 15 }];
+    room.findByName("Priya").boosters = [{ id: "cheerleaders", name: "Cheerleader Squad", pricePoints: 21 }];
     room.findByName("Ashutosh").captainId = room.findByName("Ashutosh").squad[0].player.id;
     room.findByName("Priya").captainId = room.findByName("Priya").squad[0].player.id;
     room.phase = "captains";
@@ -825,7 +826,7 @@ describe("form boosters", () => {
   test("Net Session Masterclass re-rolls form into 101–115, or leaves it if already above 100", () => {
     const self = getBooster(FORM_SELF_ID);
     assert.equal(self.name, "Net Session Masterclass");
-    assert.equal(self.pricePoints, 28);
+    assert.equal(self.pricePoints, 19);
     const room = primedThree();
     const ash = room.findByName("Ashutosh");
     ash.formPct = 96;
@@ -850,7 +851,7 @@ describe("form boosters", () => {
   test("Nazar Lag Gayi needs a valid rival and forces form into 85–99, or leaves it if already below 100", () => {
     const curse = getBooster(FORM_RIVAL_ID);
     assert.equal(curse.name, "Nazar Lag Gayi");
-    assert.equal(curse.pricePoints, 34);
+    assert.equal(curse.pricePoints, 20);
     assert.equal(curse.needsTarget, true);
     const room = primedThree();
     const ash = room.findByName("Ashutosh");

@@ -7,63 +7,73 @@ const BOOSTERS = [
   {
     id: "friendly-umpire",
     name: "Friendly Umpire",
-    pricePoints: 20,
+    pricePoints: 22,
+    impact: { size: "medium", bars: 2, line: "Win chance about +13%." },
     blurb: "Close calls go your way. A small chance to turn a narrow loss into a win.",
   },
   {
     id: "home-curator",
     name: "Home Pitch Curator",
-    pricePoints: 22,
+    pricePoints: 25,
+    impact: { size: "big", bars: 3, line: "Win chance about +16%." },
     blurb: "A surface that suits your attack. Modest bowling boost every match.",
   },
   {
     id: "drs-wizard",
     name: "DRS Wizard",
-    pricePoints: 18,
+    pricePoints: 10,
+    impact: { size: "small", bars: 1, line: "Win chance about +2%." },
     blurb: "A slim chance to overturn a narrow defeat on review.",
   },
   {
     id: "dew-factor",
     name: "Dew Factor",
-    pricePoints: 20,
+    pricePoints: 26,
+    impact: { size: "big", bars: 3, line: "Win chance about +17%." },
     blurb: "Chasing under lights gets a modest batting bump.",
   },
   {
     id: "cheerleaders",
     name: "Cheerleader Squad",
-    pricePoints: 15,
+    pricePoints: 21,
+    impact: { size: "medium", bars: 2, line: "Win chance about +12%." },
     blurb: "Crowd morale. Your whole team plays a touch stronger.",
   },
   {
     id: "rain-dance",
     name: "Rain Dance",
-    pricePoints: 28,
+    pricePoints: 11,
+    impact: { size: "small", bars: 1, line: "Win chance about +3%." },
     blurb: "A chance to wash a league loss out into a no-result.",
   },
   {
     id: "lucky-toss",
     name: "Lucky Toss Coin",
-    pricePoints: 16,
+    pricePoints: 12,
+    impact: { size: "small", bars: 1, line: "Win chance about +3%." },
     blurb: "You usually win the toss and pick the more favourable option.",
   },
   {
     id: "bus-breakdown",
     name: "Team Bus Breakdown",
-    pricePoints: 32,
+    pricePoints: 30,
+    impact: { size: "big", bars: 3, line: "Win chance about +4%. Rival title chance about -16%." },
     blurb: "Sabotage: one random rival arrives late and plays below par in every match.",
   },
   {
     id: FORM_SELF_ID,
     name: "Net Session Masterclass",
-    pricePoints: 28,
+    pricePoints: 19,
     effect: "form-self",
+    impact: { size: "medium", bars: 2, line: "Win chance about +10%. Form re-rolled to 101–115% if below 100." },
     blurb: "A week of throwdowns in the nets. Guarantees your Current form finishes above 100%.",
   },
   {
     id: FORM_RIVAL_ID,
     name: "Nazar Lag Gayi",
-    pricePoints: 34,
+    pricePoints: 20,
     effect: "form-rival",
+    impact: { size: "medium", bars: 2, line: "Win chance about +2%. Rival form below 100% (title chance about -9%)." },
     needsTarget: true,
     blurb: "A lingering stare from the stands. Pick a rival and force their Current form below 100%.",
   },
@@ -93,6 +103,15 @@ function canAffordAny(team) {
   return (team.purseLakhs || 0) >= cheapestPrice(ownedIds(team));
 }
 
+function packImpact(b) {
+  if (!b || !b.impact) return null;
+  return {
+    size: b.impact.size || "medium",
+    bars: Number(b.impact.bars) || 2,
+    line: b.impact.line || "",
+  };
+}
+
 function publicCatalog() {
   return BOOSTERS.map((b) => ({
     id: b.id,
@@ -101,17 +120,20 @@ function publicCatalog() {
     blurb: b.blurb,
     needsTarget: Boolean(b.needsTarget),
     effect: b.effect || null,
+    impact: packImpact(b),
   }));
 }
 
 function packBooster(b) {
   if (!b) return null;
+  const item = getBooster(b.id);
   return {
     id: b.id,
     name: b.name,
     pricePoints: b.pricePoints,
     targetName: b.targetName || null,
     targetShort: b.targetName || null,
+    impact: packImpact(item || b),
   };
 }
 
@@ -233,6 +255,7 @@ module.exports = {
   canAffordAny,
   publicCatalog,
   packBooster,
+  packImpact,
   rollUniformPct,
   applyFormBoosters,
 };

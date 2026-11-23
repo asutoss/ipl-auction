@@ -1751,6 +1751,23 @@ function catalogById() {
   return map;
 }
 
+function impactOf(b) {
+  if (!b) return null;
+  if (b.impact && (b.impact.line || b.impact.size)) return b.impact;
+  return null;
+}
+
+function impactMarkup(b) {
+  const impact = impactOf(b);
+  if (!impact) return "";
+  const size = impact.size === "big" || impact.size === "small" ? impact.size : "medium";
+  const bars = Math.max(1, Math.min(3, Number(impact.bars) || (size === "big" ? 3 : size === "small" ? 1 : 2)));
+  const label = size === "big" ? "Big impact" : size === "small" ? "Small impact" : "Medium impact";
+  const pips = [1, 2, 3].map((i) => `<i class="${i <= bars ? "is-on" : ""}"></i>`).join("");
+  const line = impact.line ? `<p class="impact-line">${esc(impact.line)}</p>` : "";
+  return `<div class="booster-impact"><span class="impact-tag is-${size}"><span class="impact-bars" aria-hidden="true">${pips}</span>${esc(label)}</span>${line}</div>`;
+}
+
 function prepCard(team) {
   if (!team) return "";
   const you = state.you;
@@ -1776,7 +1793,7 @@ function prepCard(team) {
     const boostBlocks = (team.boosters || []).map((b) => {
       const full = catalog.get(b.id) || b;
       const aimed = b.targetName ? `<p class="lede">Aimed at ${esc(b.targetName)}.</p>` : "";
-      return `<div class="prep-detail-boost"><strong>${esc(b.name)}</strong> <span class="tag">${money(b.pricePoints)}</span><p class="lede">${esc(full.blurb || "")}</p>${aimed}</div>`;
+      return `<div class="prep-detail-boost"><strong>${esc(b.name)}</strong> <span class="tag">${money(b.pricePoints)}</span><p class="lede">${esc(full.blurb || "")}</p>${impactMarkup(full)}${aimed}</div>`;
     }).join("") || `<p class="lede">No boosters bought yet.</p>`;
     details = `<div class="prep-card-details">${capBlock}${boostBlocks}</div>`;
   }
@@ -1873,6 +1890,7 @@ function captainView() {
             ${have ? `<span class="tag">Bought</span>` : ""}
           </div>
           <p class="lede">${esc(b.blurb)}</p>
+          ${impactMarkup(b)}
           <button class="btn secondary" data-buy="${esc(b.id)}" ${needs ? `data-needs-target="${needs}"` : ""} ${can ? "" : "disabled"}>${have ? "Owned" : b.needsTarget ? "Pick a rival" : "Buy"}</button>
         </div>`;
     })
@@ -1892,7 +1910,7 @@ function captainView() {
         <p class="lede">+5% rating. Auto-picks if time runs out.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
         <div class="captain-grid">${picks}</div>
       </div>
-      <div class="panel">
+      <div class="panel prep-shop" id="prep-shop">
         <h2>Booster shop</h2>
         <p class="lede">Buy one of each. Purse: <strong>${you ? money(you.purseLakhs) : "—"}</strong>.</p>
         <div class="booster-grid">${shop || `<p class="lede">No boosters available.</p>`}</div>

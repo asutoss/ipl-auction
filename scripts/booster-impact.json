@@ -1,0 +1,224 @@
+{
+  "generatedAt": "2026-11-23T12:33:32.539Z",
+  "rootSeed": 20261123,
+  "trialsPerSize": 2000,
+  "sizes": [
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "simulations": 110000,
+  "elapsedMs": 38196,
+  "note": "Paired tournaments: typical complete Classical XIs, form rolled by shuffled completion rank. Buyer gets exactly one booster; everyone else has none. Title-win and finishing-position deltas are versus the same squads and seed with no booster. Bus Breakdown's rival is the randomly chosen victim in that tournament; Nazar Lag Gayi's rival is a fixed opponent.",
+  "results": [
+    {
+      "id": "friendly-umpire",
+      "name": "Friendly Umpire",
+      "oldPrice": 20,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.301,
+      "buyerWinDelta": 0.1321,
+      "buyerPos0": 3.528,
+      "buyerPos1": 2.86,
+      "buyerPosDelta": -0.6680000000000001,
+      "score": 14.546,
+      "newPrice": 22,
+      "impact": {
+        "size": "medium",
+        "bars": 2,
+        "line": "Win chance about +13%."
+      }
+    },
+    {
+      "id": "home-curator",
+      "name": "Home Pitch Curator",
+      "oldPrice": 22,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.3333,
+      "buyerWinDelta": 0.1644,
+      "buyerPos0": 3.528,
+      "buyerPos1": 2.6711,
+      "buyerPosDelta": -0.8569,
+      "score": 18.153799999999997,
+      "newPrice": 25,
+      "impact": {
+        "size": "big",
+        "bars": 3,
+        "line": "Win chance about +16%."
+      }
+    },
+    {
+      "id": "drs-wizard",
+      "name": "DRS Wizard",
+      "oldPrice": 18,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.1857,
+      "buyerWinDelta": 0.01680000000000001,
+      "buyerPos0": 3.528,
+      "buyerPos1": 3.4439,
+      "buyerPosDelta": -0.08409999999999984,
+      "score": 1.8482000000000007,
+      "newPrice": 10,
+      "impact": {
+        "size": "small",
+        "bars": 1,
+        "line": "Win chance about +2%."
+      }
+    },
+    {
+      "id": "dew-factor",
+      "name": "Dew Factor",
+      "oldPrice": 20,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.3414,
+      "buyerWinDelta": 0.1725,
+      "buyerPos0": 3.528,
+      "buyerPos1": 2.6298,
+      "buyerPosDelta": -0.8982000000000001,
+      "score": 19.0464,
+      "newPrice": 26,
+      "impact": {
+        "size": "big",
+        "bars": 3,
+        "line": "Win chance about +17%."
+      }
+    },
+    {
+      "id": "cheerleaders",
+      "name": "Cheerleader Squad",
+      "oldPrice": 15,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.2913,
+      "buyerWinDelta": 0.12240000000000001,
+      "buyerPos0": 3.528,
+      "buyerPos1": 2.8819,
+      "buyerPosDelta": -0.6461000000000001,
+      "score": 13.5322,
+      "newPrice": 21,
+      "impact": {
+        "size": "medium",
+        "bars": 2,
+        "line": "Win chance about +12%."
+      }
+    },
+    {
+      "id": "rain-dance",
+      "name": "Rain Dance",
+      "oldPrice": 28,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.1948,
+      "buyerWinDelta": 0.025900000000000006,
+      "buyerPos0": 3.528,
+      "buyerPos1": 3.2014,
+      "buyerPosDelta": -0.3266,
+      "score": 3.2432000000000007,
+      "newPrice": 11,
+      "impact": {
+        "size": "small",
+        "bars": 1,
+        "line": "Win chance about +3%."
+      }
+    },
+    {
+      "id": "lucky-toss",
+      "name": "Lucky Toss Coin",
+      "oldPrice": 16,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.2021,
+      "buyerWinDelta": 0.03320000000000001,
+      "buyerPos0": 3.528,
+      "buyerPos1": 3.3527,
+      "buyerPosDelta": -0.1753,
+      "score": 3.6706000000000008,
+      "newPrice": 12,
+      "impact": {
+        "size": "small",
+        "bars": 1,
+        "line": "Win chance about +3%."
+      }
+    },
+    {
+      "id": "bus-breakdown",
+      "name": "Team Bus Breakdown",
+      "oldPrice": 32,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.2068,
+      "buyerWinDelta": 0.03790000000000002,
+      "buyerPos0": 3.528,
+      "buyerPos1": 3.215,
+      "buyerPosDelta": -0.31300000000000017,
+      "rivalWin0": 0.1812,
+      "rivalWin1": 0.026,
+      "rivalWinDelta": -0.1552,
+      "rivalPos0": 3.5085,
+      "rivalPos1": 5.0236,
+      "rivalPosDelta": 1.5151,
+      "score": 22.9662,
+      "newPrice": 30,
+      "impact": {
+        "size": "big",
+        "bars": 3,
+        "line": "Win chance about +4%. Rival title chance about -16%."
+      }
+    },
+    {
+      "id": "net-session",
+      "name": "Net Session Masterclass",
+      "oldPrice": 28,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.2661,
+      "buyerWinDelta": 0.09720000000000001,
+      "buyerPos0": 3.528,
+      "buyerPos1": 2.9306,
+      "buyerPosDelta": -0.5973999999999999,
+      "score": 10.9148,
+      "newPrice": 19,
+      "impact": {
+        "size": "medium",
+        "bars": 2,
+        "line": "Win chance about +10%. Form re-rolled to 101\u2013115% if below 100."
+      }
+    },
+    {
+      "id": "nazar",
+      "name": "Nazar Lag Gayi",
+      "oldPrice": 34,
+      "trials": 10000,
+      "buyerWin0": 0.1689,
+      "buyerWin1": 0.1915,
+      "buyerWinDelta": 0.02260000000000001,
+      "buyerPos0": 3.528,
+      "buyerPos1": 3.4093,
+      "buyerPosDelta": -0.11870000000000003,
+      "rivalWin0": 0.1784,
+      "rivalWin1": 0.0909,
+      "rivalWinDelta": -0.08750000000000001,
+      "rivalPos0": 3.4982,
+      "rivalPos1": 4.0817,
+      "rivalPosDelta": 0.5834999999999995,
+      "score": 12.414399999999999,
+      "newPrice": 20,
+      "impact": {
+        "size": "medium",
+        "bars": 2,
+        "line": "Win chance about +2%. Rival form below 100% (title chance about -9%)."
+      }
+    }
+  ],
+  "pricing": {
+    "min": 10,
+    "max": 30,
+    "method": "Linear map of impact score onto 10\u201330, rounded to whole points. Score is |buyer title-win pp| + 2\u00d7|buyer finish delta|, plus the same for the targeted rival on Bus Breakdown and Nazar Lag Gayi."
+  }
+}
