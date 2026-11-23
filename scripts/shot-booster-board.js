@@ -169,9 +169,10 @@ async function main() {
 
     await waitFor(host, () => {
       const shop = document.getElementById("prep-shop");
-      const names = Array.from(document.querySelectorAll("#prep-shop .booster strong")).map((el) => el.textContent.trim());
-      return Boolean(shop && names[0] === "Team Bus Breakdown" && names[names.length - 1] === "DRS Wizard");
-    }, "shop catalog order");
+      const buyable = document.querySelectorAll("#prep-shop .booster.is-buyable").length;
+      const locked = document.querySelectorAll("#prep-shop .booster.is-unbuyable").length;
+      return Boolean(shop && buyable >= 1 && locked >= 1);
+    }, "shop buyable and unbuyable groups");
     await shot(host, "booster-shop-sorted.png", PHONE, { scroll: "#prep-shop", hideTopbar: true });
 
     await host.evaluate(() => {

@@ -1932,34 +1932,37 @@ function captainView() {
       }
     )
     .join("");
-  const shopList = catalog.slice().sort((a, b) => {
-    const as = Number(a && a.impact && a.impact.score) || 0;
-    const bs = Number(b && b.impact && b.impact.score) || 0;
-    return bs - as;
-  });
+  const shopApi = (typeof IplBoosterShop !== "undefined" && IplBoosterShop) || {};
+  const shopList = shopApi.sortBoosterShop
+    ? shopApi.sortBoosterShop(catalog, you)
+    : catalog.slice();
   const shop = shopList
     .map((b) => {
       const have = owned.has(b.id);
-      const can = Boolean(you && !you.eliminated && !have && you.purseLakhs >= b.pricePoints);
+      const can = shopApi.isBoosterBuyable
+        ? shopApi.isBoosterBuyable(b, you)
+        : Boolean(you && !you.eliminated && !have && you.purseLakhs >= b.pricePoints);
       const needs = b.needsTarget ? "1" : "";
-      let reason = "";
-      if (!can) {
-        if (have) reason = "Owned";
-        else if (you && you.eliminated) reason = "Eliminated";
-        else if (you && you.purseLakhs < b.pricePoints) reason = "Not enough points";
-      }
-      const action = can
-        ? `<button class="btn secondary" data-buy="${esc(b.id)}" ${needs ? `data-needs-target="${needs}"` : ""}>${b.needsTarget ? "Pick a rival" : "Buy"}</button>`
-        : (reason ? `<p class="booster-reason">${esc(reason)}</p>` : "");
-      return `
-        <div class="booster ${have ? "owned" : ""} ${!can && reason ? "is-locked" : ""}">
+      const reason = shopApi.boosterShopReason ? shopApi.boosterShopReason(b, you) : (have ? "Owned" : "");
+      if (can) {
+        return `
+        <div class="booster is-buyable">
           <div>
             <strong>${esc(b.name)}</strong>
             <span class="tag">${money(b.pricePoints)}</span>
           </div>
           <p class="lede">${esc(b.blurb)}</p>
           ${impactMarkup(b)}
-          ${action}
+          <button class="btn" data-buy="${esc(b.id)}" ${needs ? `data-needs-target="${needs}"` : ""}>${b.needsTarget ? "Pick a rival" : "Buy"}</button>
+        </div>`;
+      }
+      return `
+        <div class="booster is-unbuyable ${have ? "owned" : ""}">
+          <div class="booster-mini">
+            <strong>${esc(b.name)}</strong>
+            <span class="tag">${money(b.pricePoints)}</span>
+            ${reason ? `<span class="booster-reason">${esc(reason)}</span>` : ""}
+          </div>
         </div>`;
     })
     .join("");

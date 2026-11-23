@@ -973,6 +973,44 @@ describe("booster shop", () => {
     assert.equal(room.buyBooster("Priya", "bus-breakdown").ok, false);
   });
 
+  test("the shop lists buyable boosters first by price, then unbuyable by price, and re-sorts as points change", () => {
+    const { publicCatalog } = require("../server/boosters");
+    const { sortBoosterShop, isBoosterBuyable } = require("../public/booster-shop");
+    const catalog = publicCatalog();
+    const you = { purseLakhs: 20, boosters: [], eliminated: false };
+    const order = sortBoosterShop(catalog, you).map((b) => b.id);
+    const buyable = order.filter((id) => isBoosterBuyable(catalog.find((b) => b.id === id), you));
+    const locked = order.filter((id) => !buyable.includes(id));
+    assert.deepEqual(buyable, ["nazar", "net-session", "lucky-toss", "rain-dance", "drs-wizard"]);
+    assert.deepEqual(locked, ["bus-breakdown", "dew-factor", "home-curator", "friendly-umpire", "cheerleaders"]);
+    assert.deepEqual(order, [...buyable, ...locked]);
+    for (let i = 1; i < buyable.length; i++) {
+      const a = catalog.find((b) => b.id === buyable[i - 1]);
+      const b = catalog.find((b) => b.id === buyable[i]);
+      assert.ok(a.pricePoints >= b.pricePoints, `${a.id} before ${b.id}`);
+    }
+    for (let i = 1; i < locked.length; i++) {
+      const a = catalog.find((b) => b.id === locked[i - 1]);
+      const b = catalog.find((b) => b.id === locked[i]);
+      assert.ok(a.pricePoints >= b.pricePoints, `${a.id} before ${b.id}`);
+    }
+
+    // Same price: higher impact comes first.
+    const tied = sortBoosterShop([
+      { id: "low", pricePoints: 15, impact: { score: 1 } },
+      { id: "high", pricePoints: 15, impact: { score: 9 } },
+    ], you).map((b) => b.id);
+    assert.deepEqual(tied, ["high", "low"]);
+
+    // After spending down to 12, only the cheaper boosters stay buyable.
+    const spent = { purseLakhs: 12, boosters: [{ id: "nazar" }], eliminated: false };
+    const after = sortBoosterShop(catalog, spent).map((b) => b.id);
+    const afterBuy = after.filter((id) => isBoosterBuyable(catalog.find((b) => b.id === id), spent));
+    assert.deepEqual(afterBuy, ["lucky-toss", "rain-dance", "drs-wizard"]);
+    assert.equal(after[afterBuy.length], "bus-breakdown");
+    assert.ok(after.indexOf("nazar") > after.indexOf("drs-wizard"));
+  });
+
   test("boosters appear in results and can create moments, including rain no-results", () => {
     const room = primedRoom();
     room.findByName("Ashutosh").boosters = [

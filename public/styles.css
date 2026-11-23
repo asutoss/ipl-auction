@@ -278,10 +278,50 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 @media (max-width: 900px) { .prep-layout { grid-template-columns: 1fr; } }
 .booster-grid { display: grid; gap: 10px; }
 .booster { background: #0c1324; border: 1px solid #334169; border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
-.booster.owned { border-color: #3d6b4f; }
-.booster.is-locked { opacity: 0.92; }
+.booster.is-buyable {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold) 18%, var(--card)) 0%, var(--card) 72%);
+  border: 1px solid color-mix(in srgb, var(--gold) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 18%, transparent), 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+.booster.is-buyable .tag {
+  margin-left: 8px;
+  background: var(--gold);
+  color: #14180c;
+}
+.booster.is-buyable .btn { justify-self: start; }
+.booster.is-unbuyable {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card) 55%, #05080c);
+  border: 1px solid color-mix(in srgb, var(--muted) 28%, transparent);
+  box-shadow: none;
+  opacity: 1;
+}
+.booster.is-unbuyable.owned { border-color: color-mix(in srgb, var(--muted) 22%, transparent); }
+.booster-mini {
+  display: flex;
+  align-items: baseline;
+  gap: 8px 10px;
+  flex-wrap: wrap;
+}
+.booster.is-unbuyable strong {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+}
+.booster.is-unbuyable .tag {
+  margin-left: 0;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
 .booster .tag { margin-left: 8px; }
 .booster-reason { margin: 0; font-size: 12px; font-weight: 700; color: var(--muted); }
+.booster.is-unbuyable .booster-reason { margin-left: auto; font-weight: 650; }
 
 .prep-screen { display: grid; gap: 14px; }
 .prep-timer-bar {
