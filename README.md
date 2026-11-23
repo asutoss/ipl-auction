@@ -28,7 +28,7 @@ This is a local MVP. Nothing is deployed, and no accounts are required.
 
 Player ratings in `data/players.json` are **informal estimates** for game balance, not official stats. Swap that file to use your own pool.
 
-The bundled pool has 192 well-known current and recent IPL names (at least 60 batters, 15 keepers, 30 all-rounders and 55 bowlers), including stars and recognisable weaker or average players, enough for 10 teams to fill a 4-1-2-4 split with margin. Ratings are informal estimates and vary realistically.
+The bundled pool has 337 current and recent IPL names (98 batters, 40 keepers, 65 all-rounders and 134 bowlers), including stars, current official squad players, and recognisable weaker or average names, enough for 10 teams to fill a 4-1-2-4 split with margin. Ratings are informal estimates and vary realistically.
 
 The server pushes compact auction **deltas** (bid, opt-out, lot start, sale, elimination, phase changes). A full state snapshot is sent only on join/reconnect and phase transitions. Match scorecards, full squads with per-player tournament stats, and booster moments are fetched on demand (`getMatches` or `GET /api/rooms/:code/matches`) rather than pushed to every client. The results screen shows every team's character, squad, record (W/L/NR, points, NRR, playoff finish) and those player stats. WebSocket payloads use `perMessageDeflate` compression above 256 bytes.
 

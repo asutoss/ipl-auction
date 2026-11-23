@@ -56,7 +56,7 @@ describe("player pool sufficiency", () => {
       assert.equal(ids.has(p.id), false, `duplicate id ${p.id}`);
       ids.add(p.id);
     }
-    assert.ok(players.length >= 160, players.length);
+    assert.ok(players.length >= 230, players.length);
     assert.ok(byRole.BAT >= 60, `BAT ${byRole.BAT}`);
     assert.ok(byRole.WK >= 15, `WK ${byRole.WK}`);
     assert.ok(byRole.AR >= 30, `AR ${byRole.AR}`);

@@ -59,7 +59,7 @@ function giveSquad(room, name, need, price = 2) {
 
 describe("player pool", () => {
   test("loads ~60-80+ current players with required fields", () => {
-    assert.ok(players.length >= 160, `got ${players.length}`);
+    assert.ok(players.length >= 230, `got ${players.length}`);
     const byRole = players.reduce((acc, p) => { acc[p.role] = (acc[p.role] || 0) + 1; return acc; }, {});
     assert.ok(byRole.BAT >= 60, `BAT ${byRole.BAT}`);
     assert.ok(byRole.WK >= 15, `WK ${byRole.WK}`);
