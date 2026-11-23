@@ -117,6 +117,7 @@ class GameRoom extends EventEmitter {
     this.queue = [];
     this.unsold = [];
     this.retiredIds = new Set();
+    this.formFinishCount = 0;
     this.pass = 1;
     this.lotId = 0;
     this.lotTotal = 0;
@@ -689,6 +690,7 @@ class GameRoom extends EventEmitter {
     this.lotId = 0;
     this.unsold = [];
     this.retiredIds = new Set();
+    this.formFinishCount = 0;
     this.pass = 1;
     this.soldIds = new Set();
     this.soldLog = [];
@@ -696,12 +698,15 @@ class GameRoom extends EventEmitter {
     this.eliminationLog = [];
     this.revealUntil = null;
     this.unaffordableIds = new Set();
+    this.formFinishCount = 0;
     for (const team of this.franchises) {
       team.spentLakhs = 0;
       team.banned = false;
       team.bidBlockedUntilLot = null;
       team.rakhiBlockLot = null;
       team.samayPreview = null;
+      team.formPct = null;
+      team.formFinishRank = null;
     }
     this.nominateNext();
     return { ok: true };
@@ -1312,8 +1317,11 @@ class GameRoom extends EventEmitter {
     if (team.formPct != null) return false;
     if (!isSquadComplete(team.squad, this.mode)) return false;
     const rng = this.rng && typeof this.rng.random === "function" ? this.rng : this.rng;
-    team.formPct = rollTeamForm(rng);
-    const message = `${team.name}'s squad is in ${team.formPct}% form`;
+    this.formFinishCount = (Number(this.formFinishCount) || 0) + 1;
+    team.formFinishRank = this.formFinishCount;
+    const total = (this.franchises || []).length;
+    team.formPct = rollTeamForm(rng, { rank: team.formFinishRank, total });
+    const message = `${team.name}'s current form is ${team.formPct}%`;
     const evt = {
       type: "teamForm",
       name: team.name,
@@ -1591,6 +1599,7 @@ class GameRoom extends EventEmitter {
         });
         leftover.splice(leftover.indexOf(pick), 1);
         progress = true;
+        if (isSquadComplete(team.squad, this.mode)) this.maybeRevealForm(team);
       }
     }
     this.queue = [];
@@ -1738,6 +1747,16 @@ class GameRoom extends EventEmitter {
         pos.identityId = pos.identityId || pos.characterId;
         pos.color2 = pos.color2 || team.franchise.color2 || null;
         pos.image = team.franchise.image || team.franchise.logo || null;
+        const pack = publicCharacter(characterIdOf(team.franchise));
+        pos.coOwner = (pack && (pack.realName || pack.character || pack.name)) || displayName(team) || null;
+      }
+      const row = (t.table || []).find((r) => r.name === pos.name);
+      if (row) {
+        if (pos.played == null) pos.played = row.played;
+        if (pos.won == null) pos.won = row.won;
+        if (pos.lost == null) pos.lost = row.lost;
+        if (pos.nr == null) pos.nr = row.nr;
+        if (pos.points == null) pos.points = row.points;
       }
     }
   }
@@ -1795,6 +1814,7 @@ class GameRoom extends EventEmitter {
       },
       leagueMatchCount: (t.leagueMatches || []).length,
       momentCount: (t.moments || []).length,
+      teams: this.packTeamReports(),
     };
     if (includeMatches) {
       summary.leagueMatches = t.leagueMatches;
@@ -1813,6 +1833,20 @@ class GameRoom extends EventEmitter {
       const pos = (t.positions || []).find((r) => r.name === f.name) || null;
       const stats = statsByTeam[f.name] || [];
       const statMap = new Map(stats.map((s) => [s.playerId, s]));
+      const impact = (st) => {
+        if (!st) return 0;
+        return (Number(st.runs) || 0) + (Number(st.wickets) || 0) * 25 + (Number(st.highest) >= 50 ? 5 : 0);
+      };
+      let topPerformerId = null;
+      let topScore = -1;
+      for (const s of f.squad || []) {
+        const st = statMap.get(s.player.id);
+        const score = impact(st);
+        if (score > topScore) {
+          topScore = score;
+          topPerformerId = s.player.id;
+        }
+      }
       return {
         name: f.name,
         short: f.name,
@@ -1837,11 +1871,14 @@ class GameRoom extends EventEmitter {
         formPct: f.formPct != null ? f.formPct : (row && row.formPct != null ? row.formPct : null),
         squadScore: pos && pos.squadScore != null ? pos.squadScore : squadStrengthScore(f),
         finish: pos ? (pos.finish || this.finishLabel(pos, t.playoffs || {})) : (f.eliminated ? "Eliminated" : null),
+        coOwner: pos && pos.coOwner ? pos.coOwner : (displayName(f) || null),
+        topPerformerId,
         squad: f.squad.map((s) => ({
           player: s.player,
           priceLakhs: s.priceLakhs,
           isCaptain: f.captainId === s.player.id,
           stats: statMap.get(s.player.id) || null,
+          isTopPerformer: s.player.id === topPerformerId,
         })),
       };
     });

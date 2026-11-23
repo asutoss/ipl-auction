@@ -608,3 +608,12 @@ body {
     0 0 0 4px rgba(18, 42, 28, 0.85),
     0 10px 24px rgba(0, 0, 0, 0.55);
 }
+
+.sheet-card {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(201, 168, 76, 0.12), transparent 55%),
+    var(--card);
+}
+.sheet-player.is-top {
+  background: color-mix(in srgb, var(--gold) 8%, var(--card));
+}

@@ -89,14 +89,26 @@ const FORM_MAX_PCT = 115;
 /** How much of the 85–115% deviation is applied to batting/bowling. 0.5 keeps form moderate. */
 const FORM_EFFECT = 0.5;
 
-function rollTeamForm(rng) {
+/** Shift the form centre by this many points from first (+ ) to last (− ). */
+const FORM_RANK_SHIFT = 5;
+
+function formRankShift(rank, total) {
+  const r = Number(rank);
+  const n = Number(total);
+  if (!Number.isFinite(r) || !Number.isFinite(n) || n <= 1) return 0;
+  const t = Math.max(0, Math.min(1, (r - 1) / (n - 1)));
+  return FORM_RANK_SHIFT - t * (2 * FORM_RANK_SHIFT);
+}
+
+function rollTeamForm(rng, opts) {
   const random = typeof rng === "function"
     ? rng
     : (rng && typeof rng.random === "function" ? rng.random.bind(rng) : Math.random);
   const lo = FORM_MIN_PCT / 100;
   const span = (FORM_MAX_PCT - FORM_MIN_PCT) / 100;
   const raw = lo + (random() * span + random() * span) / 2;
-  return Math.max(FORM_MIN_PCT, Math.min(FORM_MAX_PCT, Math.round(raw * 100)));
+  const shift = formRankShift(opts && opts.rank, opts && opts.total);
+  return Math.max(FORM_MIN_PCT, Math.min(FORM_MAX_PCT, Math.round(raw * 100 + shift)));
 }
 
 function formMultiplier(team) {
@@ -399,7 +411,30 @@ function emptyStat(player) {
     wickets: 0,
     ballsBowled: 0,
     runsConceded: 0,
+    matches: 0,
   };
+}
+
+function bumpMatchAppearances(book, team, ...cardLists) {
+  if (!book || !team) return;
+  const stats = book[team.name];
+  if (!stats) return;
+  const ids = new Set();
+  for (const list of cardLists) {
+    for (const c of list || []) {
+      if (c && c.playerId) ids.add(c.playerId);
+    }
+  }
+  for (const id of ids) {
+    let row = stats.get(id);
+    if (!row) {
+      const slot = (team.squad || []).find((s) => s.player && s.player.id === id);
+      if (!slot) continue;
+      row = emptyStat(slot.player);
+      stats.set(id, row);
+    }
+    row.matches = (Number(row.matches) || 0) + 1;
+  }
 }
 
 function applyBattingStats(book, team, cards) {
@@ -407,7 +442,7 @@ function applyBattingStats(book, team, cards) {
   for (const c of cards) {
     let row = stats.get(c.playerId);
     if (!row) {
-      row = { playerId: c.playerId, name: c.name, role: c.role, runs: 0, balls: 0, innings: 0, notOuts: 0, highest: 0, wickets: 0, ballsBowled: 0, runsConceded: 0 };
+      row = { playerId: c.playerId, name: c.name, role: c.role, runs: 0, balls: 0, innings: 0, notOuts: 0, highest: 0, wickets: 0, ballsBowled: 0, runsConceded: 0, matches: 0 };
       stats.set(c.playerId, row);
     }
     row.runs += c.runs;
@@ -423,7 +458,7 @@ function applyBowlingStats(book, team, cards) {
   for (const c of cards) {
     let row = stats.get(c.playerId);
     if (!row) {
-      row = { playerId: c.playerId, name: c.name, role: c.role, runs: 0, balls: 0, innings: 0, notOuts: 0, highest: 0, wickets: 0, ballsBowled: 0, runsConceded: 0 };
+      row = { playerId: c.playerId, name: c.name, role: c.role, runs: 0, balls: 0, innings: 0, notOuts: 0, highest: 0, wickets: 0, ballsBowled: 0, runsConceded: 0, matches: 0 };
       stats.set(c.playerId, row);
     }
     row.wickets += c.wickets;
@@ -452,6 +487,7 @@ function finalizePlayerStats(book, teams) {
         economy: row.ballsBowled > 0 ? Number(((row.runsConceded / row.ballsBowled) * 6).toFixed(2)) : 0,
         oversBowled: Number(formatOvers(row.ballsBowled)),
         bestBowling: packBestBowling(row),
+        matches: Number(row.matches) || 0,
       });
     }
     out[team.name] = rows;
@@ -612,6 +648,8 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     applyBattingStats(ctx.statBook, second, batting2);
     applyBowlingStats(ctx.statBook, second, bowling1);
     applyBowlingStats(ctx.statBook, first, bowling2);
+    bumpMatchAppearances(ctx.statBook, first, batting1, bowling2);
+    bumpMatchAppearances(ctx.statBook, second, batting2, bowling1);
   }
 
   return match;
@@ -968,6 +1006,8 @@ module.exports = {
   FORM_MIN_PCT,
   FORM_MAX_PCT,
   FORM_EFFECT,
+  FORM_RANK_SHIFT,
+  formRankShift,
   matchStrength,
   squadStrengthScore,
   SCORE_STRENGTH_CAP,

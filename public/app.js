@@ -732,7 +732,7 @@ function formPctOf(src) {
   return Number.isFinite(n) ? Math.round(n) : null;
 }
 
-function formLabel(src, { prefix = "Form " } = {}) {
+function formLabel(src, { prefix = "Current form " } = {}) {
   const n = typeof src === "number" ? Math.round(src) : formPctOf(src);
   if (n == null) return "";
   const cls = n > 100 ? "is-hot" : n < 100 ? "is-cold" : "is-even";
@@ -1045,7 +1045,7 @@ function teamStripHtml(a) {
       const need = banned ? "banned" : row.eliminated ? "out" : done ? "done" : `need ${pending}`;
       const formSrc = (live && live.formPct != null) ? live : row;
       const form = formLabel(formSrc);
-      const formTip = formPctOf(formSrc) != null ? ` · Form ${formPctOf(formSrc)}%` : "";
+      const formTip = formPctOf(formSrc) != null ? ` · Current form ${formPctOf(formSrc)}%` : "";
       const tip = `${row.name} · ${row.purseLakhs} pts at start of this lot · ${
         banned ? "Banned for match fixing" : row.eliminated ? "eliminated" : done ? "squad complete" : out ? "opted out of this player" : `${pending} slot${pending === 1 ? "" : "s"} left`
       }${powerUsed ? " · power used" : ""}${formTip}`;
@@ -1807,6 +1807,14 @@ function visibleTournament() {
   return { league: leagueAll, playoffs: poAll, showTable: true, showFinal: true, showAwards: true };
 }
 
+function resultRecord(pos) {
+  if (!pos || pos.played == null && pos.won == null) return "";
+  const w = Number(pos.won) || 0;
+  const l = Number(pos.lost) || 0;
+  const nr = Number(pos.nr) || 0;
+  return nr ? `${w}W–${l}L–${nr}NR` : `${w}W–${l}L`;
+}
+
 function resultStandingsCard(pos, fresh) {
   if (!pos) return "";
   const champ = (pos.finish || pos.title) === "Champion";
@@ -1814,18 +1822,22 @@ function resultStandingsCard(pos, fresh) {
   const score = pos.squadScore != null ? String(pos.squadScore) : "—";
   const cid = characterIdOf(pos);
   const mark = teamMark({ id: cid, characterId: cid, color: pos.color, color2: pos.color2, text: pos.text }, "lg", pos.name);
-  return `<article class="result-card ${champ ? "is-champion" : ""} ${fresh ? "is-fresh" : ""}" style="--c:${esc(pos.color || "")};--ct:${esc(pos.text || pos.color || "")};--c2:${esc(pos.color2 || "")}">
+  const record = resultRecord(pos);
+  const finish = pos.finish || pos.title || "";
+  const owner = pos.coOwner && pos.coOwner !== pos.name ? pos.coOwner : "";
+  return `<article class="result-card ${champ ? "is-champion" : ""} ${fresh ? "is-fresh" : ""}" style="--c:${esc(pos.color || "")};--ct:${esc(pos.text || pos.color || "")};--c2:${esc(pos.color2 || "")}" role="button" tabindex="0" data-team-name="${esc(pos.name || "")}" aria-label="View ${esc(pos.name || "team")} squad">
     ${champ ? `<div class="champ-burst" aria-hidden="true"></div>` : ""}
     <span class="result-pos">${esc(pos.position)}</span>
     ${mark}
     <div class="result-card-body">
       <h3>${esc(pos.name || pos.short || "")}</h3>
-      <p class="result-finish">${esc(pos.finish || pos.title || "")}</p>
+      ${owner ? `<p class="result-owner">${esc(owner)}</p>` : ""}
+      <p class="result-finish">${esc(finish)}${record ? ` · ${esc(record)}` : ""}</p>
     </div>
     <div class="result-card-stats">
       ${form ? `<p class="result-form">${form}</p>` : ""}
       <p class="result-score"><strong>${esc(score)}</strong><span> / 1000</span></p>
-      <p class="lede result-score-label">Squad strength</p>
+      <p class="lede result-score-label">Performance</p>
     </div>
   </article>`;
 }
@@ -1902,6 +1914,104 @@ function teamReportCard(team) {
     </article>`;
 }
 
+
+function resultsTeamByName(name) {
+  const teams = (state && state.tournament && state.tournament.teams) || [];
+  return teams.find((t) => t && t.name === name) || null;
+}
+
+function playerStatLines(slot) {
+  const st = (slot && slot.stats) || {};
+  const role = slot && slot.player ? slot.player.role : "";
+  const bats = role === "BAT" || role === "WK" || role === "AR";
+  const bowls = role === "AR" || role === "BOWL";
+  const lines = [];
+  if (bats) {
+    const sr = st.strikeRate != null ? st.strikeRate : "—";
+    const hs = st.highest ? `, HS ${st.highest}` : "";
+    lines.push(`${st.runs || 0} runs · SR ${sr}${hs}`);
+  }
+  if (bowls) {
+    const econ = st.economy != null ? st.economy : "—";
+    lines.push(`${st.wickets || 0} wkts · Econ ${econ}`);
+  }
+  lines.push(`${st.matches != null ? st.matches : (st.innings || 0)} matches`);
+  return lines;
+}
+
+function fillResultsTeamSheet(name) {
+  const body = document.getElementById("results-team-sheet-body");
+  const team = resultsTeamByName(name);
+  if (!body || !team) return false;
+  const cid = characterIdOf(team);
+  const mark = teamMark({ id: cid, characterId: cid, color: team.color, color2: team.color2, text: team.text }, "lg", team.name);
+  const form = formPctOf(team) != null ? formLabel(team) : "";
+  const record = resultRecord(team);
+  const rows = (team.squad || []).map((s) => {
+    const p = s.player || {};
+    const shotId = `sheet-shot-${esc(p.id || "")}`;
+    const lines = playerStatLines(s).map((l) => `<span>${esc(l)}</span>`).join("");
+    const top = s.isTopPerformer || (team.topPerformerId && p.id === team.topPerformerId);
+    return `<li class="sheet-player ${top ? "is-top" : ""}">
+      <div class="sheet-shot" id="${shotId}"></div>
+      <div class="sheet-player-body">
+        <p class="sheet-player-name">${s.isCaptain ? '<span class="cap">CAP</span> ' : ""}${esc(p.name || "")}${top ? ' <span class="sheet-top-tag">Top performer</span>' : ""}</p>
+        <p class="sheet-player-meta">${roleTag(p.role)} · ${money(s.priceLakhs)}</p>
+        <p class="sheet-player-stats">${lines}</p>
+      </div>
+    </li>`;
+  }).join("");
+  body.innerHTML = `
+    <header class="sheet-head" style="--c:${esc(team.color || "")};--ct:${esc(team.text || team.color || "")}">
+      ${mark}
+      <div>
+        <p class="kicker">${esc(team.finish || team.title || "")}${record ? ` · ${esc(record)}` : ""}</p>
+        <h2 id="results-team-sheet-title">${esc(team.name)}</h2>
+        ${team.coOwner && team.coOwner !== team.name ? `<p class="lede">${esc(team.coOwner)}</p>` : ""}
+        <p class="lede">${form}${team.squadScore != null ? `${form ? " · " : ""}<strong>${team.squadScore}</strong>/1000 performance` : ""}</p>
+      </div>
+    </header>
+    <ul class="sheet-squad">${rows || `<li class="lede">No players</li>`}</ul>`;
+  for (const s of team.squad || []) {
+    const el = document.getElementById(`sheet-shot-${s.player && s.player.id ? s.player.id : ""}`);
+    if (el && window.IplHeadshot) {
+      IplHeadshot.mount(el, s.player || {}, { id: `sheet-shot-${s.player.id}` });
+      el.classList.add("sheet-shot");
+    }
+  }
+  return true;
+}
+
+function closeResultsTeamSheet() {
+  const modal = document.getElementById("results-team-sheet");
+  if (modal) modal.hidden = true;
+}
+
+function openResultsTeamSheet(name) {
+  if (!fillResultsTeamSheet(name)) return false;
+  const modal = document.getElementById("results-team-sheet");
+  if (!modal) return false;
+  modal.hidden = false;
+  const close = document.getElementById("results-team-sheet-close");
+  if (close) close.focus();
+  return true;
+}
+
+function bindResultsTeamSheet() {
+  document.querySelectorAll(".result-card[data-team-name]").forEach((card) => {
+    const open = () => openResultsTeamSheet(card.getAttribute("data-team-name"));
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        open();
+      }
+    });
+  });
+  document.getElementById("results-team-sheet-close")?.addEventListener("click", closeResultsTeamSheet);
+  document.getElementById("results-team-sheet-backdrop")?.addEventListener("click", closeResultsTeamSheet);
+}
+
 function resultsView() {
   const t = state.tournament;
   if (!t) {
@@ -1911,62 +2021,10 @@ function resultsView() {
   if (pending) {
     return `<section class="results">${standingsRevealHtml(true)}</section>`;
   }
-  const vis = visibleTournament();
-  const champ = vis.showFinal && t.champion ? t.champion : null;
-  const awards = vis.showAwards ? t.awards : null;
   return `
     <section class="results">
       ${standingsRevealHtml(false)}
-      ${
-        champ
-          ? `<div class="panel champion">
-              <div class="champ-burst" aria-hidden="true"></div>
-              <h2>Champion</h2>
-              ${teamMark({ id: characterIdOf(champ) || characterIdOf((state.franchises || []).find((f) => f.name === champ.name)?.franchise), color: champ.color, color2: champ.color2, text: champ.text }, "lg", champ.name)}
-              <p class="name" style="color:${esc(champ.text || champ.color)}">${esc(champ.name || champ.short)}</p>
-              <p class="lede">${champ.title ? esc(champ.title) : "Champion"}</p>
-            </div>`
-          : ""
-      }
-      <div class="panel">
-        <h2>League matches</h2>
-        ${vis.league.map(matchCard).join("") || `<p class="lede">Opening fixtures…</p>`}
-      </div>
-      ${vis.showTable ? `<div class="panel"><h2>Points table</h2>${tableHtml(t.table)}</div>` : ""}
-      ${
-        vis.playoffs.length
-          ? `<div class="panel"><h2>Playoffs</h2>${vis.playoffs.map(matchCard).join("")}</div>`
-          : ""
-      }
-      ${
-        vis.showFinal
-          ? `<div class="panel"><h2>Final positions</h2>
-              <ol class="positions">
-                ${t.positions
-                  .map(
-                    (p) =>
-                      `<li><span style="color:${esc(p.text || p.color)}">${p.position}. ${esc(p.name || p.short)}${formPctOf(p) != null ? ` ${formLabel(p)}` : ""}${p.squadScore != null ? ` · ${p.squadScore}/1000` : ""}</span><span>${esc(p.finish || p.title)}</span></li>`
-                  )
-                  .join("")}
-              </ol>
-            </div>`
-          : ""
-      }
-      ${
-        vis.showFinal && (t.teams || []).length
-          ? `<div class="panel"><h2>Squads &amp; performance</h2>
-              <div class="team-reports">${t.teams.map(teamReportCard).join("")}</div>
-            </div>`
-          : ""
-      }
-      ${
-        awards
-          ? `<div class="awards">
-              <div class="award"><h3>Best buy</h3><p><strong>${esc(awards.bestBuy?.playerName || "—")}</strong> (${esc(awards.bestBuy?.teamName || awards.bestBuy?.short || "")})</p><p class="lede">${esc(awards.bestBuy?.reason || "")}</p></div>
-              <div class="award"><h3>Costliest flop</h3><p><strong>${esc(awards.costliestFlop?.playerName || "—")}</strong> (${esc(awards.costliestFlop?.teamName || awards.costliestFlop?.short || "")})</p><p class="lede">${esc(awards.costliestFlop?.reason || "")}</p></div>
-            </div>`
-          : ""
-      }
+      <p class="lede results-hint">Tap a team to see the full squad and tournament stats.</p>
     </section>
   `;
 }
@@ -2530,6 +2588,7 @@ function wireCurrent() {
       });
     });
   }
+  bindResultsTeamSheet();
   document.getElementById("skip-reveal")?.addEventListener("click", async () => {
     const res = await emit("skipResultsReveal");
     if (res && res.ok && state && state.resultsReveal) {
@@ -2660,7 +2719,7 @@ socket.on("state", (next) => {
     lastYouLed = null;
   }
   if (state?.phase === "results" && prevPhase !== "results" && !isResultsRevealPending()) {
-    loadMatches();
+    // Team sheets come from the lite snapshot; match scorecards stay off the results page.
   }
   if (state?.you && state?.code) {
     saveSession(state.code, state.you.name);
@@ -2683,7 +2742,7 @@ socket.on("delta", (evt) => {
     lastYouLed = null;
   }
   if (state.phase === "results" && (prevPhase !== "results" || (evt && evt.type === "resultsReveal" && evt.complete)) && !isResultsRevealPending()) {
-    loadMatches();
+    // Match-by-match output is no longer shown on the results page.
   }
   render();
 });
@@ -2715,6 +2774,9 @@ window.addEventListener("resize", () => {
   if (state && state.phase === "auction") fitHubName();
 });
 window.addEventListener("orientationchange", () => syncRingSize(true));
+window.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") closeResultsTeamSheet();
+});
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (isPowerConfirmOpen()) {
@@ -2727,4 +2789,4 @@ window.addEventListener("keydown", (e) => {
 render();
 
 
-window.IplApp = { get state() { return state; }, emit, socket, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize };
+window.IplApp = { get state() { return state; }, emit, socket, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize, openResultsTeamSheet, closeResultsTeamSheet };

@@ -142,6 +142,13 @@
         <div class="sold-progress" aria-hidden="true"><i id="last-team-fill-progress-bar"></i></div>
       </div>
     </div>
+    <div id="results-team-sheet" class="sheet-modal" hidden>
+      <div class="sheet-backdrop" id="results-team-sheet-backdrop" data-close="1"></div>
+      <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="results-team-sheet-title" id="results-team-sheet-card">
+        <button class="sheet-close" id="results-team-sheet-close" type="button" aria-label="Close">×</button>
+        <div id="results-team-sheet-body" class="sheet-body"></div>
+      </div>
+    </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/characters.js"></script>
     <script src="/identities.js"></script>

@@ -1811,7 +1811,7 @@ describe("team form", () => {
     const formEvt = events.find((e) => e.type === "teamForm" && e.name === "Ashutosh");
     assert.ok(formEvt, "expected a room-wide form reveal");
     assert.equal(formEvt.formPct, a.formPct);
-    assert.match(formEvt.message, /Ashutosh's squad is in \d+% form/);
+    assert.match(formEvt.message, /Ashutosh's current form is \d+%/);
     const snap = room.getState("Priya");
     assert.equal(snap.franchises.find((f) => f.name === "Ashutosh").formPct, a.formPct);
     const kept = a.formPct;
@@ -1920,7 +1920,7 @@ describe("team form", () => {
       franchises: [{ name: "Mitron", squad: [], formPct: null }],
       you: { name: "Mitron", squad: [], formPct: null },
     };
-    applyDelta(state, { type: "teamForm", name: "Mitron", formPct: 108, message: "Mitron's squad is in 108% form" });
+    applyDelta(state, { type: "teamForm", name: "Mitron", formPct: 108, message: "Mitron's current form is 108%" });
     assert.equal(state.franchises[0].formPct, 108);
     assert.equal(state.you.formPct, 108);
   });
@@ -2242,6 +2242,263 @@ describe("retired players stay out of the auction", () => {
     if (room.lastEvent.type === "poolExhausted") {
       assert.equal(room.lastEvent.added, 0);
       assert.match(msg, /squads as they are/i);
+    }
+  });
+});
+
+describe("form bias by completion order", () => {
+  const { rollTeamForm, formRankShift, FORM_RANK_SHIFT, mulberry32 } = require("../server/simulate");
+
+  test("shifts the form centre linearly from +5 for first to -5 for last, clamped to 85–115", () => {
+    assert.equal(FORM_RANK_SHIFT, 5);
+    assert.equal(formRankShift(1, 1), 0);
+    assert.equal(formRankShift(1, 4), 5);
+    assert.equal(formRankShift(4, 4), -5);
+    assert.equal(formRankShift(2, 3), 0);
+    assert.ok(Math.abs(formRankShift(2, 4) - (5 - 10 / 3)) < 1e-9);
+    const rng = mulberry32(99);
+    for (let i = 0; i < 200; i++) {
+      const v = rollTeamForm(rng, { rank: 1, total: 8 });
+      assert.ok(v >= 85 && v <= 115, v);
+    }
+  });
+
+  test("Monte Carlo: first finishers out-form last finishers on average, with upsets still possible", () => {
+    const rng = mulberry32(2026);
+    const n = 8000;
+    const sums = [0, 0, 0, 0];
+    let firstBeatsLast = 0;
+    let lastBeatsFirst = 0;
+    let ties = 0;
+    for (let i = 0; i < n; i++) {
+      const forms = [1, 2, 3, 4].map((rank) => rollTeamForm(rng, { rank, total: 4 }));
+      forms.forEach((v, k) => { sums[k] += v; });
+      if (forms[0] > forms[3]) firstBeatsLast += 1;
+      else if (forms[3] > forms[0]) lastBeatsFirst += 1;
+      else ties += 1;
+    }
+    const means = sums.map((s) => s / n);
+    const pFirst = firstBeatsLast / n;
+    const pUpset = lastBeatsFirst / n;
+    console.log("form bias MC", { means, pFirst, pUpset, ties: ties / n });
+    assert.ok(means[0] > means[1] && means[1] > means[2] && means[2] > means[3], means);
+    assert.ok(means[0] > 102 && means[0] < 108, `first mean ${means[0]}`);
+    assert.ok(means[3] > 92 && means[3] < 98, `last mean ${means[3]}`);
+    assert.ok(pFirst > 0.7, `P(first > last) ${pFirst}`);
+    assert.ok(pUpset > 0.08 && pUpset < 0.3, `P(last > first) ${pUpset}`);
+  });
+
+  test("completion rank is assigned when form is rolled, and auto-fill or last-team fill finish last", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    assert.equal(room.maybeRevealForm(room.findByName("Ashutosh")), true);
+    assert.equal(room.findByName("Ashutosh").formFinishRank, 1);
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    assert.equal(room.maybeRevealForm(room.findByName("Priya")), true);
+    assert.equal(room.findByName("Priya").formFinishRank, 2);
+    giveSquad(room, "Rohan", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    room.queue = [];
+    room.unsold = [];
+    const leftover = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.allPlayers = [...room.franchises.flatMap((f) => f.squad.map((s) => s.player)), leftover];
+    room.autoFill();
+    const rohan = room.findByName("Rohan");
+    assert.equal(isSquadComplete(rohan.squad), true);
+    assert.equal(rohan.formFinishRank, 3);
+    assert.equal(room.formFinishCount, 3);
+  });
+});
+
+describe("auto-fill does not change results except through form", () => {
+  test("auto-fill and last-team fill have no direct effect on strength, positions, or player stats", () => {
+    const fs = require("fs");
+    const path = require("path");
+    const simSrc = fs.readFileSync(path.join(__dirname, "../server/simulate.js"), "utf8");
+    assert.doesNotMatch(simSrc, /autoFill|lastTeamFill|\.auto\b/);
+
+    const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+    const picked = [];
+    const used = new Set();
+    for (const p of players) {
+      if ((need[p.role] || 0) > 0) {
+        picked.push(p);
+        used.add(p.id);
+        need[p.role] -= 1;
+      }
+    }
+    function team(name, extra = {}) {
+      return {
+        name,
+        formPct: 100,
+        franchise: { color: "#fc0", text: "#000" },
+        squad: picked.map((p) => ({ player: p, priceLakhs: 5 })),
+        captainId: picked[0].id,
+        mode: "classical",
+        boosters: [],
+        ...extra,
+      };
+    }
+    const voluntary = team("Voluntary");
+    const autoFilled = team("Auto", { autoFilled: true, lastTeamFill: true });
+    assert.deepEqual(matchStrength(voluntary), matchStrength(autoFilled));
+    assert.equal(squadStrengthScore(voluntary), squadStrengthScore(autoFilled));
+
+    const { playMatch, mulberry32 } = require("../server/simulate");
+    const rngA = mulberry32(77);
+    const rngB = mulberry32(77);
+    const rival = team("Rival", { name: "Rival", formPct: 100 });
+    const mVol = playMatch(voluntary, { ...rival, name: "Rival" }, rngA, "League");
+    const mAuto = playMatch(autoFilled, team("Rival"), rngB, "League");
+    assert.equal(mVol.firstInnings.score, mAuto.firstInnings.score);
+    assert.equal(mVol.secondInnings.score, mAuto.secondInnings.score);
+    assert.equal(mVol.winnerName === "Voluntary" ? "Auto" : mVol.winnerName, mAuto.winnerName === "Auto" ? "Auto" : mAuto.winnerName);
+
+    const tVol = simulateTournament([voluntary, team("Other", { name: "Other", formPct: 100 })], 42);
+    const tAuto = simulateTournament([autoFilled, team("Other", { name: "Other", formPct: 100 })], 42);
+    assert.equal(tVol.positions[0].title, tAuto.positions[0].title);
+    const volScore = tVol.positions.find((p) => p.name === "Voluntary").formPct;
+    const autoScore = tAuto.positions.find((p) => p.name === "Auto").formPct;
+    assert.equal(volScore, 100);
+    assert.equal(autoScore, 100);
+    assert.equal(
+      tVol.positions.find((p) => p.name === "Voluntary").points,
+      tAuto.positions.find((p) => p.name === "Auto").points
+    );
+
+    // Room path: after auto-fill, forcing the same form yields the same strength as a voluntary twin.
+    const roomA = roomWith(["Ashutosh", "Priya"], {}, { seed: 11 });
+    giveSquad(roomA, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(roomA, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    roomA.findByName("Ashutosh").formPct = 100;
+    roomA.findByName("Priya").formPct = 100;
+    const roomB = roomWith(["Ashutosh", "Priya"], {}, { seed: 11 });
+    giveSquad(roomB, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(roomB, "Priya", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    roomB.queue = [];
+    roomB.unsold = [];
+    const leftover = players.find((p) => p.role === "BAT" && !roomB.soldIds.has(p.id) && !roomA.soldIds.has(p.id));
+    // Use Priya's missing role from the same pool shape: copy Ashutosh/Priya voluntary leftover isn't needed;
+    // just auto-fill whoever remains. Then overwrite form.
+    roomB.allPlayers = [...roomB.franchises.flatMap((f) => f.squad.map((s) => s.player)), leftover];
+    roomB.autoFill();
+    assert.equal(isSquadComplete(roomB.findByName("Priya").squad), true);
+    roomB.findByName("Ashutosh").formPct = 100;
+    roomB.findByName("Priya").formPct = 100;
+    // Strength of the voluntarily completed team is unaffected by the other team being auto-filled.
+    assert.equal(
+      squadStrengthScore(roomA.findByName("Ashutosh")),
+      squadStrengthScore(roomB.findByName("Ashutosh"))
+    );
+  });
+});
+
+describe("simulated player stats and results payload", () => {
+  test("per-player batting and bowling totals match the innings and tournament team totals within tolerance", () => {
+    const { playMatch, mulberry32 } = require("../server/simulate");
+    function makeTeam(name, start) {
+      const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+      const squad = [];
+      let i = start;
+      while (squad.length < 11 && i < players.length) {
+        const p = players[i++];
+        if ((need[p.role] || 0) > 0) {
+          squad.push({ player: p, priceLakhs: 4 });
+          need[p.role] -= 1;
+        }
+      }
+      return {
+        name,
+        formPct: 100,
+        franchise: { color: "#fc0", text: "#000" },
+        squad,
+        captainId: squad[0].player.id,
+        mode: "classical",
+        boosters: [],
+      };
+    }
+    const a = makeTeam("A", 0);
+    const b = makeTeam("B", 40);
+    const match = playMatch(a, b, mulberry32(123), "League");
+    assert.ok(match.performances);
+    for (const inn of [match.firstInnings, match.secondInnings]) {
+      const side = match.performances[inn.name];
+      const runSum = (side.batting || []).reduce((s, r) => s + r.runs, 0);
+      const wktBat = (side.batting || []).filter((r) => r.out).length;
+      assert.ok(Math.abs(runSum - inn.score) <= 2, `${inn.name} runs ${runSum} vs ${inn.score}`);
+      assert.ok(Math.abs(wktBat - inn.wickets) <= 1, `${inn.name} wickets ${wktBat} vs ${inn.wickets}`);
+    }
+    const bowlFirst = match.performances[match.secondInnings.name].bowling || [];
+    const bowlSecond = match.performances[match.firstInnings.name].bowling || [];
+    const w1 = bowlFirst.reduce((s, r) => s + r.wickets, 0);
+    const w2 = bowlSecond.reduce((s, r) => s + r.wickets, 0);
+    assert.ok(Math.abs(w1 - match.firstInnings.wickets) <= 1, `bowl wkts ${w1} vs ${match.firstInnings.wickets}`);
+    assert.ok(Math.abs(w2 - match.secondInnings.wickets) <= 1, `bowl wkts ${w2} vs ${match.secondInnings.wickets}`);
+
+    const t = simulateTournament([a, b, makeTeam("C", 80)], 2026);
+    const matches = [...(t.leagueMatches || []), ...((t.playoffs && t.playoffs.matches) || [])];
+    for (const team of [a, b, makeTeam("C", 80)]) {
+      const name = team.name === "C" ? "C" : team.name;
+      let runsFor = 0;
+      let wicketsTaken = 0;
+      for (const m of matches) {
+        if (m.noResult) continue;
+        if (m.firstInnings.name === name) {
+          runsFor += m.firstInnings.score;
+          wicketsTaken += m.secondInnings.wickets;
+        } else if (m.secondInnings.name === name) {
+          runsFor += m.secondInnings.score;
+          wicketsTaken += m.firstInnings.wickets;
+        }
+      }
+      const stats = (t.playerStats && t.playerStats[name]) || [];
+      const statRuns = stats.reduce((s, r) => s + (r.runs || 0), 0);
+      const statWkts = stats.reduce((s, r) => s + (r.wickets || 0), 0);
+      assert.ok(Math.abs(statRuns - runsFor) <= 3, `${name} tournament runs ${statRuns} vs ${runsFor}`);
+      assert.ok(Math.abs(statWkts - wicketsTaken) <= 3, `${name} tournament wickets ${statWkts} vs ${wicketsTaken}`);
+    }
+  });
+
+  test("results snapshot has standings fields and team sheets, but omits match scorecards", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"], { captainMs: 10, resultsRevealStepMs: 0 }, { seed: 5 });
+    for (const name of ["Ashutosh", "Priya", "Rohan"]) {
+      giveSquad(room, name, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+      room.findByName(name).captainId = room.findByName(name).squad[0].player.id;
+      room.findByName(name).formPct = name === "Ashutosh" ? 108 : name === "Priya" ? 100 : 92;
+    }
+    room.phase = "captains";
+    room.finishCaptains();
+    assert.equal(room.phase, "results");
+    const lite = room.getState("Ashutosh");
+    assert.equal(lite.tournament.leagueMatches, undefined);
+    assert.equal(lite.tournament.playoffs.matches, undefined);
+    assert.ok(Array.isArray(lite.tournament.positions));
+    assert.ok(Array.isArray(lite.tournament.teams));
+    assert.equal(lite.tournament.teams.length, 3);
+    for (const pos of lite.tournament.positions) {
+      assert.equal(typeof pos.position, "number");
+      assert.ok(pos.name);
+      assert.equal(typeof pos.squadScore, "number");
+      assert.ok(pos.squadScore >= 0 && pos.squadScore <= 1000);
+      assert.ok(pos.finish);
+      assert.equal(typeof pos.formPct, "number");
+      assert.ok("won" in pos && "lost" in pos);
+      assert.ok(pos.coOwner);
+    }
+    for (const team of lite.tournament.teams) {
+      assert.ok(team.squad.length >= 11);
+      assert.ok(team.topPerformerId);
+      assert.ok(team.squad.some((s) => s.isTopPerformer && s.player.id === team.topPerformerId));
+      assert.ok(team.squad.some((s) => s.isCaptain));
+      for (const s of team.squad) {
+        assert.ok(s.stats);
+        assert.equal(typeof s.stats.runs, "number");
+        assert.equal(typeof s.stats.strikeRate, "number");
+        assert.equal(typeof s.stats.highest, "number");
+        assert.equal(typeof s.stats.wickets, "number");
+        assert.equal(typeof s.stats.economy, "number");
+        assert.equal(typeof s.stats.matches, "number");
+        assert.ok("priceLakhs" in s);
+      }
     }
   });
 });
