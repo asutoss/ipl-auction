@@ -1655,40 +1655,63 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .results-reveal-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .results-reveal-head h2 { margin: 0; }
 .results-reveal-stage { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
-.results-reveal-list { display: flex; flex-direction: column-reverse; gap: 12px; }
+.results-reveal-list { display: flex; flex-direction: column-reverse; gap: 8px; }
 .result-card {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
-  gap: 12px 14px;
+  grid-template-columns: auto auto minmax(6ch, 1fr) auto;
+  gap: 8px 10px;
   align-items: center;
   background: var(--card);
   border: 1px solid color-mix(in srgb, var(--c, var(--gold)) 55%, transparent);
-  border-radius: 18px;
-  padding: 14px 16px;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+  border-radius: 14px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.24);
+  min-width: 0;
 }
 .result-card.is-fresh { animation: sold-pop 480ms cubic-bezier(0.18, 1.4, 0.32, 1) both; }
 .result-card.is-champion {
   border-width: 2px;
   border-color: var(--gold);
-  padding: 22px 18px;
-  box-shadow: 0 0 0 1px rgba(245,197,24,0.35), 0 18px 50px rgba(0,0,0,0.45), 0 0 48px rgba(245,197,24,0.35);
+  box-shadow: 0 0 0 1px rgba(245,197,24,0.35), 0 10px 28px rgba(0,0,0,0.4), 0 0 28px rgba(245,197,24,0.28);
   animation: champ-reveal 900ms cubic-bezier(0.18, 1.4, 0.32, 1) both;
 }
 .result-pos {
-  font-size: 28px; font-weight: 800; width: 40px; text-align: center;
-  color: var(--ct, var(--c, var(--gold))); font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 20px;
+  font-weight: 800;
+  min-width: 1.4em;
+  text-align: center;
+  color: var(--ct, var(--c, var(--gold)));
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
-.result-card.is-champion .result-pos { font-size: 36px; color: var(--gold); }
-.result-card-body h3 { margin: 0 0 4px; font-size: 20px; color: var(--ct, var(--c, var(--text))); }
-.result-finish { margin: 0; color: var(--muted); font-size: 14px; letter-spacing: 0.02em; }
-.result-card.is-champion .result-finish { color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-.result-card-stats { text-align: right; }
-.result-form { margin: 0 0 4px; }
-.result-score { margin: 0; line-height: 1; }
-.result-score strong { font-size: 28px; color: var(--gold); font-variant-numeric: tabular-nums; }
-.result-score span { color: var(--muted); font-size: 13px; }
-.result-score-label { margin: 4px 0 0; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.result-card.is-champion .result-pos { color: var(--gold); }
+.result-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ct, var(--c, var(--text)));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.result-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+.result-form { margin: 0; font-size: 12px; white-space: nowrap; line-height: 1; }
+.result-score { margin: 0; line-height: 1; white-space: nowrap; }
+.result-score strong { font-size: 16px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.result-score span { color: var(--muted); font-size: 11px; margin-left: 1px; }
+.result-card .team-mark-wrap { width: 28px; height: 28px; flex: 0 0 28px; }
 @keyframes champ-reveal {
   0% { transform: scale(0.86); opacity: 0; filter: brightness(1.8); }
   60% { transform: scale(1.04); opacity: 1; }
@@ -1698,35 +1721,31 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .results, #main { overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
 .results .table-wrap, .results .team-reports { max-width: 100%; overflow-x: auto; }
 @media (max-width: 700px) {
-  .results-reveal { min-height: 0; max-width: 100%; gap: 10px; }
+  .results-reveal { min-height: 0; max-width: 100%; gap: 8px; overflow-x: hidden; }
   .results-reveal-head h2 { font-size: 32px; }
-  .result-card { max-width: 100%; box-sizing: border-box; padding: 8px 12px; gap: 6px 12px; }
-  .result-card.is-champion { padding: 12px; }
-  .result-score strong { font-size: 24px; }
-  .result-pos { min-width: 1.1em; z-index: 1; }
   .results-reveal-stage { flex: none; justify-content: flex-start; }
-  .result-card { grid-template-columns: auto 1fr auto; }
-  .result-card .team-mark-wrap { grid-row: 1 / 3; }
-  .result-card-body { grid-column: 2; }
-  .result-pos { grid-column: 3; grid-row: 1; width: auto; justify-self: end; }
-  .results-reveal { overflow-x: hidden; }
-  .result-card-stats {
-    grid-column: 2;
-    text-align: left;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
+  .result-card {
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 7px 8px;
+    gap: 6px 6px;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
   }
-  .result-form { margin: 0; }
-  .result-score { justify-self: start; }
-  .result-score-label { margin: 0; }
+  .result-pos { min-width: 1.15em; z-index: 1; font-size: 18px; }
+  .result-name { font-size: 15px; }
+  .result-meta { gap: 6px; }
+  .results-reveal.panel,
+  .panel.results-reveal { padding: 16px 10px 18px; }
+  .result-form { font-size: 10px; }
+  .result-form .form-pct { font-weight: 700; letter-spacing: 0; }
+  .result-score strong { font-size: 13px; }
+  .result-score span { font-size: 10px; }
+  .result-card .team-mark-wrap { width: 24px; height: 24px; flex-basis: 24px; }
 }
 
 
 .result-card { cursor: pointer; }
 .result-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.result-owner { margin: 0 0 2px; color: var(--muted); font-size: 13px; }
 .results-hint { text-align: center; margin: 4px 0 12px; }
 
 /* Results team sheet */

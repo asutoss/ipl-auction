@@ -1821,23 +1821,15 @@ function resultStandingsCard(pos, fresh) {
   const form = formPctOf(pos) != null ? formLabel(pos) : "";
   const score = pos.squadScore != null ? String(pos.squadScore) : "—";
   const cid = characterIdOf(pos);
-  const mark = teamMark({ id: cid, characterId: cid, color: pos.color, color2: pos.color2, text: pos.text }, "lg", pos.name);
-  const record = resultRecord(pos);
-  const finish = pos.finish || pos.title || "";
-  const owner = pos.coOwner && pos.coOwner !== pos.name ? pos.coOwner : "";
+  const mark = teamMark({ id: cid, characterId: cid, color: pos.color, color2: pos.color2, text: pos.text }, "sm", pos.name);
   return `<article class="result-card ${champ ? "is-champion" : ""} ${fresh ? "is-fresh" : ""}" style="--c:${esc(pos.color || "")};--ct:${esc(pos.text || pos.color || "")};--c2:${esc(pos.color2 || "")}" role="button" tabindex="0" data-team-name="${esc(pos.name || "")}" aria-label="View ${esc(pos.name || "team")} squad">
     ${champ ? `<div class="champ-burst" aria-hidden="true"></div>` : ""}
     <span class="result-pos">${esc(pos.position)}</span>
     ${mark}
-    <div class="result-card-body">
-      <h3>${esc(pos.name || pos.short || "")}</h3>
-      ${owner ? `<p class="result-owner">${esc(owner)}</p>` : ""}
-      <p class="result-finish">${esc(finish)}${record ? ` · ${esc(record)}` : ""}</p>
-    </div>
-    <div class="result-card-stats">
+    <h3 class="result-name">${esc(pos.name || pos.short || "")}</h3>
+    <div class="result-meta">
+      <p class="result-score"><strong>${esc(score)}</strong><span>/1000</span></p>
       ${form ? `<p class="result-form">${form}</p>` : ""}
-      <p class="result-score"><strong>${esc(score)}</strong><span> / 1000</span></p>
-      <p class="lede result-score-label">Performance</p>
     </div>
   </article>`;
 }

@@ -68,18 +68,25 @@ async function waitFor(page, fn, label, timeoutMs = 15000, ...args) {
 
 async function shot(page, name, viewport, opts = {}) {
   await page.setViewport({ ...viewport, deviceScaleFactor: 2 });
+  await sleep(200);
+  if (opts.hideTopbar) {
+    await page.addStyleTag({ content: ".topbar { display: none !important; }" });
+  }
   await page.evaluate((sel) => {
     if (sel) {
       const el = document.querySelector(sel);
       if (el) {
-        const top = el.getBoundingClientRect().top + window.scrollY;
+        el.scrollIntoView({ block: "start", inline: "nearest" });
+        const top = el.getBoundingClientRect().top + (window.scrollY || document.documentElement.scrollTop || 0);
         window.scrollTo(0, Math.max(0, top - 8));
+        document.documentElement.scrollTop = Math.max(0, top - 8);
+        document.body.scrollTop = Math.max(0, top - 8);
         return;
       }
     }
     window.scrollTo(0, 0);
   }, opts.scroll || null);
-  await sleep(350);
+  await sleep(400);
   const file = path.join(OUT, name);
   await page.screenshot({ path: file, fullPage: false, timeout: 20000 });
   console.log("wrote", file);
@@ -150,7 +157,8 @@ async function main() {
       if (!debug || debug.cards < 4) throw err;
     }
     await sleep(400);
-    await shot(host, "results-simple.png", PHONE, { scroll: ".results-reveal" });
+    await shot(host, "results-simple.png", PHONE, { scroll: ".results-reveal", hideTopbar: true });
+    await shot(host, "results-simple-360.png", PHONE_NARROW, { scroll: ".results-reveal", hideTopbar: true });
 
     const champName = await host.evaluate(() => {
       const card = document.querySelector(".result-card.is-champion");
