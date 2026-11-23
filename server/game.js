@@ -1,6 +1,6 @@
 const { EventEmitter } = require("events");
 const { overallRating } = require("./players");
-const { simulateTournament, pickCaptainIfMissing } = require("./simulate");
+const { simulateTournament, pickCaptainIfMissing, rollTeamForm } = require("./simulate");
 const {
   ROLES,
   MIN_PLAYERS,
@@ -278,6 +278,7 @@ class GameRoom extends EventEmitter {
       purseLakhs: f.purseLakhs,
       isLeader: this.auction && f.key === this.auction.currentBidderKey,
       isYou: false,
+      formPct: f.formPct != null ? f.formPct : null,
     }));
   }
 
@@ -296,6 +297,7 @@ class GameRoom extends EventEmitter {
       eliminated: Boolean(f.eliminated),
       banned: Boolean(f.banned) || (f.eliminated && f.eliminatedReason === "match_fixing"),
       powerUsed: Boolean(f.powerUsedCount) || (f.powerUsesLeft != null && f.powerUsesLeft <= 0),
+      formPct: f.formPct != null ? f.formPct : null,
     }));
   }
 
@@ -409,6 +411,7 @@ class GameRoom extends EventEmitter {
       eliminatedReason: null,
       eliminatedAt: null,
       banned: false,
+      formPct: null,
       spentLakhs: 0,
       bidBlockedUntilLot: null,
       rakhiBlockLot: null,
@@ -934,6 +937,7 @@ class GameRoom extends EventEmitter {
         buyerName: team.name,
       });
     }
+    this.maybeRevealForm(team);
     return { team, entries };
   }
 
@@ -987,6 +991,7 @@ class GameRoom extends EventEmitter {
     this.clearTimer();
     this.revealUntil = null;
     banBrokeIncompleteTeams(this);
+    this.revealForms();
     if (this.lastTeamFill) return;
     if (this.allTeamsFull() || this.activeFranchises().length === 0) {
       this.beginCaptainPhase();
@@ -1088,6 +1093,37 @@ class GameRoom extends EventEmitter {
     return { ok: true };
   }
 
+  maybeRevealForm(team) {
+    if (!team) return false;
+    if (team.formPct != null) return false;
+    if (!isSquadComplete(team.squad, this.mode)) return false;
+    const rng = this.rng && typeof this.rng.random === "function" ? this.rng : this.rng;
+    team.formPct = rollTeamForm(rng);
+    const message = `${team.name}'s squad is in ${team.formPct}% form`;
+    const evt = {
+      type: "teamForm",
+      name: team.name,
+      short: team.name,
+      formPct: team.formPct,
+      color: team.franchise && team.franchise.color,
+      color2: team.franchise && team.franchise.color2,
+      text: team.franchise && (team.franchise.text || team.franchise.color),
+      characterId: characterIdOf(team.franchise),
+      message,
+    };
+    this.lastEvent = evt;
+    this.emitDelta(evt);
+    return true;
+  }
+
+  revealForms() {
+    let n = 0;
+    for (const team of this.franchises || []) {
+      if (this.maybeRevealForm(team)) n += 1;
+    }
+    return n;
+  }
+
   soldPack(winner, player, price) {
     return {
       type: "sold",
@@ -1155,6 +1191,7 @@ class GameRoom extends EventEmitter {
     this.auction = null;
     this.revealUntil = packed.revealUntil;
     this.emitDelta(packed);
+    this.maybeRevealForm(winner);
     this.scheduleNominateNext();
   }
 
@@ -1336,6 +1373,7 @@ class GameRoom extends EventEmitter {
     }
     this.queue = [];
     this.unsold = leftover;
+    this.revealForms();
     this.lastEvent = { type: "autofill", message: "Remaining gaps were filled at base price where possible." };
   }
 
@@ -1345,6 +1383,7 @@ class GameRoom extends EventEmitter {
     this.auction = null;
     this.lastTeamFill = null;
     this.revealUntil = null;
+    this.revealForms();
     for (const f of this.franchises) {
       if (!Array.isArray(f.boosters)) f.boosters = [];
     }
@@ -1491,6 +1530,7 @@ class GameRoom extends EventEmitter {
       power,
       powerUsesLeft: power.usesLeft,
       powerUsed: power.used,
+      formPct: f.formPct != null ? f.formPct : null,
     };
   }
 
@@ -1553,6 +1593,7 @@ class GameRoom extends EventEmitter {
         nr: row ? row.nr : 0,
         points: row ? row.points : 0,
         nrr: row ? row.nrr : 0,
+        formPct: f.formPct != null ? f.formPct : (row && row.formPct != null ? row.formPct : null),
         squad: f.squad.map((s) => ({
           player: s.player,
           priceLakhs: s.priceLakhs,
@@ -2132,6 +2173,7 @@ class GameRoom extends EventEmitter {
         params: reveal.params,
         uses: 1,
       });
+      this.revealForms();
       this.refreshLotSnapshot();
     }
     this.powerReveal = null;

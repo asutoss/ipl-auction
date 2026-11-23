@@ -84,6 +84,27 @@ function bowlersOf(team) {
   return (team.squad || []).filter((s) => ["AR", "BOWL"].includes(s.player.role));
 }
 
+const FORM_MIN_PCT = 85;
+const FORM_MAX_PCT = 115;
+/** How much of the 85–115% deviation is applied to batting/bowling. 0.5 keeps form moderate. */
+const FORM_EFFECT = 0.5;
+
+function rollTeamForm(rng) {
+  const random = typeof rng === "function"
+    ? rng
+    : (rng && typeof rng.random === "function" ? rng.random.bind(rng) : Math.random);
+  const lo = FORM_MIN_PCT / 100;
+  const span = (FORM_MAX_PCT - FORM_MIN_PCT) / 100;
+  const raw = lo + (random() * span + random() * span) / 2;
+  return Math.max(FORM_MIN_PCT, Math.min(FORM_MAX_PCT, Math.round(raw * 100)));
+}
+
+function formMultiplier(team) {
+  const pct = team && team.formPct;
+  if (pct == null || !Number.isFinite(Number(pct))) return 1;
+  return 1 + (Number(pct) / 100 - 1) * FORM_EFFECT;
+}
+
 function matchStrength(team, { chasing = false, nerfed = false } = {}) {
   const s = teamStrength(team);
   let batting = s.batting;
@@ -102,7 +123,10 @@ function matchStrength(team, { chasing = false, nerfed = false } = {}) {
     batting = Math.max(0, batting - 8);
     bowling = Math.max(0, bowling - 8);
   }
-  return { batting, bowling, strength: 0.52 * batting + 0.48 * bowling, batN: s.batN, bowlN: s.bowlN };
+  const form = formMultiplier(team);
+  batting *= form;
+  bowling *= form;
+  return { batting, bowling, strength: 0.52 * batting + 0.48 * bowling, batN: s.batN, bowlN: s.bowlN, form, formPct: team && team.formPct != null ? team.formPct : null };
 }
 
 function inningsBallsAndWickets(rng, bowling, allOutLikely, format) {
@@ -510,6 +534,7 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
       balls: inn.balls,
       overs: formatOvers(inn.balls),
       battingFirst,
+      formPct: team.formPct != null ? team.formPct : null,
     };
   }
 
@@ -545,6 +570,8 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     resultText,
     noResult,
     chased: noResult ? false : chased,
+    formPctA: teamA.formPct != null ? teamA.formPct : null,
+    formPctB: teamB.formPct != null ? teamB.formPct : null,
   };
 
   const batting1 = allocateBatting(first, inn1, rng);
@@ -580,6 +607,7 @@ function emptyRow(team) {
     runsAgainst: 0,
     ballsBowled: 0,
     nrr: 0,
+    formPct: team.formPct != null ? team.formPct : null,
   };
 }
 
@@ -642,6 +670,7 @@ function snapshotTable(rows) {
     nr: r.nr || 0,
     points: r.points,
     nrr: Number(r.nrr.toFixed(3)),
+    formPct: r.formPct != null ? r.formPct : null,
   }));
 }
 
@@ -848,6 +877,7 @@ function simulateTournament(franchises, seed, opts = {}) {
       won: row ? row.won : 0,
       lost: row ? row.lost : 0,
       nr: row ? row.nr : 0,
+      formPct: team.formPct != null ? team.formPct : (row && row.formPct != null ? row.formPct : null),
     });
   }
 
@@ -909,6 +939,11 @@ module.exports = {
   pickCaptainIfMissing,
   overallForAwards: awards,
   inningsFormat,
+  rollTeamForm,
+  formMultiplier,
+  FORM_MIN_PCT,
+  FORM_MAX_PCT,
+  FORM_EFFECT,
   QUOTA,
   ROLES,
 };

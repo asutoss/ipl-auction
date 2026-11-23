@@ -1785,3 +1785,139 @@ describe("auction pool top-up", () => {
     assert.equal(batch.filter((p) => p.role === "BOWL").length, 2);
   });
 });
+
+
+describe("team form", () => {
+  test("rolls form once when a squad becomes complete and does not re-roll later", () => {
+    const room = roomWith(["Ashutosh", "Priya"], {}, { seed: 11 });
+    giveSquad(room, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    assert.equal(room.findByName("Ashutosh").formPct, null);
+    const nextBat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.queue = [nextBat];
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.nominateNext();
+    assert.equal(room.optOut("Priya").ok, true);
+    const a = room.findByName("Ashutosh");
+    assert.equal(isSquadComplete(a.squad), true);
+    assert.equal(typeof a.formPct, "number");
+    assert.ok(a.formPct >= 85 && a.formPct <= 115, a.formPct);
+    const formEvt = events.find((e) => e.type === "teamForm" && e.name === "Ashutosh");
+    assert.ok(formEvt, "expected a room-wide form reveal");
+    assert.equal(formEvt.formPct, a.formPct);
+    assert.match(formEvt.message, /Ashutosh's squad is in \d+% form/);
+    const snap = room.getState("Priya");
+    assert.equal(snap.franchises.find((f) => f.name === "Ashutosh").formPct, a.formPct);
+    const kept = a.formPct;
+    a.squad = a.squad.slice(0, 6);
+    assert.equal(isSquadComplete(a.squad), false);
+    assert.equal(room.maybeRevealForm(a), false);
+    assert.equal(a.formPct, kept);
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    assert.equal(isSquadComplete(a.squad), true);
+    assert.equal(room.maybeRevealForm(a), false);
+    assert.equal(a.formPct, kept);
+  });
+
+  test("assigns form after a last-team fill or auto-fill completes a squad", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { lastTeamFillMs: 0 }, { seed: 21 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    const bat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.queue = [bat];
+    room.phase = "auction";
+    room.nominateNext();
+    const a = room.findByName("Ashutosh");
+    assert.equal(isSquadComplete(a.squad), true);
+    assert.ok(a.formPct >= 85 && a.formPct <= 115, a.formPct);
+    assert.equal(room.findByName("Priya").formPct >= 85, true);
+
+    const room2 = roomWith(["Ashutosh", "Priya"], {}, { seed: 22 });
+    giveSquad(room2, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room2, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    const leftover = players.find((p) => p.role === "BAT" && !room2.soldIds.has(p.id));
+    room2.queue = [];
+    room2.unsold = [];
+    room2.allPlayers = [...room2.franchises.flatMap((f) => f.squad.map((s) => s.player)), leftover];
+    room2.phase = "auction";
+    room2.autoFill();
+    const filled = room2.findByName("Ashutosh");
+    assert.equal(isSquadComplete(filled.squad), true);
+    assert.ok(filled.formPct >= 85 && filled.formPct <= 115, filled.formPct);
+  });
+
+  test("form rolls are in 85–115 and mildly centre-weighted", () => {
+    const { rollTeamForm } = require("../server/simulate");
+    const { mulberry32 } = require("../server/random");
+    const rng = mulberry32(2026);
+    const n = 4000;
+    const counts = { mid: 0, tail: 0 };
+    let sum = 0;
+    let min = 200;
+    let max = 0;
+    for (let i = 0; i < n; i++) {
+      const v = rollTeamForm(rng);
+      assert.ok(v >= 85 && v <= 115, v);
+      sum += v;
+      if (v < min) min = v;
+      if (v > max) max = v;
+      if (v >= 95 && v <= 105) counts.mid += 1;
+      if (v <= 90 || v >= 110) counts.tail += 1;
+    }
+    const mean = sum / n;
+    assert.ok(mean > 98 && mean < 102, `mean ${mean}`);
+    assert.ok(counts.mid > counts.tail, `mid ${counts.mid} vs tail ${counts.tail}`);
+    assert.ok(min <= 90 && max >= 110, `range ${min}-${max}`);
+  });
+
+  test("form swings equal-rating results moderately and is included on match data", () => {
+    const { playMatch } = require("../server/simulate");
+    const { mulberry32 } = require("../server/random");
+    const mixed = [
+      ...players.filter((p) => p.role === "BAT").slice(0, 4),
+      ...players.filter((p) => p.role === "WK").slice(0, 1),
+      ...players.filter((p) => p.role === "AR").slice(0, 2),
+      ...players.filter((p) => p.role === "BOWL").slice(0, 4),
+    ];
+    function team(name, formPct) {
+      return {
+        name,
+        formPct,
+        franchise: { name, color: "#fc0" },
+        squad: mixed.map((p) => ({ player: p, priceLakhs: 5 })),
+        captainId: mixed[0].id,
+        mode: "classical",
+        boosters: [],
+      };
+    }
+    const a = team("Hot", 115);
+    const b = team("Cold", 85);
+    const rng = mulberry32(7);
+    const sample = playMatch(a, b, rng, "League");
+    assert.equal(sample.formPctA, 115);
+    assert.equal(sample.formPctB, 85);
+    assert.equal(sample.firstInnings.formPct === 115 || sample.firstInnings.formPct === 85, true);
+    let hot = 0;
+    const n = 200;
+    const run = mulberry32(8);
+    for (let i = 0; i < n; i++) {
+      const m = playMatch(a, b, run, "League");
+      if (m.winnerName === "Hot") hot += 1;
+    }
+    assert.ok(hot > n * 0.6 && hot < n * 0.95, `hot won ${hot}/${n}`);
+  });
+
+  test("applyDelta records a revealed form on the franchise", () => {
+    const { applyDelta } = require("../public/state");
+    const state = {
+      phase: "auction",
+      franchises: [{ name: "Mitron", squad: [], formPct: null }],
+      you: { name: "Mitron", squad: [], formPct: null },
+    };
+    applyDelta(state, { type: "teamForm", name: "Mitron", formPct: 108, message: "Mitron's squad is in 108% form" });
+    assert.equal(state.franchises[0].formPct, 108);
+    assert.equal(state.you.formPct, 108);
+  });
+});

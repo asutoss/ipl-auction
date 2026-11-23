@@ -584,6 +584,19 @@ function roleTag(role) {
   return `<span class="tag role-${esc(role)}">${esc(role)}</span>`;
 }
 
+function formPctOf(src) {
+  if (!src || src.formPct == null || src.formPct === "") return null;
+  const n = Number(src.formPct);
+  return Number.isFinite(n) ? Math.round(n) : null;
+}
+
+function formLabel(src, { prefix = "Form " } = {}) {
+  const n = typeof src === "number" ? Math.round(src) : formPctOf(src);
+  if (n == null) return "";
+  const cls = n > 100 ? "is-hot" : n < 100 ? "is-cold" : "is-even";
+  return `<span class="form-pct ${cls}">${prefix}${n}%</span>`;
+}
+
 const MODE_FALLBACKS = {
   classical: { id: "classical", name: "Classical", squadSize: 11, purse: 100, overs: 20, quota: { BAT: 4, WK: 1, AR: 2, BOWL: 4 }, compositionLabel: "4 BAT · 1 WK · 2 AR · 4 BOWL", purseOptions: [50, 75, 100, 120, 150], summary: "Classical · 11-player squad", blurb: "Full IPL-style auction" },
   rapid: { id: "rapid", name: "Rapid", squadSize: 5, purse: 50, overs: 10, quota: { BAT: 2, WK: 1, AR: 0, BOWL: 2 }, compositionLabel: "2 BAT · 1 WK · 2 BOWL", purseOptions: [30, 40, 50, 65, 80], summary: "Rapid · 5-player squad", blurb: "Five-player sprint" },
@@ -737,7 +750,9 @@ function lobbyView() {
             if (f.isHost) bits.push("Host");
             if (!f.connected) bits.push("offline");
             if (f.eliminated) bits.push("eliminated");
-            return bits.length ? `<p class="owner">${esc(bits.join(" · "))}</p>` : "";
+            const form = formLabel(f);
+            const owner = bits.length ? `<p class="owner">${esc(bits.join(" · "))}</p>` : "";
+            return `${owner}${form ? `<p class="owner">${form}</p>` : ""}`;
           })()}
         </div>
       </div>`
@@ -820,10 +835,10 @@ function teamStripHtml(a) {
   const leader = a.currentBidderName;
   return snap
     .map((row) => {
-      const pending = row.pending != null ? row.pending : Math.max(0, (state.squadSize || modeInfo().squadSize || 11) - (row.squadSize || 0));
-      const done = Boolean(row.complete) || pending === 0;
-      const out = !row.eliminated && !done && !still.has(row.name);
       const live = (state.franchises || []).find((f) => f.name === row.name);
+      const pending = row.pending != null ? row.pending : Math.max(0, (state.squadSize || modeInfo().squadSize || 11) - (row.squadSize || 0));
+      const done = Boolean(row.complete) || Boolean(live && live.complete) || pending === 0;
+      const out = !row.eliminated && !done && !still.has(row.name);
       const banned = Boolean((live && live.banned) || row.banned);
       const cls = [
         "team-chip",
@@ -835,14 +850,18 @@ function teamStripHtml(a) {
       ].filter(Boolean).join(" ");
       const powerUsed = Boolean((live && live.powerUsed) || row.powerUsed);
       const need = banned ? "banned" : row.eliminated ? "out" : done ? "done" : `need ${pending}`;
+      const formSrc = (live && live.formPct != null) ? live : row;
+      const form = formLabel(formSrc);
+      const formTip = formPctOf(formSrc) != null ? ` · Form ${formPctOf(formSrc)}%` : "";
       const tip = `${row.name} · ${row.purseLakhs} pts at start of this lot · ${
         banned ? "Banned for match fixing" : row.eliminated ? "eliminated" : done ? "squad complete" : out ? "opted out of this player" : `${pending} slot${pending === 1 ? "" : "s"} left`
-      }${powerUsed ? " · power used" : ""}`;
+      }${powerUsed ? " · power used" : ""}${formTip}`;
       const fr = { id: characterIdOf(row), characterId: characterIdOf(row), color: row.color, color2: row.color2, text: row.text };
       return `<button type="button" class="${cls}" data-team-id="${esc((row.name || "").toLowerCase())}" data-team-name="${esc(row.name)}" title="${esc(tip)}" style="--c:${esc(row.color)};--c2:${esc(row.color2 || "")};--ct:${esc(row.text || row.color)}">
         ${teamMark(fr, "sm", row.name)}
         <span class="chip-name">${esc(row.name)}${banned ? `<span class="chip-banned" title="Banned for match fixing">banned</span>` : ""}${powerUsed ? `<span class="chip-power-used" title="Power used">⚡</span>` : ""}</span>
         <span class="chip-meta"><b>${row.purseLakhs}</b><small>${esc(need)}</small></span>
+        ${form}
       </button>`;
     })
     .join("");
@@ -1136,8 +1155,8 @@ function auctionView() {
       </div>
       <aside class="panel side">
         <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm", you.name) : ""}${you ? esc(you.name) : "Squad"}</h3>
-        ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede">${you.banned ? "Banned for match fixing · " : you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.complete ? " · squad complete" : (() => { const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0); return n ? ` · need ${n} more` : ""; })()}</p>` : ""}
-        ${you ? squadSlots(you) : ""}
+        ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede" id="side-lede">${you.banned ? "Banned for match fixing · " : you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.complete ? " · squad complete" : (() => { const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0); return n ? ` · need ${n} more` : ""; })()}${formPctOf(you) != null ? ` · ${formLabel(you)}` : ""}</p>` : ""}
+        ${you ? `<div id="side-slots">${squadSlots(you)}</div>` : ""}
       </aside>
     </section>
   `;
@@ -1232,6 +1251,19 @@ function patchAuction() {
   syncPowerConfirm();
   const purse = document.querySelector(".side .purse");
   if (purse && state.you) purse.textContent = money(state.you.purseLakhs);
+  const sideSlots = document.getElementById("side-slots");
+  if (sideSlots && state.you) sideSlots.innerHTML = squadSlots(state.you);
+  const lede = document.getElementById("side-lede");
+  if (lede && state.you) {
+    const you = state.you;
+    const need = you.complete ? " · squad complete" : (() => {
+      const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0);
+      return n ? ` · need ${n} more` : "";
+    })();
+    const prefix = you.banned ? "Banned for match fixing · " : you.eliminated ? "Eliminated - insufficient purse · " : "";
+    const form = formPctOf(you) != null ? ` · ${formLabel(you)}` : "";
+    lede.innerHTML = `${prefix}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${need}${form}`;
+  }
   updateAuctionTimer();
 }
 
@@ -1271,13 +1303,13 @@ function captainView() {
     <section class="prep-layout">
       <div class="panel">
         <h2>Choose your captain</h2>
-        <p class="lede">+5% rating. Auto-picks if time runs out. ${left}s left. Waiting on: ${pending}.</p>
+        <p class="lede">+5% rating. Auto-picks if time runs out. ${left}s left. Waiting on: ${pending}.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
         <div class="captain-grid">${picks}</div>
         <div style="margin-top:18px">${you ? squadSlots(you) : ""}</div>
       </div>
       <div class="panel">
         <h2>Booster shop</h2>
-        <p class="lede">Buy one of each. Purse: <strong>${you ? money(you.purseLakhs) : "—"}</strong>. Owned: ${bought}.</p>
+        <p class="lede">Buy one of each. Purse: <strong>${you ? money(you.purseLakhs) : "—"}</strong>. Owned: ${bought}.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
         <div class="booster-grid">${shop || `<p class="lede">No boosters available.</p>`}</div>
         <p class="error">${esc(lastError)}</p>
       </div>
@@ -1293,12 +1325,12 @@ function matchCard(m) {
         <div>
           <div style="color:${esc(accentColor(m.firstInnings.franchise))}">${esc(m.firstInnings.short || m.firstInnings.name)}</div>
           <b>${m.firstInnings.score}/${m.firstInnings.wickets}</b>
-          <div class="lede" style="margin:0">(${m.firstInnings.overs} ov)</div>
+          <div class="lede" style="margin:0">(${m.firstInnings.overs} ov)${formPctOf(m.firstInnings) != null ? ` · ${formLabel(m.firstInnings)}` : ""}</div>
         </div>
         <div>
           <div style="color:${esc(accentColor(m.secondInnings.franchise))}">${esc(m.secondInnings.short || m.secondInnings.name)}</div>
           <b>${m.secondInnings.score}/${m.secondInnings.wickets}</b>
-          <div class="lede" style="margin:0">(${m.secondInnings.overs} ov)</div>
+          <div class="lede" style="margin:0">(${m.secondInnings.overs} ov)${formPctOf(m.secondInnings) != null ? ` · ${formLabel(m.secondInnings)}` : ""}</div>
         </div>
       </div>
       <p class="lede" style="margin:8px 0 0">${esc(m.resultText)}</p>
@@ -1310,12 +1342,12 @@ function tableHtml(rows) {
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>NR</th><th>Pts</th><th>NRR</th></tr></thead>
+        <thead><tr><th>#</th><th>Team</th><th>Form</th><th>P</th><th>W</th><th>L</th><th>NR</th><th>Pts</th><th>NRR</th></tr></thead>
         <tbody>
           ${rows
             .map(
               (r) =>
-                `<tr><td>${r.position}</td><td style="color:${esc(r.color)}">${esc(r.name || r.short)}</td><td>${r.played}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.nr || 0}</td><td>${r.points}</td><td>${r.nrr >= 0 ? "+" : ""}${Number(r.nrr).toFixed(3)}</td></tr>`
+                `<tr><td>${r.position}</td><td style="color:${esc(r.color)}">${esc(r.name || r.short)}</td><td>${formPctOf(r) != null ? formLabel(r, { prefix: "" }) : "—"}</td><td>${r.played}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.nr || 0}</td><td>${r.points}</td><td>${r.nrr >= 0 ? "+" : ""}${Number(r.nrr).toFixed(3)}</td></tr>`
             )
             .join("")}
         </tbody>
@@ -1381,7 +1413,7 @@ function teamReportCard(team) {
         ${teamMark({ id: characterIdOf(team), characterId: characterIdOf(team), color: team.color, color2: team.color2, text: team.text }, "lg", team.name)}
         <div>
           <h3 style="color:${esc(team.text || team.color)}">${esc(team.name || team.short)}</h3>
-          <p class="lede">${team.title ? esc(team.title) : ""}${team.eliminated ? (team.title ? " · " : "") + "eliminated" : ""}</p>
+          <p class="lede">${team.title ? esc(team.title) : ""}${team.eliminated ? (team.title ? " · " : "") + "eliminated" : ""}${formPctOf(team) != null ? `${team.title || team.eliminated ? " · " : ""}${formLabel(team)}` : ""}</p>
         </div>
         <p class="record">${team.won || 0}W–${team.lost || 0}L–${team.nr || 0}NR · ${team.points || 0} pts · NRR ${nrrText(team.nrr)}</p>
       </header>
@@ -1433,7 +1465,7 @@ function resultsView() {
                 ${t.positions
                   .map(
                     (p) =>
-                      `<li><span style="color:${esc(p.text || p.color)}">${p.position}. ${esc(p.name || p.short)}</span><span>${esc(p.title)}</span></li>`
+                      `<li><span style="color:${esc(p.text || p.color)}">${p.position}. ${esc(p.name || p.short)}${formPctOf(p) != null ? ` ${formLabel(p)}` : ""}</span><span>${esc(p.title)}</span></li>`
                   )
                   .join("")}
               </ol>
@@ -2039,7 +2071,7 @@ socket.on("delta", (evt) => {
   if (!state) return;
   const prevNominee = state.auction?.nominee?.id;
   const prevPhase = state.phase;
-  if (evt && evt.message && (evt.type === "powerApplied" || evt.type === "powerWaitEnded" || evt.type === "chaiEnded" || evt.type === "banned" || evt.type === "chaiDisconnectArmed" || evt.type === "poolTopUp" || evt.type === "poolExhausted")) {
+  if (evt && evt.message && (evt.type === "powerApplied" || evt.type === "powerWaitEnded" || evt.type === "chaiEnded" || evt.type === "banned" || evt.type === "chaiDisconnectArmed" || evt.type === "poolTopUp" || evt.type === "poolExhausted" || evt.type === "teamForm")) {
     toast(evt.message);
   }
   IplState.applyDelta(state, evt);

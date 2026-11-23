@@ -718,8 +718,8 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 }
 .team-chip {
   flex: 0 0 auto;
-  display: grid; grid-template-columns: 40px auto; grid-template-rows: auto auto;
-  grid-template-areas: "mark name" "mark meta";
+  display: grid; grid-template-columns: 40px auto; grid-template-rows: auto auto auto;
+  grid-template-areas: "mark name" "mark meta" "mark form";
   align-items: center; column-gap: 6px; row-gap: 0;
   background: #0c1324; border: 1px solid #334169; border-radius: 12px;
   padding: 5px 8px 5px 5px; color: var(--text); min-width: 0;
@@ -739,10 +739,15 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .team-chip .chip-meta { grid-area: meta; display: flex; gap: 5px; align-items: baseline; font-variant-numeric: tabular-nums; }
 .team-chip .chip-meta b { font-size: 13px; }
 .team-chip .chip-meta small { color: var(--muted); font-size: 10px; }
+.team-chip .form-pct { grid-area: form; font-size: 10px; font-weight: 800; letter-spacing: 0.02em; line-height: 1.2; }
 .team-chip.is-leader { border-color: var(--c, var(--gold)); box-shadow: 0 0 0 1px var(--c, var(--gold)); }
 .team-chip.is-out { opacity: 0.55; }
 .team-chip.is-eliminated { opacity: 0.4; filter: grayscale(0.7); }
 .team-chip.is-done { opacity: 0.72; }
+.form-pct { font-weight: 800; font-variant-numeric: tabular-nums; }
+.form-pct.is-hot { color: #3dd68c; }
+.form-pct.is-cold { color: #ff6b7a; }
+.form-pct.is-even { color: var(--muted); }
 @media (max-width: 700px) {
   .team-chip .chip-name { max-width: 64px; }
 }

@@ -399,6 +399,18 @@
         state.lastEvent = evt;
         break;
       }
+      case "teamForm": {
+        const formTeam = findTeam(state, evt.name);
+        if (formTeam && evt.formPct != null) formTeam.formPct = evt.formPct;
+        if (state.you && state.you.name === evt.name && evt.formPct != null) state.you.formPct = evt.formPct;
+        if (state.auction && state.auction.lotSnapshot && evt.formPct != null) {
+          const row = state.auction.lotSnapshot.find((r) => r.name === evt.name);
+          if (row) row.formPct = evt.formPct;
+        }
+        syncYou(state);
+        state.lastEvent = evt;
+        break;
+      }
       case "banned": {
         const bannedTeam = findTeam(state, evt.name);
         if (bannedTeam) {
