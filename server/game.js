@@ -1,6 +1,6 @@
 const { EventEmitter } = require("events");
 const { overallRating } = require("./players");
-const { simulateTournament, pickCaptainIfMissing, rollTeamForm } = require("./simulate");
+const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthScore } = require("./simulate");
 const {
   ROLES,
   MIN_PLAYERS,
@@ -83,12 +83,14 @@ function envMs(name, fallback) {
 
 function defaultTimers() {
   return {
-    lotStartMs: Number(process.env.LOT_START_MS) || 15000,
-    bidMs: Number(process.env.BID_TIMER_MS) || 15000,
+    lotStartMs: Number(process.env.LOT_START_MS) || 25000,
+    bidMs: Number(process.env.BID_TIMER_MS) || 25000,
     captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 45000,
     soldRevealMs: envMs("SOLD_REVEAL_MS", 5000),
     powerRevealMs: envMs("POWER_REVEAL_MS", POWER_REVEAL_MS),
     lastTeamFillMs: envMs("LAST_TEAM_FILL_MS", 3000),
+    playerIntroMs: envMs("PLAYER_INTRO_MS", 2000),
+    resultsRevealStepMs: envMs("RESULTS_REVEAL_STEP_MS", 2800),
   };
 }
 
@@ -142,6 +144,8 @@ class GameRoom extends EventEmitter {
     this.chaiBreak = null;
     this.chaiDisconnectTimer = null;
     this.lastTeamFill = null;
+    this.playerIntro = null;
+    this.resultsReveal = null;
   }
 
   rollStartBid() {
@@ -341,6 +345,7 @@ class GameRoom extends EventEmitter {
       broadcastActive: Boolean(this.auction.broadcastKey),
       muteByKey: this.auction.muteByKey || null,
       lockFlip: this.auction.lockFlip || null,
+      playerIntro: this.packPlayerIntro(),
     };
   }
 
@@ -531,12 +536,20 @@ class GameRoom extends EventEmitter {
     if (this.paused) return { ok: false, error: `Game is already paused by ${this.pausedBy}.` };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
-    if (this.phase !== "auction" && this.phase !== "captains") {
+    const revealOpen = this.phase === "results" && this.resultsReveal && !this.resultsReveal.skipped
+      && this.resultsReveal.revealedCount < this.resultsReveal.total;
+    if (this.phase !== "auction" && this.phase !== "captains" && !revealOpen) {
       return { ok: false, error: "Nothing to pause right now." };
     }
-    if (this.phase === "auction" && this.auction) {
+    if (this.phase === "auction" && this.playerIntro && this.playerIntro.endsAt) {
+      this.pauseRemainingMs = Math.max(0, this.playerIntro.endsAt - Date.now());
+      this.pauseTimerKind = "playerIntro";
+    } else if (this.phase === "auction" && this.auction && this.auction.endsAt && !this.playerIntro) {
       this.pauseRemainingMs = Math.max(0, (this.auction.endsAt || Date.now()) - Date.now());
       this.pauseTimerKind = "lot";
+    } else if (this.phase === "results" && revealOpen) {
+      this.pauseRemainingMs = Math.max(0, (this.resultsReveal.nextAt || Date.now()) - Date.now());
+      this.pauseTimerKind = "resultsReveal";
     } else if (this.phase === "auction" && this.lastTeamFill && this.lastTeamFill.endsAt) {
       this.pauseRemainingMs = Math.max(0, this.lastTeamFill.endsAt - Date.now());
       this.pauseTimerKind = "lastTeamFill";
@@ -584,6 +597,14 @@ class GameRoom extends EventEmitter {
       this.auction.endsAt = Date.now() + remaining;
       endsAt = this.auction.endsAt;
       this.armTimer(() => this.onLotTimeout(lotId), remaining);
+    } else if (kind === "playerIntro" && this.phase === "auction" && this.playerIntro && remaining != null) {
+      this.playerIntro.endsAt = Date.now() + remaining;
+      endsAt = this.playerIntro.endsAt;
+      this.armTimer(() => this.finishPlayerIntro(), remaining);
+    } else if (kind === "resultsReveal" && this.phase === "results" && this.resultsReveal && remaining != null) {
+      this.resultsReveal.nextAt = Date.now() + remaining;
+      endsAt = this.resultsReveal.nextAt;
+      this.armTimer(() => this.tickResultsReveal(), remaining);
     } else if (kind === "lastTeamFill" && this.phase === "auction" && this.lastTeamFill && remaining != null) {
       this.lastTeamFill.endsAt = Date.now() + remaining;
       endsAt = this.lastTeamFill.endsAt;
@@ -604,6 +625,8 @@ class GameRoom extends EventEmitter {
       auctionEndsAt: this.auction ? this.auction.endsAt : null,
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
       lastTeamFillUntil: this.phase === "auction" && this.lastTeamFill && this.lastTeamFill.endsAt ? this.lastTeamFill.endsAt : null,
+      playerIntroUntil: this.phase === "auction" && this.playerIntro && this.playerIntro.endsAt ? this.playerIntro.endsAt : null,
+      resultsReveal: this.packResultsReveal(),
     });
     return { ok: true };
   }
@@ -842,23 +865,20 @@ class GameRoom extends EventEmitter {
     });
   }
 
-  maybeResolveLot() {
+  lotWouldResolveNow() {
     if (this.phase !== "auction" || !this.auction) return false;
     const inTeams = this.stillInTeams();
     const leader = this.auction.currentBidderKey;
-    if (leader) {
-      const others = inTeams.filter((f) => f.key !== leader);
-      if (others.length === 0) {
-        this.sellCurrent();
-        return true;
-      }
-      return false;
-    }
-    if (inTeams.length === 0) {
-      this.unsoldCurrent();
-      return true;
-    }
-    return false;
+    if (leader) return inTeams.filter((f) => f.key !== leader).length === 0;
+    return inTeams.length === 0;
+  }
+
+  maybeResolveLot() {
+    if (this.playerIntro) return false;
+    if (!this.lotWouldResolveNow()) return false;
+    if (this.auction.currentBidderKey) this.sellCurrent();
+    else this.unsoldCurrent();
+    return true;
   }
 
   startLotTimer(reset = false) {
@@ -870,7 +890,7 @@ class GameRoom extends EventEmitter {
   }
 
   onLotTimeout(lotId) {
-    if (this.paused || this.ended || this.powerReveal || this.powerWait) return;
+    if (this.paused || this.ended || this.powerReveal || this.powerWait || this.playerIntro) return;
     if (this.phase !== "auction" || !this.auction || this.lotId !== lotId) return;
     if (this.auction.currentBidderKey || this.auction.defaultBidderKey) this.sellCurrent();
     else this.unsoldCurrent();
@@ -1040,12 +1060,158 @@ class GameRoom extends EventEmitter {
         lotSnapshot: this.packLotSnapshot(),
       };
       this.applyPendingLotEffects();
-      this.startLotTimer(false);
-      if (!this.maybeResolveLot()) {
+      const introMs = this.playerIntroDelayMs();
+      if (introMs > 0 && !this.lotWouldResolveNow()) {
+        this.beginPlayerIntro(introMs);
         this.emitDelta({ type: "lotStart", ...this.packAuctionPublic() });
+      } else {
+        this.startLotTimer(false);
+        if (!this.maybeResolveLot()) {
+          this.emitDelta({ type: "lotStart", ...this.packAuctionPublic() });
+        }
       }
       return;
     }
+  }
+
+  playerIntroDelayMs() {
+    const n = Number(this.timers && this.timers.playerIntroMs);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  beginPlayerIntro(ms) {
+    const duration = Math.max(0, Number(ms) || 0);
+    this.playerIntro = {
+      endsAt: Date.now() + duration,
+      revealMs: duration,
+      startBidLakhs: this.auction ? this.auction.startBidLakhs : null,
+    };
+    if (this.auction) {
+      this.auction.endsAt = null;
+      this.auction.timerMs = this.timers.lotStartMs;
+    }
+    this.clearTimer();
+    this.armTimer(() => this.finishPlayerIntro(), duration);
+  }
+
+  packPlayerIntro() {
+    const intro = this.playerIntro;
+    if (!intro || !this.auction) return null;
+    return {
+      endsAt: intro.endsAt,
+      revealMs: intro.revealMs,
+      startBidLakhs: intro.startBidLakhs != null ? intro.startBidLakhs : this.auction.startBidLakhs,
+    };
+  }
+
+  finishPlayerIntro() {
+    if (this.paused || this.ended) return;
+    if (this.phase !== "auction" || !this.auction || !this.playerIntro) return;
+    this.playerIntro = null;
+    this.startLotTimer(false);
+    if (!this.maybeResolveLot()) {
+      this.emitDelta({
+        type: "playerIntroEnded",
+        endsAt: this.auction.endsAt,
+        auctionEndsAt: this.auction.endsAt,
+        timerMs: this.auction.timerMs,
+        ...this.packAuctionPublic(),
+      });
+    }
+  }
+
+  resultsRevealDelayMs() {
+    const n = Number(this.timers && this.timers.resultsRevealStepMs);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  finishLabel(pos, playoffs) {
+    if (!pos) return "";
+    if (pos.eliminated || /eliminated|banned|match fixing/i.test(String(pos.title || ""))) {
+      return pos.title || "Eliminated";
+    }
+    if (pos.title === "Champion") return "Champion";
+    if (pos.title === "Runner-up") return "Runner-up";
+    const format = playoffs && playoffs.format;
+    if (format === "ipl-playoffs") {
+      if (playoffs.thirdName && pos.name === playoffs.thirdName) return "Lost Qualifier 2";
+      if (playoffs.fourthName && pos.name === playoffs.fourthName) return "Lost Eliminator";
+    }
+    if (/in league/i.test(String(pos.title || ""))) return "Out in league";
+    return pos.title || "";
+  }
+
+  packResultsReveal() {
+    const r = this.resultsReveal;
+    if (!r) return null;
+    return {
+      startedAt: r.startedAt,
+      stepMs: r.stepMs,
+      total: r.total,
+      revealedCount: r.revealedCount,
+      skipped: Boolean(r.skipped),
+      complete: Boolean(r.skipped || r.revealedCount >= r.total),
+      nextAt: r.nextAt || null,
+    };
+  }
+
+  startResultsReveal() {
+    const positions = (this.tournament && this.tournament.positions) || [];
+    const step = this.resultsRevealDelayMs();
+    const first = step <= 0 ? positions.length : (positions.length ? 1 : 0);
+    this.resultsReveal = {
+      startedAt: Date.now(),
+      stepMs: step,
+      total: positions.length,
+      revealedCount: first,
+      skipped: step <= 0,
+      nextAt: step > 0 && first < positions.length ? Date.now() + step : null,
+    };
+    this.bump("results");
+    if (step > 0 && first < positions.length) {
+      this.clearTimer();
+      this.armTimer(() => this.tickResultsReveal(), step);
+    }
+  }
+
+  tickResultsReveal() {
+    if (this.paused || this.ended) return;
+    const r = this.resultsReveal;
+    if (!r || r.skipped || r.revealedCount >= r.total) return;
+    r.revealedCount += 1;
+    const complete = r.revealedCount >= r.total;
+    r.nextAt = complete ? null : Date.now() + r.stepMs;
+    this.emitDelta({
+      type: "resultsReveal",
+      revealedCount: r.revealedCount,
+      total: r.total,
+      complete,
+      skipped: false,
+      nextAt: r.nextAt,
+    });
+    if (!complete) this.armTimer(() => this.tickResultsReveal(), r.stepMs);
+  }
+
+  skipResultsReveal(byName) {
+    if (this.ended) return { ok: false, error: "This game has ended." };
+    if (this.phase !== "results" || !this.resultsReveal) return { ok: true, already: true };
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.paused) return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
+    const r = this.resultsReveal;
+    r.skipped = true;
+    r.revealedCount = r.total;
+    r.nextAt = null;
+    this.clearTimer();
+    this.emitDelta({
+      type: "resultsReveal",
+      revealedCount: r.revealedCount,
+      total: r.total,
+      complete: true,
+      skipped: true,
+      nextAt: null,
+    });
+    return { ok: true };
   }
 
   revealDelayMs() {
@@ -1188,6 +1354,7 @@ class GameRoom extends EventEmitter {
       identityId: packed.identityId,
     });
     this.lastEvent = packed;
+    this.playerIntro = null;
     this.auction = null;
     this.revealUntil = packed.revealUntil;
     this.emitDelta(packed);
@@ -1210,6 +1377,7 @@ class GameRoom extends EventEmitter {
     if (!this.queue.some((p) => p.id === player.id)) this.queue.push(player);
     const revealMs = this.revealDelayMs();
     const revealUntil = revealMs > 0 ? Date.now() + revealMs : null;
+    this.playerIntro = null;
     this.lastEvent = {
       type: "unsold",
       player,
@@ -1228,6 +1396,9 @@ class GameRoom extends EventEmitter {
     if (!gate.ok) return gate;
     if (this.phase !== "auction" || !this.auction) {
       return { ok: false, error: "No player is on the block." };
+    }
+    if (this.playerIntro) {
+      return { ok: false, error: "Wait for the player to be introduced." };
     }
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
@@ -1307,6 +1478,9 @@ class GameRoom extends EventEmitter {
     if (!gate.ok) return gate;
     if (this.phase !== "auction" || !this.auction) {
       return { ok: false, error: "No player is on the block." };
+    }
+    if (this.playerIntro) {
+      return { ok: false, error: "Wait for the player to be introduced." };
     }
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
@@ -1496,9 +1670,28 @@ class GameRoom extends EventEmitter {
       });
     }
     this.tournament = result;
+    this.decorateResultPositions();
     this.phase = "results";
     this.finishedAt = Date.now();
-    this.bump("results");
+    this.startResultsReveal();
+  }
+
+  decorateResultPositions() {
+    const t = this.tournament;
+    if (!t || !Array.isArray(t.positions)) return;
+    const playoffs = t.playoffs || {};
+    for (const pos of t.positions) {
+      const team = this.franchises.find((f) => f.name === pos.name);
+      pos.formPct = team && team.formPct != null ? team.formPct : (pos.formPct != null ? pos.formPct : null);
+      pos.squadScore = team ? squadStrengthScore(team) : (pos.squadScore != null ? pos.squadScore : 0);
+      pos.finish = this.finishLabel(pos, playoffs);
+      if (team && team.franchise) {
+        pos.characterId = pos.characterId || characterIdOf(team.franchise);
+        pos.identityId = pos.identityId || pos.characterId;
+        pos.color2 = pos.color2 || team.franchise.color2 || null;
+        pos.image = team.franchise.image || team.franchise.logo || null;
+      }
+    }
   }
 
   publicFranchise(f, forKey) {
@@ -1594,6 +1787,8 @@ class GameRoom extends EventEmitter {
         points: row ? row.points : 0,
         nrr: row ? row.nrr : 0,
         formPct: f.formPct != null ? f.formPct : (row && row.formPct != null ? row.formPct : null),
+        squadScore: pos && pos.squadScore != null ? pos.squadScore : squadStrengthScore(f),
+        finish: pos ? (pos.finish || this.finishLabel(pos, t.playoffs || {})) : (f.eliminated ? "Eliminated" : null),
         squad: f.squad.map((s) => ({
           player: s.player,
           priceLakhs: s.priceLakhs,
@@ -1815,6 +2010,7 @@ class GameRoom extends EventEmitter {
     if (this.powerWait) return { ok: false, error: "A power is waiting for a choice." };
     if (this.paused) return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
     if (this.lastTeamFill) return { ok: false, error: "The last team's remaining players are being revealed." };
+    if (this.playerIntro) return { ok: false, error: "Wait for the player to be introduced." };
     if (this.revealUntil && !this.auction) return { ok: false, error: "Wait until the next player is on the block." };
     if (team.eliminated || team.banned) {
       return { ok: false, error: team.banned ? "Banned teams cannot use a power." : "Eliminated teams cannot use a power." };
@@ -2303,6 +2499,8 @@ class GameRoom extends EventEmitter {
         youReason = "A power is being revealed.";
       } else if (you && this.powerWait) {
         youReason = "A power is waiting for a choice.";
+      } else if (you && this.playerIntro) {
+        youReason = "Wait for the player to be introduced.";
       } else if (you && you.banned) {
         youReason = "You are banned for match fixing.";
       } else if (you && isBidBlocked(this, you)) {
@@ -2346,6 +2544,9 @@ class GameRoom extends EventEmitter {
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
       lastTeamFill: this.phase === "auction" ? this.packLastTeamFill() : null,
       lastTeamFillUntil: this.phase === "auction" && this.lastTeamFill && this.lastTeamFill.endsAt ? this.lastTeamFill.endsAt : null,
+      playerIntro: this.phase === "auction" ? this.packPlayerIntro() : null,
+      playerIntroUntil: this.phase === "auction" && this.playerIntro && this.playerIntro.endsAt ? this.playerIntro.endsAt : null,
+      resultsReveal: this.phase === "results" ? this.packResultsReveal() : null,
       characters: CHARACTERS.map((t) => publicCharacter(t.id)),
       identities: CHARACTERS.map((t) => publicCharacter(t.id)),
       ratingsNote: this.meta.ratingsNote || null,

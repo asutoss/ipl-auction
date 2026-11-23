@@ -70,7 +70,7 @@ function remainingMs(endsAt) {
 }
 
 function isTimerFrozen() {
-  return Boolean(state && (state.paused || state.powerReveal || state.powerWait));
+  return Boolean(state && (state.paused || state.powerReveal || state.powerWait || isPlayerIntroActive()));
 }
 
 function characterIdOf(obj) {
@@ -551,6 +551,105 @@ function syncSamayPreview() {
   }).join("");
 }
 
+function playerIntroSource() {
+  if (!state) return null;
+  return state.playerIntro || (state.auction && state.auction.playerIntro) || null;
+}
+
+function isPlayerIntroActive() {
+  if (!state || state.phase !== "auction" || !state.auction) return false;
+  const intro = playerIntroSource();
+  if (!intro) return false;
+  if (state.paused) return true;
+  const until = state.playerIntroUntil || intro.endsAt;
+  if (until && until > Date.now()) return true;
+  // Keep the modal up until the server ends it.
+  return Boolean(intro);
+}
+
+function playerIntroLeftMs() {
+  if (state && state.paused) return Math.max(0, state.pauseRemainingMs || 0);
+  const intro = playerIntroSource();
+  const until = state && (state.playerIntroUntil || (intro && intro.endsAt));
+  return Math.max(0, (until || 0) - Date.now());
+}
+
+function hidePlayerIntro() {
+  const modal = document.getElementById("player-intro");
+  if (modal) {
+    modal.hidden = true;
+    modal.classList.remove("is-in", "is-vfx");
+  }
+}
+
+function fillPlayerIntro() {
+  const modal = document.getElementById("player-intro");
+  const a = state && state.auction;
+  const p = a && a.nominee;
+  if (!modal || !p) return null;
+  const hidden = Boolean(p.vfxHidden || p.hidden);
+  modal.classList.toggle("is-vfx", hidden);
+  const nameEl = document.getElementById("player-intro-name");
+  if (nameEl) nameEl.textContent = p.name || "";
+  const kicker = document.getElementById("player-intro-kicker");
+  if (kicker) kicker.textContent = hidden ? "VFX loading" : "On the block";
+  const meta = document.getElementById("player-intro-meta");
+  if (meta) {
+    meta.innerHTML = hidden
+      ? `<span class="tag vfx-tag">VFX</span><span class="tag">???</span>`
+      : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}`;
+  }
+  const stats = document.getElementById("player-intro-stats");
+  if (stats) {
+    stats.hidden = hidden;
+    stats.innerHTML = hidden ? "" : `
+      <div class="player-intro-stat"><span>Batting</span><strong>${esc(p.batting)}</strong>${meter(p.batting)}</div>
+      <div class="player-intro-stat"><span>Bowling</span><strong>${esc(p.bowling)}</strong>${meter(p.bowling)}</div>
+    `;
+  }
+  const bid = document.getElementById("player-intro-bid");
+  const intro = playerIntroSource();
+  const start = intro && intro.startBidLakhs != null ? intro.startBidLakhs : (a.startBidLakhs != null ? a.startBidLakhs : 1);
+  if (bid) bid.textContent = `Starts at ${money(start)}`;
+  return modal;
+}
+
+function updatePlayerIntroUi() {
+  const modal = document.getElementById("player-intro");
+  if (!modal || modal.hidden) return;
+  const intro = playerIntroSource();
+  const total = Number(intro && intro.revealMs) || 2000;
+  const left = playerIntroLeftMs();
+  const bar = document.getElementById("player-intro-progress-bar");
+  if (bar) bar.style.width = `${Math.max(0, Math.min(100, total ? (left / total) * 100 : 0))}%`;
+  const count = document.getElementById("player-intro-countdown");
+  if (count) {
+    if (state && state.paused) count.textContent = "Paused";
+    else {
+      const secs = Math.ceil(left / 1000);
+      count.textContent = secs > 0 ? `Bidding opens in ${secs}s` : "Opening bids…";
+    }
+  }
+}
+
+function syncPlayerIntro() {
+  if (!state || state.phase !== "auction" || !isPlayerIntroActive()) {
+    hidePlayerIntro();
+    return;
+  }
+  const modal = fillPlayerIntro();
+  if (!modal) return;
+  if (modal.hidden) {
+    modal.hidden = false;
+    modal.classList.remove("is-in");
+    void modal.offsetWidth;
+    modal.classList.add("is-in");
+  } else {
+    modal.hidden = false;
+  }
+  updatePlayerIntroUi();
+}
+
 function syncOverlays() {
   const modal = document.getElementById("pause-modal");
   if (modal) {
@@ -568,6 +667,7 @@ function syncOverlays() {
     }
   }
   syncSoldModal();
+  syncPlayerIntro();
   syncLastTeamFill();
   syncPowerModal();
   syncWaitModal();
@@ -636,7 +736,7 @@ function renderTop() {
   }
   topMeta.hidden = false;
   const you = state.you;
-  const canPause = state.phase === "auction" || state.phase === "captains";
+  const canPause = state.phase === "auction" || state.phase === "captains" || isResultsRevealPending();
   const pauseLabel = state.paused ? "Paused" : "Pause";
   const hostEnd = you && you.isHost
     ? `<button class="btn danger" id="end-game" type="button">End game</button>`
@@ -899,7 +999,7 @@ function powerButtonHtml() {
   const power = yourPower();
   if (!you || !power || (state && state.phase !== "auction")) return "";
   const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || (power.used);
-  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()) || (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()));
+  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()) || (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()) || (typeof isPlayerIntroActive === "function" && isPlayerIntroActive()));
   const blocked = powerUseBlocked(you, used);
   const disabled = used || busy || blocked;
   const title = you.canUsePowerReason || power.description || power.name;
@@ -915,7 +1015,7 @@ function canShowPowerConfirm() {
   const power = yourPower();
   if (!you || !power || !state || state.phase !== "auction") return false;
   const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || power.used;
-  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()) || (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()));
+  const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()) || (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()) || (typeof isPlayerIntroActive === "function" && isPlayerIntroActive()));
   const blocked = powerUseBlocked(you, used);
   return !used && !busy && !blocked;
 }
@@ -1139,7 +1239,7 @@ function auctionView() {
                   ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
                   <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>`}
                 </div>
-                <p class="hub-timer ${secs <= 3 && !isTimerFrozen() ? "low" : ""} ${isTimerFrozen() ? "paused" : ""}" id="timer">${isTimerFrozen() ? "Paused" : secs + "s"}</p>
+                <p class="hub-timer ${secs <= 3 && !isTimerFrozen() && a.endsAt ? "low" : ""} ${isTimerFrozen() || isPlayerIntroActive() || !a.endsAt ? "paused" : ""}" id="timer">${isPlayerIntroActive() || !a.endsAt ? "Soon" : (isTimerFrozen() ? "Paused" : secs + "s")}</p>
               </div>
             </div>
           </div>
@@ -1179,13 +1279,14 @@ function updateAuctionTimer() {
   if (!a || !svg || !window.IplRing) return;
   const left = remainingMs(a.endsAt);
   const frozen = isTimerFrozen();
-  IplRing.setTimer(svg, left, a.timerMs || 15000, frozen);
+  IplRing.setTimer(svg, left, a.timerMs || 25000, frozen || !a.endsAt);
   const t = document.getElementById("timer");
   if (t) {
+    const intro = isPlayerIntroActive();
     const secs = Math.ceil(left / 1000);
-    t.textContent = frozen ? "Paused" : `${secs}s`;
-    t.classList.toggle("low", secs <= 3 && !frozen);
-    t.classList.toggle("paused", frozen);
+    t.textContent = intro ? "Soon" : (frozen ? "Paused" : (a.endsAt ? `${secs}s` : "Soon"));
+    t.classList.toggle("low", !intro && secs <= 3 && !frozen && a.endsAt);
+    t.classList.toggle("paused", frozen || intro || !a.endsAt);
   }
 }
 
@@ -1356,32 +1457,75 @@ function tableHtml(rows) {
   `;
 }
 
+function resultsRevealInfo() {
+  return (state && state.resultsReveal) || null;
+}
+
+function isResultsRevealPending() {
+  const r = resultsRevealInfo();
+  if (!state || state.phase !== "results" || !r) return false;
+  return !r.complete && !r.skipped && r.revealedCount < r.total;
+}
+
 function visibleTournament() {
   const t = state.tournament;
   if (!t) return { league: [], playoffs: [], showTable: false, showFinal: false, showAwards: false };
+  if (isResultsRevealPending()) {
+    return { league: [], playoffs: [], showTable: false, showFinal: false, showAwards: false };
+  }
   const leagueAll = t.leagueMatches || [];
   const poAll = (t.playoffs && t.playoffs.matches) || [];
-  if (!t.leagueMatches) {
-    return { league: [], playoffs: [], showTable: true, showFinal: true, showAwards: true };
-  }
-  if (!reveal || reveal.skipped) {
-    return { league: leagueAll, playoffs: poAll, showTable: true, showFinal: true, showAwards: true };
-  }
-  const elapsed = Date.now() - reveal.startedAt;
-  const leagueN = t.leagueMatches.length;
-  const poN = t.playoffs.matches.length;
-  const leagueWindow = Math.min(45000, Math.max(8000, leagueN * 1800));
-  const poWindow = Math.min(15000, Math.max(4000, poN * 2500));
-  const nLeague = Math.min(leagueN, Math.floor((elapsed / leagueWindow) * leagueN) + 1);
-  const afterLeague = elapsed - leagueWindow;
-  const nPo = afterLeague < 0 ? 0 : Math.min(poN, Math.floor((afterLeague / poWindow) * poN) + 1);
-  return {
-    league: t.leagueMatches.slice(0, nLeague),
-    playoffs: t.playoffs.matches.slice(0, nPo),
-    showTable: nLeague >= leagueN,
-    showFinal: nPo >= poN,
-    showAwards: nPo >= poN && afterLeague > poWindow,
-  };
+  return { league: leagueAll, playoffs: poAll, showTable: true, showFinal: true, showAwards: true };
+}
+
+function resultStandingsCard(pos, fresh) {
+  if (!pos) return "";
+  const champ = (pos.finish || pos.title) === "Champion";
+  const form = formPctOf(pos) != null ? formLabel(pos) : "";
+  const score = pos.squadScore != null ? String(pos.squadScore) : "—";
+  const cid = characterIdOf(pos);
+  const mark = teamMark({ id: cid, characterId: cid, color: pos.color, color2: pos.color2, text: pos.text }, "lg", pos.name);
+  return `<article class="result-card ${champ ? "is-champion" : ""} ${fresh ? "is-fresh" : ""}" style="--c:${esc(pos.color || "")};--ct:${esc(pos.text || pos.color || "")};--c2:${esc(pos.color2 || "")}">
+    <span class="result-pos">${esc(pos.position)}</span>
+    ${mark}
+    <div class="result-card-body">
+      <h3>${esc(pos.name || pos.short || "")}</h3>
+      <p class="result-finish">${esc(pos.finish || pos.title || "")}</p>
+    </div>
+    <div class="result-card-stats">
+      ${form ? `<p class="result-form">${form}</p>` : ""}
+      <p class="result-score"><strong>${esc(score)}</strong><span> / 1000</span></p>
+      <p class="lede result-score-label">Squad strength</p>
+    </div>
+  </article>`;
+}
+
+function standingsRevealHtml(pending) {
+  const t = state.tournament;
+  const r = resultsRevealInfo() || { revealedCount: (t.positions || []).length, total: (t.positions || []).length, complete: true };
+  const order = [...(t.positions || [])].reverse();
+  const count = r.skipped || r.complete ? order.length : Math.max(0, Math.min(order.length, Number(r.revealedCount) || 0));
+  const shown = order.slice(0, count);
+  const cards = shown.map((pos, i) => resultStandingsCard(pos, pending && i === shown.length - 1)).join("");
+  const skip = pending
+    ? `<div class="results-reveal-actions"><button class="btn secondary" id="skip-reveal" type="button">Skip</button></div>`
+    : "";
+  const kicker = pending
+    ? `Revealing ${count} of ${order.length}`
+    : "Last place to champion";
+  return `
+    <div class="panel results-reveal">
+      <div class="results-reveal-head">
+        <div>
+          <p class="kicker">${kicker}</p>
+          <h2>${pending ? "Results" : "Final standings"}</h2>
+        </div>
+      </div>
+      <div class="results-reveal-stage">
+        <div class="results-reveal-list" id="results-reveal-list">${cards || `<p class="lede">The last teams are about to appear…</p>`}</div>
+      </div>
+      ${skip}
+    </div>`;
 }
 
 function nrrText(nrr) {
@@ -1413,7 +1557,7 @@ function teamReportCard(team) {
         ${teamMark({ id: characterIdOf(team), characterId: characterIdOf(team), color: team.color, color2: team.color2, text: team.text }, "lg", team.name)}
         <div>
           <h3 style="color:${esc(team.text || team.color)}">${esc(team.name || team.short)}</h3>
-          <p class="lede">${team.title ? esc(team.title) : ""}${team.eliminated ? (team.title ? " · " : "") + "eliminated" : ""}${formPctOf(team) != null ? `${team.title || team.eliminated ? " · " : ""}${formLabel(team)}` : ""}</p>
+          <p class="lede">${team.finish || team.title ? esc(team.finish || team.title) : ""}${team.eliminated ? ((team.finish || team.title) ? " · " : "") + "eliminated" : ""}${formPctOf(team) != null ? `${team.finish || team.title || team.eliminated ? " · " : ""}${formLabel(team)}` : ""}${team.squadScore != null ? `${team.finish || team.title || team.eliminated || formPctOf(team) != null ? " · " : ""}Squad ${team.squadScore}/1000` : ""}</p>
         </div>
         <p class="record">${team.won || 0}W–${team.lost || 0}L–${team.nr || 0}NR · ${team.points || 0} pts · NRR ${nrrText(team.nrr)}</p>
       </header>
@@ -1433,11 +1577,16 @@ function resultsView() {
   if (!t) {
     return `<section class="panel"><h2>Simulating…</h2><p class="lede">Results incoming.</p></section>`;
   }
+  const pending = isResultsRevealPending();
+  if (pending) {
+    return `<section class="results">${standingsRevealHtml(true)}</section>`;
+  }
   const vis = visibleTournament();
   const champ = vis.showFinal && t.champion ? t.champion : null;
   const awards = vis.showAwards ? t.awards : null;
   return `
     <section class="results">
+      ${standingsRevealHtml(false)}
       ${
         champ
           ? `<div class="panel champion">
@@ -1446,7 +1595,7 @@ function resultsView() {
               <p class="name" style="color:${esc(champ.text || champ.color)}">${esc(champ.name || champ.short)}</p>
               <p class="lede">${champ.title ? esc(champ.title) : "Champion"}</p>
             </div>`
-          : `<div class="panel"><h2>Tournament underway</h2><p class="lede">Results incoming.</p><div class="actions"><button class="btn secondary" id="skip-reveal">Skip to results</button></div></div>`
+          : ""
       }
       <div class="panel">
         <h2>League matches</h2>
@@ -1465,7 +1614,7 @@ function resultsView() {
                 ${t.positions
                   .map(
                     (p) =>
-                      `<li><span style="color:${esc(p.text || p.color)}">${p.position}. ${esc(p.name || p.short)}${formPctOf(p) != null ? ` ${formLabel(p)}` : ""}</span><span>${esc(p.title)}</span></li>`
+                      `<li><span style="color:${esc(p.text || p.color)}">${p.position}. ${esc(p.name || p.short)}${formPctOf(p) != null ? ` ${formLabel(p)}` : ""}${p.squadScore != null ? ` · ${p.squadScore}/1000` : ""}</span><span>${esc(p.finish || p.title)}</span></li>`
                   )
                   .join("")}
               </ol>
@@ -1575,7 +1724,7 @@ function syncEmoteDock() {
     dock.innerHTML = emotePickerHtml();
     dock.dataset.lines = linesKey;
   }
-  const overlayUp = isSoldRevealActive() || isLastTeamFillActive() || Boolean(state.paused);
+  const overlayUp = isSoldRevealActive() || isLastTeamFillActive() || isPlayerIntroActive() || Boolean(state.paused);
   const wrap = document.querySelector(".ring-wrap");
   if (wrap && !overlayUp) {
     if (dock.parentElement !== wrap) wrap.appendChild(dock);
@@ -1987,9 +2136,15 @@ function wireCurrent() {
       });
     });
   }
-  document.getElementById("skip-reveal")?.addEventListener("click", () => {
-    if (reveal) reveal.skipped = true;
-    render();
+  document.getElementById("skip-reveal")?.addEventListener("click", async () => {
+    const res = await emit("skipResultsReveal");
+    if (res && res.ok && state && state.resultsReveal) {
+      state.resultsReveal.skipped = true;
+      state.resultsReveal.complete = true;
+      state.resultsReveal.revealedCount = state.resultsReveal.total;
+      loadMatches();
+      render();
+    }
   });
 }
 
@@ -2002,9 +2157,10 @@ function startTicks() {
     }
     if (state.phase === "auction" && state.auction) {
       updateAuctionTimer();
+      if (isPlayerIntroActive()) updatePlayerIntroUi();
     } else if (state.phase === "captains" || state.phase === "results" || state.phase === "simulating") {
-      if (state.phase === "results" && reveal && !reveal.skipped && !visibleTournament().showAwards) {
-        render();
+      if (isPlayerIntroActive()) {
+        updatePlayerIntroUi();
       } else if (state.phase === "captains") {
         render();
       }
@@ -2044,8 +2200,6 @@ function loadMatches() {
       state.tournament.moments = res.moments || [];
       state.tournament.playerStats = res.playerStats || {};
       state.tournament.teams = res.teams || [];
-      if (!reveal) reveal = { startedAt: Date.now(), skipped: false };
-      else reveal.startedAt = Date.now();
       render();
     }
   });
@@ -2059,8 +2213,7 @@ socket.on("state", (next) => {
     bidDraft = state?.auction?.minBidLakhs ?? null;
     lastError = "";
   }
-  if (state?.phase === "results" && prevPhase !== "results") {
-    reveal = { startedAt: Date.now(), skipped: false };
+  if (state?.phase === "results" && prevPhase !== "results" && !isResultsRevealPending()) {
     loadMatches();
   }
   if (state?.you && state?.code) saveSession(state.code, state.you.name);
@@ -2079,7 +2232,9 @@ socket.on("delta", (evt) => {
     bidDraft = state.auction?.minBidLakhs ?? null;
     lastError = "";
   }
-  if (state.phase === "results" && prevPhase !== "results") loadMatches();
+  if (state.phase === "results" && (prevPhase !== "results" || (evt && evt.type === "resultsReveal" && evt.complete)) && !isResultsRevealPending()) {
+    loadMatches();
+  }
   render();
 });
 

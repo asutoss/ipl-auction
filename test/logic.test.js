@@ -12,7 +12,7 @@ const {
   pendingSlots,
 } = require("../server/rules");
 const { GameRoom } = require("../server/game");
-const { simulateTournament, teamStrength } = require("../server/simulate");
+const { simulateTournament, teamStrength, squadStrengthScore, SCORE_STRENGTH_CAP, matchStrength } = require("../server/simulate");
 
 const { meta, players } = loadPlayers();
 
@@ -24,7 +24,7 @@ function roomWith(names, timers, opts = {}) {
     code: "TEST",
     purseLakhs: purse,
     mode,
-    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, lastTeamFillMs: 0, ...(timers || {}) },
+    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
     seed: opts.seed,
@@ -692,23 +692,23 @@ describe("nomination order and timers", () => {
     assert.ok(firsts.size >= 3, `expected mixed openers, got ${[...firsts].join(", ")}`);
   });
 
-  test("a new lot gets 15 seconds and a bid also resets the timer to 15", () => {
-    const room = roomWith(["Ashutosh", "Priya"], { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000 });
+  test("a new lot gets 25 seconds and a bid also resets the timer to 25", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { lotStartMs: 25_000, bidMs: 25_000, captainMs: 45_000 });
     room.queue = [players.find((p) => p.id === "virat-kohli")];
     room.phase = "auction";
     const t0 = Date.now();
     room.nominateNext();
     const openLeft = room.auction.endsAt - t0;
-    assert.ok(openLeft > 14000 && openLeft <= 15100, `lot start ${openLeft}`);
+    assert.ok(openLeft > 24000 && openLeft <= 25100, `lot start ${openLeft}`);
     const lead = room.auction.currentBidderKey === "ashutosh" ? "Priya" : "Ashutosh";
     const t1 = Date.now();
     assert.equal(room.bid(lead, room.auction.currentBidLakhs + 1).ok, true);
     const bidLeft = room.auction.endsAt - t1;
-    assert.ok(bidLeft > 14000 && bidLeft <= 15100, `bid reset ${bidLeft}`);
+    assert.ok(bidLeft > 24000 && bidLeft <= 25100, `bid reset ${bidLeft}`);
   });
 
-  test("default timers are 15s for lots and bids, and 5s for the sold reveal", () => {
-    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS"];
+  test("default timers are 25s for lots and bids, 2s for the player intro, 2.8s for results steps, and 5s for the sold and power reveals", () => {
+    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS", "PLAYER_INTRO_MS", "RESULTS_REVEAL_STEP_MS"];
     const prev = {};
     for (const k of keys) {
       prev[k] = process.env[k];
@@ -716,11 +716,13 @@ describe("nomination order and timers", () => {
     }
     try {
       const room = new GameRoom({ code: "DEF", purseLakhs: 100, allPlayers: players, meta });
-      assert.equal(room.timers.lotStartMs, 15000);
-      assert.equal(room.timers.bidMs, 15000);
+      assert.equal(room.timers.lotStartMs, 25000);
+      assert.equal(room.timers.bidMs, 25000);
       assert.equal(room.timers.soldRevealMs, 5000);
       assert.equal(room.timers.captainMs, 45000);
-      assert.equal(room.timers.powerRevealMs, 2000);
+      assert.equal(room.timers.powerRevealMs, 5000);
+      assert.equal(room.timers.playerIntroMs, 2000);
+      assert.equal(room.timers.resultsRevealStepMs, 2800);
     } finally {
       for (const k of keys) {
         if (prev[k] == null) delete process.env[k];
@@ -1387,6 +1389,7 @@ describe("auction list", () => {
   function drainAuction(room, maxLots = 800) {
     let i = 0;
     while (room.phase === "auction" && i++ < maxLots) {
+      if (room.playerIntro) room.finishPlayerIntro();
       if (!room.auction) {
         if (room.revealUntil) room.finishReveal();
         else break;
@@ -1919,5 +1922,197 @@ describe("team form", () => {
     applyDelta(state, { type: "teamForm", name: "Mitron", formPct: 108, message: "Mitron's squad is in 108% form" });
     assert.equal(state.franchises[0].formPct, 108);
     assert.equal(state.you.formPct, 108);
+  });
+});
+
+
+describe("player intro", () => {
+  test("skips the intro when playerIntroMs is 0 and starts the bid timer immediately", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { playerIntroMs: 0 });
+    room.queue = [players.find((p) => p.id === "virat-kohli")];
+    room.phase = "auction";
+    const t0 = Date.now();
+    room.nominateNext();
+    assert.equal(room.playerIntro, null);
+    assert.ok(room.auction.endsAt && room.auction.endsAt - t0 > 14000);
+  });
+
+  test("holds the bid timer, blocks bids and powers, then starts bidding when the intro ends", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { playerIntroMs: 2000, powerRevealMs: 0 });
+    room.assignCharacter(room.findByName("Ashutosh"), "narendra-modi");
+    room.queue = [players.find((p) => p.id === "virat-kohli")];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.ok(room.playerIntro);
+    assert.equal(room.auction.endsAt, null);
+    const snap = room.getState("Priya");
+    assert.ok(snap.playerIntro);
+    assert.equal(snap.auction.nominee.name, "Virat Kohli");
+    assert.match(snap.auction.youReason || "", /introduced/i);
+    const lead = room.auction.currentBidderKey === "ashutosh" ? "Priya" : "Ashutosh";
+    const blocked = room.bid(lead, room.auction.currentBidLakhs + 1);
+    assert.equal(blocked.ok, false);
+    assert.match(blocked.error, /introduced/i);
+    assert.equal(room.optOut(lead).ok, false);
+    const power = room.usePower("Ashutosh");
+    assert.equal(power.ok, false);
+    assert.match(power.error, /introduced/i);
+    room.finishPlayerIntro();
+    assert.equal(room.playerIntro, null);
+    assert.ok(room.auction.endsAt && room.auction.endsAt > Date.now());
+    assert.equal(room.bid(lead, room.auction.currentBidLakhs + 1).ok, true);
+  });
+
+  test("pause freezes the intro clock and resume continues it", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { playerIntroMs: 400 });
+    room.queue = [players.find((p) => p.id === "virat-kohli")];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.ok(room.playerIntro && room.playerIntro.endsAt);
+    assert.equal(room.pause("Priya").ok, true);
+    assert.equal(room.pauseTimerKind, "playerIntro");
+    const left = room.pauseRemainingMs;
+    await new Promise((r) => setTimeout(r, 280));
+    assert.ok(room.playerIntro, "intro must stay up while paused");
+    assert.equal(room.auction.endsAt, null);
+    assert.equal(room.resume("Priya").ok, true);
+    assert.ok(room.playerIntro.endsAt - Date.now() > left - 80);
+    assert.ok(room.playerIntro.endsAt - Date.now() <= left + 50);
+  });
+
+  test("Prabhas VFX masks the intro player for everyone except the owner", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"], { playerIntroMs: 2000, powerRevealMs: 0, soldRevealMs: 0 });
+    room.assignCharacter(room.findByName("Ashutosh"), "narendra-modi");
+    room.assignCharacter(room.findByName("Priya"), "prabhas");
+    room.assignCharacter(room.findByName("Rohan"), "ravi-kishan");
+    room.queue = players.filter((p) => p.role === "BAT").slice(0, 4);
+    room.phase = "auction";
+    room.nominateNext();
+    if (room.playerIntro) room.finishPlayerIntro();
+    assert.equal(room.usePower("Priya").ok, true);
+    room.sellCurrent();
+    assert.ok(room.playerIntro, "the next lot should open with an intro");
+    assert.equal(room.auction.vfxHidden, true);
+    const seer = room.getState("Priya");
+    const other = room.getState("Ashutosh");
+    assert.equal(seer.auction.nominee.id, room.auction.nominee.id);
+    assert.equal(seer.auction.nominee.vfxHidden, undefined);
+    assert.equal(other.auction.nominee.vfxHidden, true);
+    assert.equal(other.auction.nominee.name, "VFX loading…");
+    assert.equal(other.playerIntro && other.auction.nominee.role, "???");
+  });
+});
+
+describe("phased results reveal", () => {
+  function fillFour(room) {
+    for (const team of room.franchises) {
+      const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+      for (const p of players) {
+        if ((need[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+          team.squad.push({ player: p, priceLakhs: 2 });
+          room.soldIds.add(p.id);
+          need[p.role] -= 1;
+        }
+      }
+      team.captainId = team.squad[0].player.id;
+    }
+  }
+
+  test("squad strength score is 0–1000 and tracks simulated match strength", () => {
+    const empty = { name: "Empty", franchise: { color: "#000" }, squad: [], mode: "classical", boosters: [] };
+    assert.equal(squadStrengthScore(empty), 0);
+    const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+    const mixed = [];
+    for (const p of players) {
+      if ((need[p.role] || 0) > 0) {
+        mixed.push(p);
+        need[p.role] -= 1;
+      }
+    }
+    const typical = {
+      name: "Typical",
+      formPct: 100,
+      franchise: { color: "#fc0" },
+      squad: mixed.map((p) => ({ player: p, priceLakhs: 5 })),
+      captainId: mixed[0].id,
+      mode: "classical",
+      boosters: [],
+    };
+    const score = squadStrengthScore(typical);
+    const raw = matchStrength(typical, { chasing: false, nerfed: false }).strength;
+    assert.equal(score, Math.round(Math.max(0, Math.min(SCORE_STRENGTH_CAP, raw)) / SCORE_STRENGTH_CAP * 1000));
+    assert.ok(score >= 500 && score <= 950, `typical score ${score}`);
+    const halfNeed = { BAT: 2, WK: 1, AR: 0, BOWL: 2 };
+    const half = [];
+    for (const p of players) {
+      if ((halfNeed[p.role] || 0) > 0) {
+        half.push(p);
+        halfNeed[p.role] -= 1;
+      }
+    }
+    const weak = {
+      name: "Weak",
+      formPct: 85,
+      franchise: { color: "#333" },
+      squad: half.map((p) => ({ player: p, priceLakhs: 2 })),
+      mode: "classical",
+      boosters: [],
+    };
+    const weakScore = squadStrengthScore(weak);
+    assert.ok(weakScore > 0 && weakScore < score, `weak ${weakScore} vs typical ${score}`);
+  });
+
+  test("reveals last place first, includes finish and score, and skip is server-synced", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan", "Neha"], { resultsRevealStepMs: 5000, captainMs: 10 });
+    fillFour(room);
+    room.phase = "captains";
+    room.finishCaptains();
+    assert.equal(room.phase, "results");
+    const r = room.packResultsReveal();
+    assert.ok(r);
+    assert.equal(r.total, 4);
+    assert.equal(r.revealedCount, 1);
+    assert.equal(r.complete, false);
+    const positions = room.tournament.positions;
+    assert.equal(positions.length, 4);
+    const firstShown = positions[positions.length - 1];
+    assert.ok(firstShown.squadScore >= 0 && firstShown.squadScore <= 1000);
+    assert.ok(firstShown.finish);
+    const snap = room.getState("Priya");
+    assert.equal(snap.resultsReveal.revealedCount, 1);
+    assert.equal(snap.resultsReveal.complete, false);
+    assert.equal(snap.tournament.positions[3].name, firstShown.name);
+    for (const pos of snap.tournament.positions) {
+      assert.ok(pos.finish);
+      assert.equal(typeof pos.squadScore, "number");
+    }
+    const champ = positions[0];
+    assert.equal(champ.finish, "Champion");
+    const titles = new Set(positions.map((p) => p.finish));
+    assert.ok(titles.has("Runner-up"));
+    assert.ok(titles.has("Lost Eliminator") || titles.has("4th"));
+    const skipped = room.skipResultsReveal("Rohan");
+    assert.equal(skipped.ok, true, skipped.error);
+    assert.equal(room.resultsReveal.skipped, true);
+    assert.equal(room.resultsReveal.revealedCount, 4);
+    assert.equal(room.packResultsReveal().complete, true);
+    const after = room.getState("Ashutosh");
+    assert.equal(after.resultsReveal.complete, true);
+    assert.equal(after.resultsReveal.revealedCount, 4);
+  });
+
+  test("ticks add one team at a time and pause freezes the next reveal", async () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan", "Neha"], { resultsRevealStepMs: 80, captainMs: 10 });
+    fillFour(room);
+    room.phase = "captains";
+    room.finishCaptains();
+    assert.equal(room.resultsReveal.revealedCount, 1);
+    room.pause("Priya");
+    assert.equal(room.pauseTimerKind, "resultsReveal");
+    await new Promise((r) => setTimeout(r, 160));
+    assert.equal(room.resultsReveal.revealedCount, 1, "paused reveal must not advance");
+    assert.equal(room.resume("Priya").ok, true);
+    await new Promise((r) => setTimeout(r, 400));
+    assert.ok(room.resultsReveal.revealedCount >= 3, `expected further reveals, got ${room.resultsReveal.revealedCount}`);
   });
 });

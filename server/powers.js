@@ -7,7 +7,7 @@
 const { remainingQuota, isSquadComplete, nextBidAmount, canBidFor } = require("./rules");
 const { CHARACTERS } = require("../public/characters");
 
-const POWER_REVEAL_MS = 2000;
+const POWER_REVEAL_MS = 5000;
 const POWER_PICK_MS = 30000;
 const RAKHI_CHOICE_MS = 15000;
 const DOLLY_DISCONNECT_MS = 30000;

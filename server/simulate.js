@@ -129,6 +129,30 @@ function matchStrength(team, { chasing = false, nerfed = false } = {}) {
   return { batting, bowling, strength: 0.52 * batting + 0.48 * bowling, batN: s.batN, bowlN: s.bowlN, form, formPct: team && team.formPct != null ? team.formPct : null };
 }
 
+/**
+ * Squad strength score out of 1000.
+ *
+ * Starts from matchStrength (non-chasing, not bus-nerfed): batting and bowling
+ * averages with empty-slot penalties (sum / max(count, expected slots for the
+ * mode)), the captain's +5% on their ratings, standing boosters (cheerleaders,
+ * home curator, friendly umpire), and the team's form multiplier. Dew-factor
+ * is omitted because it only applies when chasing.
+ *
+ * Combined strength S = 0.52 * batting + 0.48 * bowling (same weights as the
+ * simulation). Score = round(clamp(S, 0, 110) / 110 * 1000).
+ *
+ * Typical complete Classical XIs land roughly 600–850; a weak or incomplete
+ * side drops below that; a loaded squad with captain, form and boosters can
+ * approach 1000. An empty squad scores 0.
+ */
+const SCORE_STRENGTH_CAP = 110;
+
+function squadStrengthScore(team) {
+  const s = matchStrength(team, { chasing: false, nerfed: false });
+  const raw = Number(s && s.strength) || 0;
+  return Math.max(0, Math.min(1000, Math.round((raw / SCORE_STRENGTH_CAP) * 1000)));
+}
+
 function inningsBallsAndWickets(rng, bowling, allOutLikely, format) {
   const maxBalls = format.balls;
   const maxWkts = format.maxWickets;
@@ -944,6 +968,9 @@ module.exports = {
   FORM_MIN_PCT,
   FORM_MAX_PCT,
   FORM_EFFECT,
+  matchStrength,
+  squadStrengthScore,
+  SCORE_STRENGTH_CAP,
   QUOTA,
   ROLES,
 };

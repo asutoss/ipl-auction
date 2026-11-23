@@ -9,6 +9,13 @@
     const you = state.you;
     if (!a) return;
     a.stillIn = (a.stillIn || []).map((t) => ({ ...t, isYou: Boolean(you && t.name === you.name) }));
+    if (state.playerIntro || a.playerIntro || state.playerIntroUntil) {
+      a.youCanBid = false;
+      a.youCanOptOut = false;
+      a.youReason = "Wait for the player to be introduced.";
+      if (!you) return;
+      return;
+    }
     if (!you) return;
     const mine = a.stillIn.find((t) => t.isYou);
     if (a.currentBidderName === you.name) {
@@ -84,7 +91,7 @@
   function bidChoices(state) {
     const a = state && state.auction;
     const you = state && state.you;
-    const paused = Boolean(state && (state.paused || state.powerReveal));
+    const paused = Boolean(state && (state.paused || state.powerReveal || state.playerIntro || (state.auction && state.auction.playerIntro)));
     const steps = (a && a.bidSteps && a.bidSteps.length) ? a.bidSteps : BID_STEPS;
     const current = a ? Number(a.currentBidLakhs) || 0 : 0;
     const canBid = Boolean(a && you && a.youCanBid && canVoluntaryBid(you, a));
@@ -145,7 +152,32 @@
         state.soldRevealUntil = null;
         state.lastTeamFill = null;
         state.lastTeamFillUntil = null;
+        state.playerIntro = evt.playerIntro || null;
+        state.playerIntroUntil = evt.playerIntro && evt.playerIntro.endsAt ? evt.playerIntro.endsAt : null;
         decorateAuctionYou(state);
+        break;
+      }
+      case "playerIntroEnded": {
+        state.playerIntro = null;
+        state.playerIntroUntil = null;
+        if (state.auction) {
+          state.auction.playerIntro = null;
+          if (evt.endsAt || evt.auctionEndsAt) state.auction.endsAt = evt.auctionEndsAt || evt.endsAt;
+          if (evt.timerMs != null) state.auction.timerMs = evt.timerMs;
+        }
+        decorateAuctionYou(state);
+        break;
+      }
+      case "resultsReveal": {
+        state.phase = "results";
+        state.resultsReveal = {
+          ...(state.resultsReveal || {}),
+          revealedCount: evt.revealedCount,
+          total: evt.total,
+          complete: Boolean(evt.complete),
+          skipped: Boolean(evt.skipped),
+          nextAt: evt.nextAt || null,
+        };
         break;
       }
       case "sold": {
@@ -159,6 +191,8 @@
         syncYou(state);
         state.lastEvent = evt;
         state.auction = null;
+        state.playerIntro = null;
+        state.playerIntroUntil = null;
         state.soldRevealUntil = evt.revealUntil || null;
         state.soldLog = state.soldLog || [];
         state.soldLog.push(evt);
@@ -168,6 +202,8 @@
       case "skipped":
         state.lastEvent = evt;
         state.auction = null;
+        state.playerIntro = null;
+        state.playerIntroUntil = null;
         if (evt.revealUntil) state.soldRevealUntil = evt.revealUntil;
         break;
       case "eliminated": {
@@ -246,6 +282,16 @@
           state.lastTeamFillUntil = evt.endsAt;
           state.lastTeamFill.endsAt = evt.endsAt;
         }
+        if (Object.prototype.hasOwnProperty.call(evt, "playerIntroUntil")) {
+          state.playerIntroUntil = evt.playerIntroUntil || null;
+          if (state.playerIntro) state.playerIntro.endsAt = state.playerIntroUntil;
+          if (state.auction && state.auction.playerIntro) state.auction.playerIntro.endsAt = state.playerIntroUntil;
+        } else if (evt.endsAt && (state.playerIntro || (state.auction && state.auction.playerIntro))) {
+          state.playerIntroUntil = evt.endsAt;
+          if (state.playerIntro) state.playerIntro.endsAt = evt.endsAt;
+          if (state.auction && state.auction.playerIntro) state.auction.playerIntro.endsAt = evt.endsAt;
+        }
+        if (evt.resultsReveal) state.resultsReveal = evt.resultsReveal;
         break;
       }
       case "powerReveal": {

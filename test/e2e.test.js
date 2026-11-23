@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 process.env.ALLOW_TEST_TIMERS = "1";
 process.env.BID_TIMER_MS = process.env.BID_TIMER_MS || "250";
 process.env.CAPTAIN_TIMER_MS = process.env.CAPTAIN_TIMER_MS || "250";
+process.env.PLAYER_INTRO_MS = process.env.PLAYER_INTRO_MS || "0";
+process.env.RESULTS_REVEAL_STEP_MS = process.env.RESULTS_REVEAL_STEP_MS || "0";
 
 const { io: ioc } = require("socket.io-client");
 const { start } = require("../server/index");
@@ -146,7 +148,7 @@ describe("e2e: 3 clients through a full game", () => {
     const created = await ack(ash, "createRoom", {
       name: "Ashutosh",
       pursePoints: 100,
-      testTimers: { lotStartMs: 80, bidMs: 80, captainMs: 300, soldRevealMs: 0, lastTeamFillMs: 0 },
+      testTimers: { lotStartMs: 80, bidMs: 80, captainMs: 300, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0 },
     });
     assert.equal(created.ok, true);
     assert.match(created.code, /^[A-Z0-9]{6}$/);
@@ -271,7 +273,7 @@ describe("characters, pause, start bid and end game over sockets", () => {
 
     const created = await ack(ash, "createRoom", {
       name: "Ashutosh",
-      testTimers: { lotStartMs: 800, bidMs: 800, captainMs: 800, soldRevealMs: 0, lastTeamFillMs: 0 },
+      testTimers: { lotStartMs: 800, bidMs: 800, captainMs: 800, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0 },
     });
     assert.equal(created.ok, true);
     const code = created.code;
@@ -372,7 +374,7 @@ describe("emote broadcast over sockets", () => {
     sockets.push(ash, priya);
     const created = await ack(ash, "createRoom", {
       name: "Ashutosh",
-      testTimers: { lotStartMs: 20000, bidMs: 20000, captainMs: 8000, soldRevealMs: 0, lastTeamFillMs: 0 },
+      testTimers: { lotStartMs: 20000, bidMs: 20000, captainMs: 8000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0 },
     });
     assert.equal(created.ok, true);
     assert.equal((await ack(priya, "joinRoom", { code: created.code, name: "Priya" })).ok, true);
