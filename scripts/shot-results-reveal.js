@@ -160,8 +160,8 @@ async function main() {
       const st = window.IplApp && window.IplApp.state;
       const list = document.getElementById("results-reveal-list");
       const cards = list ? list.querySelectorAll(".result-card").length : 0;
-      const champ = list && list.querySelector(".result-card.is-champion");
-      return Boolean(st && st.resultsReveal && st.resultsReveal.complete && cards >= 4 && champ);
+      const champ = document.querySelector(".champion-hero, .result-card.is-champion");
+      return Boolean(st && st.resultsReveal && st.resultsReveal.complete && ((champ && cards >= 3) || cards >= 4));
     }, "complete reveal", 15000);
     await sleep(400);
     await shotBoth(host, "results-reveal-complete", { mobileScroll: ".results-reveal" });

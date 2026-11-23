@@ -16,6 +16,7 @@ const {
 } = require("../server/rules");
 const { GameRoom } = require("../server/game");
 const { simulateTournament, teamStrength, squadStrengthScore, squadStrengthBreakdown, STRENGTH_WEIGHTS, PILLAR_RAW_CAP, SCORE_SCALE, matchStrength, formMultiplier, FORM_EFFECT } = require("../server/simulate");
+const { findFinalMatch, buildFinalTimeline, snapshotAtElapsed } = require("../server/final-timeline");
 
 const { meta, players } = loadPlayers();
 
@@ -27,7 +28,7 @@ function roomWith(names, timers, opts = {}) {
     code: "TEST",
     purseLakhs: purse,
     mode,
-    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 90_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, formBoostRevealMs: 0, ...(timers || {}) },
+    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 90_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, formBoostRevealMs: 0, finalMatchMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
     seed: opts.seed,
@@ -892,8 +893,8 @@ describe("nomination order and timers", () => {
     assert.ok(bidLeft > 24000 && bidLeft <= 25100, `bid reset ${bidLeft}`);
   });
 
-  test("default timers are 25s for lots and bids, 90s for captains, 3s for the player intro, 2.8s for results steps, and 5s for the sold and power reveals", () => {
-    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS", "PLAYER_INTRO_MS", "RESULTS_REVEAL_STEP_MS"];
+  test("default timers are 25s for lots and bids, 90s for captains, 3s for the player intro, 2.8s for results steps, 60s for the final, and 5s for the sold and power reveals", () => {
+    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS", "PLAYER_INTRO_MS", "RESULTS_REVEAL_STEP_MS", "FINAL_MATCH_MS"];
     const prev = {};
     for (const k of keys) {
       prev[k] = process.env[k];
@@ -909,6 +910,7 @@ describe("nomination order and timers", () => {
       assert.equal(room.timers.powerRevealMs, 5000);
       assert.equal(room.timers.playerIntroMs, 3000);
       assert.equal(room.timers.resultsRevealStepMs, 2800);
+      assert.equal(room.timers.finalMatchMs, 60000);
     } finally {
       for (const k of keys) {
         if (prev[k] == null) delete process.env[k];
@@ -3312,5 +3314,170 @@ describe("three-pillar overall strength", () => {
     assert.ok(Math.max(...tops) <= 1000);
     assert.ok(Math.min(...bottoms) >= 400, `unexpectedly weak bottom ${Math.min(...bottoms)}`);
     assert.ok(Math.max(...tops) >= 750);
+  });
+});
+
+
+describe("final match reveal", () => {
+  function fill(room, quota) {
+    for (const team of room.franchises) {
+      const need = { ...quota };
+      for (const p of players) {
+        if ((need[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+          team.squad.push({ player: p, priceLakhs: 2 });
+          room.soldIds.add(p.id);
+          need[p.role] -= 1;
+        }
+      }
+      team.captainId = team.squad[0].player.id;
+    }
+  }
+
+  test("the streamed final is the tournament final and its winner is the champion", () => {
+    for (const seed of [3, 11, 29]) {
+      const room = roomWith(["Ashutosh", "Priya", "Rohan", "Neha"], { captainMs: 10, resultsRevealStepMs: 0, finalMatchMs: 0 }, { seed });
+      fill(room, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+      room.phase = "captains";
+      room.finishCaptains();
+      const champ = room.tournament.positions.find((p) => p.finish === "Champion");
+      const match = findFinalMatch(room.tournament);
+      assert.ok(match, `seed ${seed} missing final`);
+      assert.equal(match.winnerName, champ.name, `seed ${seed}`);
+      const packed = room.packResultsReveal();
+      assert.equal(packed.complete, true);
+      assert.equal(packed.stage, "done");
+      assert.equal(packed.final.winnerName, champ.name);
+      assert.equal(packed.final.resultText, match.resultText);
+      assert.ok(packed.final.potm && packed.final.potm.name);
+      const tl = buildFinalTimeline(match);
+      assert.equal(tl.winnerName, champ.name);
+      const again = buildFinalTimeline(match);
+      assert.deepEqual(again, tl);
+    }
+  });
+
+  test("same seed produces the same final timeline", () => {
+    function side(name, start) {
+      const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+      const squad = [];
+      let skipped = 0;
+      for (const p of players) {
+        if ((need[p.role] || 0) > 0) {
+          if (skipped < start) { skipped += 1; continue; }
+          squad.push({ player: p, priceLakhs: 2 });
+          need[p.role] -= 1;
+        }
+      }
+      return {
+        name,
+        franchise: { color: "#fc0", text: "#000" },
+        squad,
+        captainId: squad[0].player.id,
+        mode: "classical",
+        boosters: [],
+        formPct: 100,
+      };
+    }
+    function play(seed) {
+      const t = simulateTournament([side("Ashutosh", 0), side("Priya", 11), side("Rohan", 22), side("Neha", 33)], seed);
+      return buildFinalTimeline(findFinalMatch(t));
+    }
+    const a = play(44);
+    const b = play(44);
+    assert.ok(a && a.winnerName);
+    assert.deepEqual(b, a);
+    const c = play(45);
+    assert.ok(c);
+  });
+
+  test("reveals only positions below the top 2, then plays the final, and skip jumps to the end", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan", "Neha"], { resultsRevealStepMs: 5000, finalMatchMs: 8000, captainMs: 10 });
+    fill(room, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.phase = "captains";
+    room.finishCaptains();
+    const packed = room.packResultsReveal();
+    assert.equal(packed.stage, "standings");
+    assert.equal(packed.revealedCount, 1);
+    assert.equal(packed.holdCount, 2);
+    assert.equal(packed.complete, false);
+    assert.ok(packed.final && packed.final.winnerName);
+    const firstShown = room.tournament.positions[room.tournament.positions.length - 1];
+    assert.equal(firstShown.position, 4);
+    room.tickResultsReveal();
+    assert.equal(room.resultsReveal.revealedCount, 2);
+    assert.equal(room.resultsReveal.stage, "final");
+    assert.equal(room.packResultsReveal().complete, false);
+    const mid = room.getState("Priya");
+    assert.equal(mid.resultsReveal.stage, "final");
+    assert.ok(mid.resultsReveal.final.deliveries || mid.resultsReveal.final.innings);
+    assert.ok(mid.resultsReveal.final.innings[0].deliveries.length >= 1);
+    const skipped = room.skipResultsReveal("Rohan");
+    assert.equal(skipped.ok, true, skipped.error);
+    const after = room.packResultsReveal();
+    assert.equal(after.skipped, true);
+    assert.equal(after.complete, true);
+    assert.equal(after.stage, "done");
+    assert.equal(after.revealedCount, 4);
+    assert.equal(after.final.winnerName, room.tournament.positions[0].name);
+    assert.equal(after.final.elapsedMs, after.final.durationMs);
+  });
+
+  test("FINAL_MATCH_MS of 0 skips the live stream after the lower standings", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"], { resultsRevealStepMs: 40, finalMatchMs: 0, captainMs: 10 });
+    fill(room, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.phase = "captains";
+    room.finishCaptains();
+    assert.equal(room.resultsReveal.stage, "standings");
+    assert.equal(room.resultsReveal.revealedCount, 1);
+    room.tickResultsReveal();
+    const packed = room.packResultsReveal();
+    assert.equal(packed.stage, "done");
+    assert.equal(packed.complete, true);
+    assert.equal(packed.final.winnerName, findFinalMatch(room.tournament).winnerName);
+  });
+
+  test("pause freezes the final clock and a late snapshot resumes at the same point", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { resultsRevealStepMs: 0, finalMatchMs: 2000, captainMs: 10 });
+    fill(room, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.phase = "captains";
+    room.finishCaptains();
+    assert.equal(room.resultsReveal.stage, "final", room.resultsReveal.stage);
+    await new Promise((r) => setTimeout(r, 80));
+    const before = room.packResultsReveal().final.elapsedMs;
+    assert.ok(before >= 40, `elapsed before pause ${before}`);
+    room.pause("Priya");
+    const frozen = room.packResultsReveal().final.elapsedMs;
+    await new Promise((r) => setTimeout(r, 80));
+    const still = room.packResultsReveal().final.elapsedMs;
+    assert.ok(Math.abs(still - frozen) <= 15, `clock moved while paused ${frozen} -> ${still}`);
+    assert.equal(room.packResultsReveal().final.paused, true);
+    const mid = room.getState("Ashutosh");
+    assert.equal(mid.resultsReveal.stage, "final");
+    const snap = snapshotAtElapsed(mid.resultsReveal.final, mid.resultsReveal.final.elapsedMs, mid.resultsReveal.final.durationMs);
+    assert.ok(snap);
+    assert.equal(room.resume("Priya").ok, true);
+    await new Promise((r) => setTimeout(r, 40));
+    const after = room.packResultsReveal().final.elapsedMs;
+    assert.ok(after >= frozen, `did not resume ${frozen} -> ${after}`);
+  });
+
+  test("team-sheet stats already include the final and do not change when it is shown", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan", "Neha"], { captainMs: 10, resultsRevealStepMs: 5000, finalMatchMs: 5000 });
+    fill(room, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.phase = "captains";
+    room.finishCaptains();
+    const before = room.getState("Ashutosh");
+    const champName = before.tournament.positions[0].name;
+    const beforeTeam = before.tournament.teams.find((t) => t.name === champName);
+    const beforeRuns = (beforeTeam.squad || []).reduce((s, x) => s + ((x.stats && x.stats.runs) || 0), 0);
+    const beforeMatches = (beforeTeam.squad || []).reduce((s, x) => s + ((x.stats && x.stats.matches) || 0), 0);
+    room.skipResultsReveal("Ashutosh");
+    const after = room.getState("Ashutosh");
+    const afterTeam = after.tournament.teams.find((t) => t.name === champName);
+    const afterRuns = (afterTeam.squad || []).reduce((s, x) => s + ((x.stats && x.stats.runs) || 0), 0);
+    const afterMatches = (afterTeam.squad || []).reduce((s, x) => s + ((x.stats && x.stats.matches) || 0), 0);
+    assert.equal(afterRuns, beforeRuns);
+    assert.equal(afterMatches, beforeMatches);
+    assert.ok(beforeMatches > 0);
   });
 });

@@ -1,6 +1,7 @@
 const { EventEmitter } = require("events");
 const { overallRating, officialHeadshotUrl } = require("./players");
 const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthBreakdown } = require("./simulate");
+const { findFinalMatch, buildFinalTimeline } = require("./final-timeline");
 const { captainBonusFields, packCaptainBonus } = require("./captaincy");
 const { shortenPowerReason } = require("../public/power-reasons");
 const {
@@ -97,6 +98,7 @@ function defaultTimers() {
     lastTeamFillMs: envMs("LAST_TEAM_FILL_MS", 3000),
     playerIntroMs: envMs("PLAYER_INTRO_MS", 3000),
     resultsRevealStepMs: envMs("RESULTS_REVEAL_STEP_MS", 2800),
+    finalMatchMs: envMs("FINAL_MATCH_MS", 60000),
   };
 }
 
@@ -611,7 +613,7 @@ class GameRoom extends EventEmitter {
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
     const revealOpen = this.phase === "results" && this.resultsReveal && !this.resultsReveal.skipped
-      && this.resultsReveal.revealedCount < this.resultsReveal.total;
+      && this.resultsReveal.stage !== "done";
     const formBoostOpen = this.phase === "formBoosts" && this.formBoostReveal && this.formBoostReveal.endsAt;
     if (this.phase !== "auction" && this.phase !== "captains" && !revealOpen && !formBoostOpen) {
       return { ok: false, error: "Nothing to pause right now." };
@@ -623,7 +625,12 @@ class GameRoom extends EventEmitter {
       this.pauseRemainingMs = Math.max(0, (this.auction.endsAt || Date.now()) - Date.now());
       this.pauseTimerKind = "lot";
     } else if (this.phase === "results" && revealOpen) {
-      this.pauseRemainingMs = Math.max(0, (this.resultsReveal.nextAt || Date.now()) - Date.now());
+      const r = this.resultsReveal;
+      if (r.stage === "final" && r.finalStartedAt) {
+        r.finalElapsedMs = Math.min(r.finalDurationMs || 0, (r.finalElapsedMs || 0) + (Date.now() - r.finalStartedAt));
+        r.finalStartedAt = null;
+      }
+      this.pauseRemainingMs = Math.max(0, (r.nextAt || Date.now()) - Date.now());
       this.pauseTimerKind = "resultsReveal";
     } else if (this.phase === "auction" && this.lastTeamFill && this.lastTeamFill.endsAt) {
       this.pauseRemainingMs = Math.max(0, this.lastTeamFill.endsAt - Date.now());
@@ -680,8 +687,10 @@ class GameRoom extends EventEmitter {
       endsAt = this.playerIntro.endsAt;
       this.armTimer(() => this.finishPlayerIntro(), remaining);
     } else if (kind === "resultsReveal" && this.phase === "results" && this.resultsReveal && remaining != null) {
-      this.resultsReveal.nextAt = Date.now() + remaining;
-      endsAt = this.resultsReveal.nextAt;
+      const r = this.resultsReveal;
+      if (r.stage === "final") r.finalStartedAt = Date.now();
+      r.nextAt = Date.now() + remaining;
+      endsAt = r.nextAt;
       this.armTimer(() => this.tickResultsReveal(), remaining);
     } else if (kind === "lastTeamFill" && this.phase === "auction" && this.lastTeamFill && remaining != null) {
       this.lastTeamFill.endsAt = Date.now() + remaining;
@@ -1255,6 +1264,70 @@ class GameRoom extends EventEmitter {
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
+  finalMatchDelayMs() {
+    const n = Number(this.timers && this.timers.finalMatchMs);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  standingsHoldCount() {
+    const n = ((this.tournament && this.tournament.positions) || []).length;
+    return Math.max(0, n - 2);
+  }
+
+  prepareFinalTimeline() {
+    if (this.finalTimeline) return this.finalTimeline;
+    const match = findFinalMatch(this.tournament);
+    if (!match) return null;
+    this.finalTimeline = buildFinalTimeline(match);
+    return this.finalTimeline;
+  }
+
+  packFinalMatch() {
+    const tl = this.finalTimeline || this.prepareFinalTimeline();
+    if (!tl) return null;
+    const r = this.resultsReveal;
+    const now = Date.now();
+    const durationMs = r && r.finalDurationMs != null ? r.finalDurationMs : 0;
+    let elapsedMs = r && r.finalElapsedMs ? r.finalElapsedMs : 0;
+    if (r && r.stage === "final" && r.finalStartedAt && !this.paused) {
+      elapsedMs += now - r.finalStartedAt;
+    }
+    if (!r || r.stage === "done" || (r && r.skipped)) elapsedMs = durationMs;
+    elapsedMs = Math.max(0, Math.min(durationMs, elapsedMs));
+    return {
+      toss: tl.toss,
+      teamA: tl.teamA,
+      teamB: tl.teamB,
+      colorA: tl.colorA,
+      colorB: tl.colorB,
+      firstName: tl.firstName,
+      secondName: tl.secondName,
+      winnerName: tl.winnerName,
+      loserName: tl.loserName,
+      resultText: tl.resultText,
+      chased: tl.chased,
+      target: tl.target,
+      potm: tl.potm,
+      units: tl.units,
+      durationMs,
+      elapsedMs,
+      startedAt: r && r.finalStartedAt || null,
+      endsAt: r && r.stage === "final" ? r.nextAt : null,
+      paused: Boolean(this.paused && r && r.stage === "final"),
+      serverNow: now,
+      innings: (tl.innings || []).map((inn) => ({
+        teamName: inn.teamName,
+        score: inn.score,
+        wickets: inn.wickets,
+        balls: inn.balls,
+        overs: inn.overs,
+        batting: inn.batting,
+        bowling: inn.bowling,
+        deliveries: inn.deliveries,
+      })),
+    };
+  }
+
   finishLabel(pos, playoffs) {
     if (!pos) return "";
     if (pos.eliminated || /eliminated|banned|match fixing/i.test(String(pos.title || ""))) {
@@ -1274,52 +1347,112 @@ class GameRoom extends EventEmitter {
   packResultsReveal() {
     const r = this.resultsReveal;
     if (!r) return null;
+    const complete = Boolean(r.skipped || r.stage === "done" || (r.revealedCount >= r.total && r.stage !== "final"));
     return {
       startedAt: r.startedAt,
       stepMs: r.stepMs,
       total: r.total,
       revealedCount: r.revealedCount,
       skipped: Boolean(r.skipped),
-      complete: Boolean(r.skipped || r.revealedCount >= r.total),
+      complete,
       nextAt: r.nextAt || null,
+      stage: r.stage || (complete ? "done" : "standings"),
+      holdCount: this.standingsHoldCount(),
+      final: this.packFinalMatch(),
     };
+  }
+
+  emitResultsReveal() {
+    const packed = this.packResultsReveal();
+    if (!packed) return;
+    this.emitDelta({ type: "resultsReveal", ...packed });
+  }
+
+  finishResultsReveal({ skipped } = {}) {
+    const r = this.resultsReveal;
+    if (!r) return;
+    if (skipped) r.skipped = true;
+    r.stage = "done";
+    r.revealedCount = r.total;
+    r.nextAt = null;
+    r.finalStartedAt = null;
+    r.finalElapsedMs = r.finalDurationMs || 0;
+    this.clearTimer();
+  }
+
+  beginFinalOrFinish() {
+    const r = this.resultsReveal;
+    if (!r) return;
+    const tl = this.prepareFinalTimeline();
+    const finalMs = r.finalDurationMs || 0;
+    if (tl && finalMs > 0) {
+      r.stage = "final";
+      r.finalStartedAt = Date.now();
+      r.finalElapsedMs = 0;
+      r.nextAt = Date.now() + finalMs;
+      this.clearTimer();
+      this.armTimer(() => this.tickResultsReveal(), finalMs);
+    } else {
+      this.finishResultsReveal({ skipped: false });
+    }
   }
 
   startResultsReveal() {
     const positions = (this.tournament && this.tournament.positions) || [];
     const step = this.resultsRevealDelayMs();
-    const first = step <= 0 ? positions.length : (positions.length ? 1 : 0);
+    const finalMs = this.finalMatchDelayMs();
+    const hold = this.standingsHoldCount();
+    this.finalTimeline = null;
+    this.prepareFinalTimeline();
     this.resultsReveal = {
       startedAt: Date.now(),
       stepMs: step,
+      finalDurationMs: finalMs,
+      finalElapsedMs: 0,
+      finalStartedAt: null,
       total: positions.length,
-      revealedCount: first,
-      skipped: step <= 0,
-      nextAt: step > 0 && first < positions.length ? Date.now() + step : null,
+      revealedCount: 0,
+      skipped: false,
+      nextAt: null,
+      stage: "standings",
     };
-    this.bump("results");
-    if (step > 0 && first < positions.length) {
-      this.clearTimer();
-      this.armTimer(() => this.tickResultsReveal(), step);
+    if (step <= 0 && finalMs <= 0) {
+      this.finishResultsReveal({ skipped: true });
+      this.bump("results");
+      return;
     }
+    if (step <= 0 || hold === 0) {
+      this.resultsReveal.revealedCount = hold;
+      this.beginFinalOrFinish();
+      this.bump("results");
+      return;
+    }
+    this.resultsReveal.revealedCount = Math.min(1, hold);
+    this.resultsReveal.nextAt = Date.now() + step;
+    this.bump("results");
+    this.clearTimer();
+    this.armTimer(() => this.tickResultsReveal(), step);
   }
 
   tickResultsReveal() {
     if (this.paused || this.ended) return;
     const r = this.resultsReveal;
-    if (!r || r.skipped || r.revealedCount >= r.total) return;
-    r.revealedCount += 1;
-    const complete = r.revealedCount >= r.total;
-    r.nextAt = complete ? null : Date.now() + r.stepMs;
-    this.emitDelta({
-      type: "resultsReveal",
-      revealedCount: r.revealedCount,
-      total: r.total,
-      complete,
-      skipped: false,
-      nextAt: r.nextAt,
-    });
-    if (!complete) this.armTimer(() => this.tickResultsReveal(), r.stepMs);
+    if (!r || r.skipped || r.stage === "done") return;
+    if (r.stage === "final") {
+      this.finishResultsReveal({ skipped: false });
+      this.emitResultsReveal();
+      return;
+    }
+    const hold = this.standingsHoldCount();
+    if (r.revealedCount < hold) r.revealedCount += 1;
+    if (r.revealedCount >= hold) {
+      this.beginFinalOrFinish();
+      this.emitResultsReveal();
+      return;
+    }
+    r.nextAt = Date.now() + r.stepMs;
+    this.emitResultsReveal();
+    this.armTimer(() => this.tickResultsReveal(), r.stepMs);
   }
 
   skipResultsReveal(byName) {
@@ -1328,19 +1461,9 @@ class GameRoom extends EventEmitter {
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
     if (this.paused) return { ok: false, error: `Game is paused by ${this.pausedBy}.` };
-    const r = this.resultsReveal;
-    r.skipped = true;
-    r.revealedCount = r.total;
-    r.nextAt = null;
-    this.clearTimer();
-    this.emitDelta({
-      type: "resultsReveal",
-      revealedCount: r.revealedCount,
-      total: r.total,
-      complete: true,
-      skipped: true,
-      nextAt: null,
-    });
+    if (this.resultsReveal.stage === "done" || this.resultsReveal.skipped) return { ok: true, already: true };
+    this.finishResultsReveal({ skipped: true });
+    this.emitResultsReveal();
     return { ok: true };
   }
 

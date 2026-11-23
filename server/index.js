@@ -220,6 +220,9 @@ io.on("connection", (socket) => {
       if (payload.testTimers.formBoostRevealMs != null && Number.isFinite(Number(payload.testTimers.formBoostRevealMs))) {
         timers.formBoostRevealMs = Math.max(0, Number(payload.testTimers.formBoostRevealMs));
       }
+      if (payload.testTimers.finalMatchMs != null && Number.isFinite(Number(payload.testTimers.finalMatchMs))) {
+        timers.finalMatchMs = Math.max(0, Number(payload.testTimers.finalMatchMs));
+      }
     }
     const room = new GameRoom({
       code,

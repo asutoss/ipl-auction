@@ -220,6 +220,9 @@
           complete: Boolean(evt.complete),
           skipped: Boolean(evt.skipped),
           nextAt: evt.nextAt || null,
+          stage: evt.stage || (evt.complete ? "done" : (state.resultsReveal && state.resultsReveal.stage) || "standings"),
+          holdCount: evt.holdCount != null ? evt.holdCount : (state.resultsReveal && state.resultsReveal.holdCount),
+          final: evt.final !== undefined ? evt.final : (state.resultsReveal && state.resultsReveal.final) || null,
         };
         break;
       }

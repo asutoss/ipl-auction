@@ -202,9 +202,9 @@ async function main() {
     }
     await waitFor(host2, () => {
       const list = document.getElementById("results-reveal-list");
-      const champ = list && list.querySelector(".result-card.is-champion");
+      const champ = document.querySelector(".champion-hero, .result-card.is-champion");
       const cards = list ? list.querySelectorAll(".result-card").length : 0;
-      return Boolean(champ && cards >= 4);
+      return Boolean(champ && cards >= 3);
     }, "champion card", 15000);
     await sleep(500);
     await shotBoth(host2, "theme-results", { mobileScroll: ".results-reveal" });

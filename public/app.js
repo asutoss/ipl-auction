@@ -25,6 +25,7 @@ let lastTeamFillTimer = null;
 let lastTeamFillKey = null;
 let expandedPrepTeam = null;
 let cursePickerBooster = null;
+let finalScorecardOpen = false;
 let seenPrepBoosters = new Set();
 
 function money(points) {
@@ -2051,10 +2052,240 @@ function resultsRevealInfo() {
   return (state && state.resultsReveal) || null;
 }
 
-function isResultsRevealPending() {
+function resultsRevealStage() {
   const r = resultsRevealInfo();
-  if (!state || state.phase !== "results" || !r) return false;
-  return !r.complete && !r.skipped && r.revealedCount < r.total;
+  if (!state || state.phase !== "results" || !r) return "done";
+  if (r.skipped || r.complete || r.stage === "done") return "done";
+  if (r.stage === "final") return "final";
+  return "standings";
+}
+
+function isResultsRevealPending() {
+  const stage = resultsRevealStage();
+  return stage === "standings" || stage === "final";
+}
+
+function finalLib() {
+  return window.IplFinal || null;
+}
+
+function standingsListPositions() {
+  const t = state && state.tournament;
+  const r = resultsRevealInfo() || {};
+  const positions = (t && t.positions) || [];
+  const hold = r.holdCount != null ? r.holdCount : Math.max(0, positions.length - 2);
+  const order = [...positions].reverse();
+  const stage = resultsRevealStage();
+  const notChamp = (pos) => pos && pos.position !== 1 && (pos.finish || pos.title) !== "Champion";
+  if (stage === "standings") {
+    const below = order.filter((pos) => pos && pos.position > 2);
+    const count = Math.max(0, Math.min(below.length, hold, Number(r.revealedCount) || 0));
+    return below.slice(0, count);
+  }
+  return order.filter(notChamp);
+}
+
+function championPosition() {
+  const positions = (state && state.tournament && state.tournament.positions) || [];
+  return positions.find((p) => (p.finish || p.title) === "Champion") || positions[0] || null;
+}
+
+function resultsTeamByNameSafe(name) {
+  if (!name) return null;
+  const teams = (state && state.tournament && state.tournament.teams) || [];
+  return teams.find((t) => t && t.name === name) || null;
+}
+
+function teamCaptainName(team) {
+  if (!team) return "";
+  const slot = (team.squad || []).find((s) => s.isCaptain || (team.captainId && s.player && s.player.id === team.captainId));
+  return slot && slot.player ? slot.player.name : "";
+}
+
+function batLine(row) {
+  if (!row) return "";
+  const how = row.out ? "" : " not out";
+  return `${row.runs} (${row.balls})${how}`;
+}
+
+function bowlLine(row) {
+  if (!row) return "";
+  const overs = row.overs != null ? row.overs : (window.IplFinal ? IplFinal.formatOvers(row.balls || row.ballsBowled || 0) : "");
+  const runs = row.runsConceded != null ? row.runsConceded : (row.runs != null ? row.runs : 0);
+  const wkts = row.wickets != null ? row.wickets : 0;
+  return `${overs}–${runs}–${wkts}`;
+}
+
+function inningsScorecardHtml(title, batting, bowling) {
+  const bat = (batting || []).map((b) => `<tr class="${b.current ? "is-current" : ""}">
+      <td>${esc(b.name || "")}${b.current ? " *" : ""}</td>
+      <td>${esc(batLine(b))}</td>
+    </tr>`).join("");
+  const bowl = (bowling || []).map((b) => `<tr class="${b.current ? "is-current" : ""}">
+      <td>${esc(b.name || "")}${b.current ? " *" : ""}</td>
+      <td>${esc(bowlLine(b))}</td>
+    </tr>`).join("");
+  return `<section class="final-card-block">
+    <h4>${esc(title)}</h4>
+    <div class="final-tables">
+      <table><thead><tr><th>Batting</th><th>R (B)</th></tr></thead><tbody>${bat || `<tr><td colspan="2">Yet to bat</td></tr>`}</tbody></table>
+      <table><thead><tr><th>Bowling</th><th>O–R–W</th></tr></thead><tbody>${bowl || `<tr><td colspan="2">—</td></tr>`}</tbody></table>
+    </div>
+  </section>`;
+}
+
+function tickerHtml(marks, last) {
+  const items = (marks || []).map((m, i) => {
+    const cls = m === "W" ? "is-w" : (m === "6" || m === "4") ? "is-bound" : "";
+    const fresh = last && i === marks.length - 1 ? " is-last" : "";
+    return `<span class="final-tick ${cls}${fresh}">${esc(m === "0" ? "·" : m)}</span>`;
+  }).join("");
+  return items ? `<p class="final-ticker" aria-label="This over">${items}</p>` : `<p class="final-ticker is-empty">This over</p>`;
+}
+
+function finalSnapshot() {
+  const r = resultsRevealInfo() || {};
+  const fin = r.final;
+  const lib = finalLib();
+  if (!fin || !lib) return null;
+  const elapsed = lib.elapsedOf(fin, resultsRevealStage(), Date.now());
+  return lib.snapshotAtElapsed(fin, elapsed, fin.durationMs);
+}
+
+function finalLiveBodyHtml() {
+  const r = resultsRevealInfo() || {};
+  const fin = r.final;
+  const snap = finalSnapshot();
+  if (!fin || !snap) return `<p class="lede">The final is about to start…</p>`;
+  if (snap.striker && !snap.nonStriker) {
+    const faced = snap.battingCard || [];
+    const partner = faced.find((b) => b && !b.out && b.playerId !== snap.striker.playerId);
+    if (partner) {
+      snap.nonStriker = { playerId: partner.playerId, name: partner.name, runs: partner.runs, balls: partner.balls };
+    } else if (Array.isArray(snap.officialBatting)) {
+      const used = new Set(faced.map((b) => b.playerId).concat([snap.striker.playerId]));
+      const nxt = snap.officialBatting.find((b) => b && !used.has(b.playerId));
+      if (nxt) snap.nonStriker = { playerId: nxt.playerId, name: nxt.name, runs: 0, balls: 0 };
+    }
+  }
+  const phase = snap.phase;
+  const kicker = phase === "toss" ? "Toss" : phase === "break" ? "Innings break" : phase === "over" ? "Final result" : (snap.inningsIndex === 0 ? "1st innings" : "2nd innings");
+  let headline = "";
+  if (phase === "toss") {
+    headline = `<p class="final-phase-copy">${esc(snap.toss || "The toss is in the air…")}</p>`;
+  } else if (phase === "break") {
+    const f = snap.firstInnings || {};
+    headline = `<p class="final-phase-copy">${esc(f.teamName || "")} ${f.score}/${f.wickets} (${esc(String(f.overs || ""))} ov)</p>
+      <p class="lede">${esc(snap.bowlingTeam || fin.secondName || "")} to chase ${esc(String(fin.target != null ? fin.target : (f.score || 0) + 1))}</p>`;
+  } else if (phase === "over") {
+    headline = `<p class="final-result-line">${esc(snap.resultText || fin.resultText || "")}</p>`;
+  } else {
+    const rates = [`CRR ${snap.crr.toFixed(2)}`];
+    if (snap.target != null) {
+      rates.push(`Target ${snap.target}`);
+      if (snap.need != null && snap.need > 0) rates.push(`Need ${snap.need} off ${Math.max(0, ((fin.innings[1] && fin.innings[1].balls) || 0) - snap.balls)}`);
+      if (snap.req != null) rates.push(`REQ ${snap.req.toFixed(2)}`);
+      if (snap.need != null && snap.need <= 0) rates.push("Chased");
+    }
+    headline = `<div class="final-now-score">
+        <p class="final-total"><strong>${snap.score}/${snap.wickets}</strong><span>${esc(snap.overs)} ov</span></p>
+        <p class="final-batting-team">${esc(snap.battingTeam || "")}</p>
+        <p class="final-rates">${rates.map((x) => esc(x)).join(" · ")}</p>
+      </div>
+      <div class="final-now-players">
+        <p>${snap.striker ? `${esc(snap.striker.name)} <strong>${snap.striker.runs}</strong>(${snap.striker.balls})*` : ""}</p>
+        <p>${snap.nonStriker ? `${esc(snap.nonStriker.name)} <strong>${snap.nonStriker.runs}</strong>(${snap.nonStriker.balls})` : ""}</p>
+        <p class="final-now-bowler">${snap.bowler ? `${esc(snap.bowler.name)} ${esc(bowlLine(snap.bowler))}` : ""}</p>
+      </div>
+      ${tickerHtml(snap.ticker, snap.lastBall)}`;
+  }
+
+  const completed = [];
+  if (snap.otherInnings && (phase === "break" || phase === "live" && snap.inningsIndex === 1 || phase === "over")) {
+    const o = snap.otherInnings;
+    const useOfficial = phase !== "live" || snap.inningsIndex === 1;
+    completed.push(inningsScorecardHtml(
+      `${o.teamName} ${o.score}/${o.wickets} (${o.overs} ov)`,
+      useOfficial ? o.batting : o.batting,
+      useOfficial ? o.bowling : o.bowling
+    ));
+  }
+  if (phase === "live" || phase === "over" || phase === "break") {
+    const title = phase === "over"
+      ? `${snap.battingTeam} ${snap.score}/${snap.wickets} (${snap.overs} ov)`
+      : `${snap.battingTeam || "Batting"}`;
+    let bat = phase === "over" ? snap.officialBatting : snap.battingCard;
+    const bowl = phase === "over" ? snap.officialBowling : snap.bowlingCard;
+    if (phase !== "over" && snap.nonStriker && Array.isArray(bat) && !bat.some((b) => b.playerId === snap.nonStriker.playerId)) {
+      bat = bat.concat([{ playerId: snap.nonStriker.playerId, name: snap.nonStriker.name, runs: snap.nonStriker.runs || 0, balls: snap.nonStriker.balls || 0, out: false }]);
+    }
+    if (phase !== "break") completed.push(inningsScorecardHtml(title, bat, bowl));
+    else completed.push(inningsScorecardHtml(`${snap.firstInnings.teamName} ${snap.firstInnings.score}/${snap.firstInnings.wickets} (${snap.firstInnings.overs} ov)`, (fin.innings[0] || {}).batting, (fin.innings[0] || {}).bowling));
+  }
+
+  const open = finalScorecardOpen ? " is-open" : "";
+  return `
+    <p class="kicker">${esc(kicker)}</p>
+    ${headline}
+    <button class="btn secondary final-card-toggle" id="final-scorecard-toggle" type="button" aria-expanded="${finalScorecardOpen ? "true" : "false"}">${finalScorecardOpen ? "Hide scorecard" : "Scorecard"}</button>
+    <div class="final-scorecard${open}" id="final-scorecard" ${finalScorecardOpen ? "" : "hidden"}>${completed.join("") || `<p class="lede">Scorecard will appear with the first ball.</p>`}</div>
+  `;
+}
+
+function finalMatchHtml() {
+  const r = resultsRevealInfo() || {};
+  const fin = r.final || {};
+  const a = resultsTeamByNameSafe(fin.teamA) || { name: fin.teamA, color: fin.colorA };
+  const b = resultsTeamByNameSafe(fin.teamB) || { name: fin.teamB, color: fin.colorB };
+  const markA = teamMark({ id: characterIdOf(a), characterId: characterIdOf(a), color: a.color, color2: a.color2, text: a.text }, "sm", a.name || fin.teamA);
+  const markB = teamMark({ id: characterIdOf(b), characterId: characterIdOf(b), color: b.color, color2: b.color2, text: b.text }, "sm", b.name || fin.teamB);
+  return `
+    <section class="results results-final">
+      <div class="panel results-reveal final-panel">
+        <div class="results-reveal-head">
+          <div>
+            <p class="kicker">The title is on the line</p>
+            <h2>FINAL</h2>
+          </div>
+        </div>
+        <div class="final-vs">
+          <div class="final-vs-team">${markA}<span>${esc(fin.teamA || "")}</span></div>
+          <span class="final-vs-sep">vs</span>
+          <div class="final-vs-team">${markB}<span>${esc(fin.teamB || "")}</span></div>
+        </div>
+        ${fin.toss ? `<p class="lede final-toss">${esc(fin.toss)}</p>` : ""}
+        <div class="final-live" id="final-live-body">${finalLiveBodyHtml()}</div>
+        <div class="results-reveal-actions"><button class="btn secondary" id="skip-reveal" type="button">Skip</button></div>
+      </div>
+    </section>`;
+}
+
+function championHeroHtml() {
+  const pos = championPosition();
+  if (!pos) return "";
+  const team = resultsTeamByNameSafe(pos.name) || pos;
+  const fin = (resultsRevealInfo() && resultsRevealInfo().final) || {};
+  const cid = characterIdOf(team);
+  const mark = teamMark({ id: cid, characterId: cid, color: team.color || pos.color, color2: team.color2 || pos.color2, text: team.text || pos.text }, "lg", team.name || pos.name);
+  const cap = teamCaptainName(team);
+  const form = formPctOf(team) != null ? formLabel(team) : (formPctOf(pos) != null ? formLabel(pos) : "");
+  const score = team.squadScore != null ? team.squadScore : pos.squadScore;
+  const potm = fin.potm;
+  const result = fin.resultText || "";
+  return `<section class="champion-hero" role="button" tabindex="0" data-team-name="${esc(pos.name || "")}" aria-label="View ${esc(pos.name || "team")} squad" style="--c:${esc(team.color || pos.color || "")};--ct:${esc(team.text || pos.text || "")};--c2:${esc(team.color2 || pos.color2 || "")}">
+    <div class="champion-confetti" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="kicker">Champion</p>
+    <div class="champion-trophy" aria-hidden="true">🏆</div>
+    ${mark}
+    <h2>${esc(pos.name || "")}</h2>
+    ${cap ? `<p class="lede">Captain ${esc(cap)}</p>` : ""}
+    <div class="champion-meta">
+      ${score != null ? `<p class="result-score"><strong>${esc(String(score))}</strong><span>/1000</span><span class="result-score-label"> Overall</span></p>` : ""}
+      ${form ? `<p class="result-form">${form}</p>` : ""}
+    </div>
+    ${result ? `<p class="final-result-line">${esc(result)}</p>` : ""}
+    ${potm ? `<p class="champion-potm">Player of the match <strong>${esc(potm.name)}</strong>${potm.text ? ` · ${esc(potm.text)}` : ""}</p>` : ""}
+  </section>`;
 }
 
 function visibleTournament() {
@@ -2101,16 +2332,15 @@ function resultStandingsCard(pos, fresh) {
 function standingsRevealHtml(pending) {
   const t = state.tournament;
   const r = resultsRevealInfo() || { revealedCount: (t.positions || []).length, total: (t.positions || []).length, complete: true };
-  const order = [...(t.positions || [])].reverse();
-  const count = r.skipped || r.complete ? order.length : Math.max(0, Math.min(order.length, Number(r.revealedCount) || 0));
-  const shown = order.slice(0, count);
+  const shown = standingsListPositions();
   const cards = shown.map((pos, i) => resultStandingsCard(pos, pending && i === shown.length - 1)).join("");
   const skip = pending
     ? `<div class="results-reveal-actions"><button class="btn secondary" id="skip-reveal" type="button">Skip</button></div>`
     : "";
+  const total = (t.positions || []).length;
   const kicker = pending
-    ? `Revealing ${count} of ${order.length}`
-    : "Last place to champion";
+    ? `Revealing ${shown.length} of ${Math.max(0, total - 2)}`
+    : "The rest of the field";
   return `
     <div class="panel results-reveal">
       <div class="results-reveal-head">
@@ -2276,7 +2506,7 @@ function openResultsTeamSheet(name) {
 }
 
 function bindResultsTeamSheet() {
-  document.querySelectorAll(".result-card[data-team-name]").forEach((card) => {
+  document.querySelectorAll(".result-card[data-team-name], .champion-hero[data-team-name]").forEach((card) => {
     const open = () => openResultsTeamSheet(card.getAttribute("data-team-name"));
     card.addEventListener("click", open);
     card.addEventListener("keydown", (ev) => {
@@ -2295,16 +2525,29 @@ function resultsView() {
   if (!t) {
     return `<section class="panel"><h2><span class="cricket-spinner" aria-hidden="true"></span>Simulating…</h2><p class="lede">Results incoming.</p></section>`;
   }
-  const pending = isResultsRevealPending();
-  if (pending) {
+  const stage = resultsRevealStage();
+  if (stage === "final") return finalMatchHtml();
+  if (stage === "standings") {
     return `<section class="results">${standingsRevealHtml(true)}</section>`;
   }
   return `
     <section class="results">
+      ${championHeroHtml()}
       ${standingsRevealHtml(false)}
       <p class="lede results-hint">Tap a team to see the full squad and tournament stats.</p>
     </section>
   `;
+}
+
+function updateFinalMatchUi() {
+  if (resultsRevealStage() !== "final") return;
+  const body = document.getElementById("final-live-body");
+  if (!body) return;
+  body.innerHTML = finalLiveBodyHtml();
+  document.getElementById("final-scorecard-toggle")?.addEventListener("click", () => {
+    finalScorecardOpen = !finalScorecardOpen;
+    updateFinalMatchUi();
+  });
 }
 
 
@@ -2915,12 +3158,21 @@ function wireCurrent() {
     });
   }
   bindResultsTeamSheet();
+  document.getElementById("final-scorecard-toggle")?.addEventListener("click", () => {
+    finalScorecardOpen = !finalScorecardOpen;
+    updateFinalMatchUi();
+  });
   document.getElementById("skip-reveal")?.addEventListener("click", async () => {
     const res = await emit("skipResultsReveal");
     if (res && res.ok && state && state.resultsReveal) {
       state.resultsReveal.skipped = true;
       state.resultsReveal.complete = true;
+      state.resultsReveal.stage = "done";
       state.resultsReveal.revealedCount = state.resultsReveal.total;
+      if (state.resultsReveal.final) {
+        state.resultsReveal.final.elapsedMs = state.resultsReveal.final.durationMs || 0;
+        state.resultsReveal.final.paused = false;
+      }
       loadMatches();
       render();
     }
@@ -2942,6 +3194,8 @@ function startTicks() {
         updatePlayerIntroUi();
       } else if (state.phase === "captains") {
         updatePrepClock();
+      } else if (state.phase === "results") {
+        updateFinalMatchUi();
       }
     }
     if (state.powerWait && state.powerWait.endsAt) {

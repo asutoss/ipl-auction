@@ -146,7 +146,8 @@ async function main() {
         const list = document.getElementById("results-reveal-list");
         const cards = list ? list.querySelectorAll(".result-card").length : 0;
         const text = (document.getElementById("main") && document.getElementById("main").innerText) || "";
-        return cards >= 4 && /Current form/i.test(text) && /1000/.test(text);
+        const hero = document.querySelector('.champion-hero');
+        return ((hero && cards >= 3) || cards >= 4) && /Current form/i.test(text) && /1000/.test(text);
       }, "all standings revealed", 20000);
     } catch (err) {
       const debug = await host.evaluate(() => ({
@@ -161,7 +162,7 @@ async function main() {
     await shot(host, "results-simple-360.png", PHONE_NARROW, { scroll: ".results-reveal", hideTopbar: true });
 
     const champName = await host.evaluate(() => {
-      const card = document.querySelector(".result-card.is-champion");
+      const card = document.querySelector(".champion-hero[data-team-name], .result-card.is-champion");
       return card ? card.getAttribute("data-team-name") : null;
     });
     if (!champName) throw new Error("champion card missing");

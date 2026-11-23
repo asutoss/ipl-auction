@@ -182,7 +182,8 @@ async function main() {
     await waitFor(host, () => {
       const list = document.getElementById("results-reveal-list");
       const cards = list ? list.querySelectorAll(".result-card").length : 0;
-      return cards >= 4;
+      const hero = document.querySelector('.champion-hero');
+      return (hero && cards >= 3) || cards >= 4;
     }, "standings revealed", 20000);
     await host.evaluate(() => window.IplApp && IplApp.openResultsTeamSheet("Mitron"));
     await waitFor(host, () => {
