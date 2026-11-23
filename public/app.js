@@ -1725,6 +1725,12 @@ function captainBonusLabelOf(team) {
   return team.captainBonusLabel || "";
 }
 
+function captainRevealText(name, team) {
+  const bonus = captainBonusLabelOf(team);
+  if (!name) return bonus || "";
+  return bonus ? `${name} · ${bonus}` : name;
+}
+
 function cursedByOf(team, franchises) {
   const name = team && team.name;
   if (!name) return [];
@@ -1825,9 +1831,8 @@ function prepCard(team) {
   const catalog = catalogById();
   let details = "";
   if (expanded) {
-    const capBonus = captainBonusLabelOf(team);
     const capBlock = captain
-      ? `<div class="prep-detail-cap"><strong>${esc(captain.name)}</strong> <span class="tag">Captain</span><p class="lede">${esc(captain.role)} · bat ${esc(captain.batting)} · bowl ${esc(captain.bowling)}</p>${capBonus ? `<p class="prep-cap-bonus">${esc(capBonus)}</p>` : ""}</div>`
+      ? `<div class="prep-detail-cap"><strong>${esc(captainRevealText(captain.name, team))}</strong> <span class="tag">Captain</span></div>`
       : `<p class="lede">Captain still choosing...</p>`;
     const boostLines = (team.boosters || []).map((b) => {
       const full = catalog.get(b.id) || b;
@@ -1844,8 +1849,7 @@ function prepCard(team) {
         <div class="prep-card-face">${shot}</div>
         <div class="prep-card-copy">
           <h3>${esc(team.name)}</h3>
-          <p class="prep-captain-line">${captain ? esc(captain.name) : "choosing..."}</p>
-          ${captain && captainBonusLabelOf(team) ? `<p class="prep-cap-bonus">${esc(captainBonusLabelOf(team))}</p>` : ""}
+          <p class="prep-captain-line">${captain ? esc(captainRevealText(captain.name, team)) : "choosing..."}</p>
           <div class="prep-chips">${chips}</div>
         </div>
         <div class="prep-card-meta">
@@ -1909,17 +1913,16 @@ function captainView() {
   const left = formatClock(remainingMs(state.captainEndsAt));
   const catalog = state.boosterCatalog || [];
   const owned = new Set((you?.boosters || []).map((b) => b.id));
-  const yourBonus = captainBonusLabelOf(you);
   const picks = (you?.squad || [])
     .map(
       (s) => {
         const selected = you && you.captainId === s.player.id;
-        const bonus = selected && yourBonus ? `<p class="prep-cap-bonus">${esc(yourBonus)}</p>` : "";
+        const title = selected ? captainRevealText(s.player.name, you) : s.player.name;
+        const meta = selected ? "" : `<div class="lede" style="margin:4px 0 0">${s.player.role} · bat ${s.player.batting} · bowl ${s.player.bowling}</div>`;
         return `
       <button class="pick ${selected ? "selected" : ""}" data-captain="${esc(s.player.id)}">
-        <strong>${esc(s.player.name)}</strong>
-        <div class="lede" style="margin:4px 0 0">${s.player.role} · bat ${s.player.batting} · bowl ${s.player.bowling}</div>
-        ${bonus}
+        <strong>${esc(title)}</strong>
+        ${meta}
       </button>`;
       }
     )
@@ -2197,8 +2200,7 @@ function fillResultsTeamSheet(name) {
     return `<li class="sheet-player ${top ? "is-top" : ""}">
       <div class="sheet-shot" id="${shotId}"></div>
       <div class="sheet-player-body">
-        <p class="sheet-player-name">${s.isCaptain ? '<span class="cap">CAP</span> ' : ""}${esc(p.name || "")}${top ? ' <span class="sheet-top-tag">Top performer</span>' : ""}</p>
-        ${s.isCaptain && captainBonusLabelOf(team) ? `<p class="sheet-cap-bonus">${esc(captainBonusLabelOf(team))}</p>` : ""}
+        <p class="sheet-player-name">${s.isCaptain ? '<span class="cap">CAP</span> ' : ""}${esc(s.isCaptain ? captainRevealText(p.name || "", team) : (p.name || ""))}${top ? ' <span class="sheet-top-tag">Top performer</span>' : ""}</p>
         <p class="sheet-player-meta">${roleTag(p.role)} · ${money(s.priceLakhs)}</p>
         <p class="sheet-player-stats">${lines}</p>
       </div>

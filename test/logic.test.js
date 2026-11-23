@@ -142,12 +142,12 @@ describe("captain bonus", () => {
       assert.ok(b >= 0 && b <= 0.05 + 1e-12);
       prev = b;
     }
-    assert.equal(formatCaptainBonus(0), "+0.0% captain bonus · never captained in the IPL");
-    assert.equal(formatCaptainBonus(1), "+0.7% captain bonus · 1 IPL match as captain");
-    assert.equal(formatCaptainBonus(43), "+3.7% captain bonus · 43 IPL matches as captain");
-    assert.equal(formatCaptainBonus(143), "+4.9% captain bonus · 143 IPL matches as captain");
-    assert.equal(formatCaptainBonus(158), "+5.0% captain bonus · 158 IPL matches as captain");
-    assert.equal(formatCaptainBonus(235), "+5.0% captain bonus · 235 IPL matches as captain");
+    assert.equal(formatCaptainBonus(0), "+0.0%");
+    assert.equal(formatCaptainBonus(1), "+0.7%");
+    assert.equal(formatCaptainBonus(43), "+3.7%");
+    assert.equal(formatCaptainBonus(143), "+4.9%");
+    assert.equal(formatCaptainBonus(158), "+5.0%");
+    assert.equal(formatCaptainBonus(235), "+5.0%");
   });
 
   test("the captain's rating boost uses the curve, not a flat 5%", () => {
@@ -209,8 +209,8 @@ describe("captain bonus", () => {
     const team = after.franchises.find((f) => f.name === "Ashutosh");
     assert.equal(team.captainId, "virat-kohli");
     assert.equal(team.captainMatches, 143);
-    assert.equal(team.captainBonusLabel, "+4.9% captain bonus · 143 IPL matches as captain");
-    assert.ok(after.prepFeed.some((e) => /Virat Kohli/.test(e.message) && /\+4\.9% captain bonus/.test(e.message)));
+    assert.equal(team.captainBonusLabel, "+4.9%");
+    assert.ok(after.prepFeed.some((e) => e.message === "Ashutosh named Virat Kohli · +4.9%"));
     for (const s of team.squad) {
       assert.equal("captainMatches" in (s.player || {}), false);
     }

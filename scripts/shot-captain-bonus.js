@@ -148,7 +148,7 @@ async function main() {
     await waitFor(host, () => {
       const st = window.IplApp && window.IplApp.state;
       const text = (document.getElementById("prep-screen") && document.getElementById("prep-screen").innerText) || "";
-      return Boolean(st && st.phase === "captains" && document.getElementById("prep-screen") && /Choose your captain/.test(text) && !/\+4\.9% captain bonus/.test(text));
+      return Boolean(st && st.phase === "captains" && document.getElementById("prep-screen") && /Choose your captain/.test(text) && !/Virat Kohli · \+4\.9%/.test(text));
     }, "prep board before pick");
 
     const picked = await emit(host, "selectCaptain", { playerId: "virat-kohli" });
@@ -156,7 +156,7 @@ async function main() {
     await waitFor(host, () => {
       const card = document.querySelector('[data-prep-team="Mitron"]');
       const text = ((card && card.innerText) || "") + ((document.getElementById("prep-screen") && document.getElementById("prep-screen").innerText) || "");
-      return Boolean(card && /\+4\.9% captain bonus/.test(text) && /143 IPL matches as captain/.test(text) && /Virat Kohli/.test(text));
+      return Boolean(card && /Virat Kohli · \+4\.9%/.test(text) && !/143 IPL matches as captain/.test(text) && !/captain bonus/.test(text));
     }, "kohli bonus revealed");
 
     await host.evaluate(() => {
@@ -166,7 +166,7 @@ async function main() {
     await waitFor(host, () => {
       const card = document.querySelector('[data-prep-team="Mitron"].is-open');
       const text = card ? card.innerText : "";
-      return Boolean(card && /\+4\.9% captain bonus · 143 IPL matches as captain/.test(text));
+      return Boolean(card && /Virat Kohli · \+4\.9%/.test(text) && !/bat 93/.test(text) && !/captain bonus/.test(text));
     }, "mitron card expanded");
     await sleep(300);
     await shot(host, "captain-bonus-reveal.png", PHONE_NARROW, { scroll: '[data-prep-team="Mitron"]', hideTopbar: true });
@@ -186,7 +186,7 @@ async function main() {
     await waitFor(host, () => {
       const modal = document.getElementById("results-team-sheet");
       const text = modal ? modal.innerText : "";
-      return Boolean(modal && !modal.hidden && /Virat Kohli/.test(text) && /\+4\.9% captain bonus · 143 IPL matches as captain/.test(text));
+      return Boolean(modal && !modal.hidden && /Virat Kohli · \+4\.9%/.test(text) && !/captain bonus/.test(text) && !/IPL matches as captain/.test(text));
     }, "sheet shows captain bonus");
     try {
       await waitFor(host, () => {

@@ -35,10 +35,7 @@ function captainBonusPct(matches) {
 
 function formatCaptainBonus(matches) {
   const n = Math.max(0, Math.floor(Number(matches) || 0));
-  const pct = captainBonusPct(n).toFixed(1);
-  if (n <= 0) return `+${pct}% captain bonus · never captained in the IPL`;
-  const games = n === 1 ? "1 IPL match as captain" : `${n} IPL matches as captain`;
-  return `+${pct}% captain bonus · ${games}`;
+  return `+${captainBonusPct(n).toFixed(1)}%`;
 }
 
 function packCaptainBonus(player) {

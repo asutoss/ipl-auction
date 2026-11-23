@@ -1728,7 +1728,7 @@ class GameRoom extends EventEmitter {
     const captainName = slot.player && slot.player.name;
     const bonus = packCaptainBonus(slot.player);
     const message = captainName
-      ? `${team.name} named ${captainName} captain · ${bonus.captainBonusLabel}`
+      ? `${team.name} named ${captainName} · ${bonus.captainBonusLabel}`
       : `${team.name} picked a captain · ${bonus.captainBonusLabel}`;
     const feed = this.appendPrepFeed({
       kind: "captain",
