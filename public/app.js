@@ -667,6 +667,8 @@ function fillPlayerIntro() {
   const intro = playerIntroSource();
   const start = intro && intro.startBidLakhs != null ? intro.startBidLakhs : (a.startBidLakhs != null ? a.startBidLakhs : 1);
   if (bid) bid.textContent = `Starts at ${money(start)}`;
+  const shot = document.getElementById("player-intro-shot");
+  if (shot && window.IplHeadshot) IplHeadshot.mount(shot, p, { id: "player-intro-shot" });
   return modal;
 }
 
@@ -1531,6 +1533,7 @@ function auctionView() {
             </div>
             <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
               <div class="hub-inner">
+                ${window.IplHeadshot ? IplHeadshot.markup(p, { id: "hub-headshot" }) : ""}
                 <p class="hub-name ${p.vfxHidden ? "is-vfx" : ""}" id="hub-name">${esc(p.name)}</p>
                 <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
                   ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
@@ -1557,6 +1560,14 @@ function auctionView() {
       </aside>
     </section>
   `;
+}
+
+function mountBidHeadshot() {
+  if (!window.IplHeadshot || !state || !state.auction) return;
+  const p = state.auction.nominee;
+  const hub = document.getElementById("hub-headshot");
+  if (hub) IplHeadshot.mount(hub, p, { id: "hub-headshot" });
+  IplHeadshot.prefetch(state.auction.nextHeadshot);
 }
 
 function mountAuctionRing() {
@@ -1634,6 +1645,7 @@ function animateBid(from, to) {
 function patchAuction() {
   const a = state && state.auction;
   if (!a) return;
+  if (window.IplHeadshot) IplHeadshot.prefetch(a.nextHeadshot);
   const svg = document.getElementById("auction-ring");
   if (svg && window.IplRing) IplRing.update(svg, IplRing.seatsFromState ? IplRing.seatsFromState(state) : (a.stillIn || []));
   const leader = document.getElementById("hub-leader");
@@ -2377,7 +2389,10 @@ function render() {
   else if (state.phase === "simulating" || state.phase === "results") main.innerHTML = resultsView();
   else main.innerHTML = homeView();
   wireCurrent();
-  if (state.phase === "auction") mountAuctionRing();
+  if (state.phase === "auction") {
+    mountAuctionRing();
+    mountBidHeadshot();
+  }
   if (state && state.phase === "auction" && state.auction) {
     maybeHapticOutbid(state.auction);
     observeBidSheet();

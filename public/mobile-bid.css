@@ -465,3 +465,9 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
     top: auto;
   }
 }
+
+/* Keep the hub headshot inside the circle on phones. */
+@media (max-width: 430px) {
+  .hub-inner .player-headshot { --ph-size: clamp(48px, 22vw, 72px); }
+  #player-intro-shot { --ph-size: clamp(88px, 26vw, 120px); }
+}

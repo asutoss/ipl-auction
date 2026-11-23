@@ -703,3 +703,94 @@ describe("ring seat bubbles", () => {
     assert.equal(db.text, "55 · Full");
   });
 });
+
+describe("official headshots", () => {
+  const IplHeadshot = require("../public/headshot");
+  const { officialHeadshotUrl } = require("../server/players");
+  const { hiddenNomineePlaceholder } = require("../server/powers");
+
+  test("maps official IPL team-assets URLs onto the player pool", () => {
+    const { players } = loadPlayers();
+    const withShot = players.filter((p) => p.headshot);
+    assert.ok(withShot.length >= 180, `mapped ${withShot.length}/${players.length}`);
+    assert.ok(withShot.length / players.length >= 0.9, `match rate ${withShot.length}/${players.length}`);
+    const kohli = players.find((p) => p.id === "virat-kohli");
+    assert.ok(kohli && kohli.headshot, "Virat Kohli should have an official headshot");
+    assert.equal(kohli.headshot, officialHeadshotUrl(kohli.headshot));
+    assert.match(
+      kohli.headshot,
+      /^https:\/\/www\.iplt20\.com\/api\/team-assets\?pathname=player\/\d+\/\d+\/\d+\.png&brand=ipl$/
+    );
+    for (const p of withShot) {
+      assert.equal(p.headshot, officialHeadshotUrl(p.headshot), p.id);
+    }
+    const marnus = players.find((p) => p.id === "marnus-labuschagne");
+    if (marnus) assert.equal(marnus.headshot, undefined);
+    assert.equal(officialHeadshotUrl("https://evil.example/x.png"), null);
+    assert.equal(
+      officialHeadshotUrl("https://www.iplt20.com/api/team-assets?pathname=static/teams/2138/icon.png&brand=ipl"),
+      null
+    );
+  });
+
+  test("the VFX placeholder never includes a headshot URL", () => {
+    const hidden = hiddenNomineePlaceholder();
+    assert.equal(hidden.headshot, undefined);
+    assert.equal("headshot" in hidden, false);
+    const html = IplHeadshot.markup({ ...hidden, headshot: "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/13144.png&brand=ipl" });
+    assert.equal(html.includes("team-assets"), false);
+    assert.equal(html.includes("13144"), false);
+    assert.equal(html.includes("headshot="), false);
+    assert.ok(html.includes("is-vfx"));
+    assert.ok(html.includes("??"));
+  });
+
+  test("markup omits the official URL and uses initials when there is no headshot", () => {
+    IplHeadshot.resetSession();
+    const html = IplHeadshot.markup({ id: "no-shot", name: "Marnus Labuschagne", role: "BAT" });
+    assert.equal(html.includes("team-assets"), false);
+    assert.ok(html.includes("player-headshot"));
+    assert.ok(html.includes("role-BAT"));
+    assert.ok(html.includes("ML"));
+  });
+
+  test("fallback skips official images on slow networks and after two slow loads", () => {
+    const url = "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/13144.png&brand=ipl";
+    IplHeadshot.resetSession();
+    assert.equal(IplHeadshot.shouldUseOfficialImage(url), true);
+    assert.equal(IplHeadshot.shouldUseOfficialImage(url, { hidden: true }), false);
+    assert.equal(IplHeadshot.shouldUseOfficialImage(null), false);
+    assert.equal(IplHeadshot.shouldUseOfficialImage("https://example.com/x.png"), false);
+
+    IplHeadshot.resetSession();
+    assert.equal(IplHeadshot.shouldUseOfficialImage(url, { conn: { effectiveType: "4g" } }), true);
+    assert.equal(IplHeadshot.shouldUseOfficialImage(url, { conn: { effectiveType: "2g" } }), false);
+    assert.equal(IplHeadshot.session.usePlaceholdersThroughout, true);
+    assert.equal(IplHeadshot.shouldUseOfficialImage(url, { conn: { effectiveType: "4g" } }), false);
+
+    IplHeadshot.resetSession();
+    assert.equal(IplHeadshot.shouldUseOfficialImage(url, { conn: { saveData: true } }), false);
+    assert.equal(IplHeadshot.session.usePlaceholdersThroughout, true);
+
+    IplHeadshot.resetSession();
+    IplHeadshot.noteLoadTiming({ elapsed: 1600, timeout: true });
+    assert.equal(IplHeadshot.session.usePlaceholdersThroughout, false);
+    IplHeadshot.noteLoadTiming({ elapsed: 1600, timeout: true });
+    assert.equal(IplHeadshot.session.usePlaceholdersThroughout, true);
+    assert.equal(IplHeadshot.shouldUseOfficialImage(url), false);
+
+    IplHeadshot.resetSession();
+    IplHeadshot.noteLoadTiming({ elapsed: 200, timeout: true });
+    IplHeadshot.noteLoadTiming({ elapsed: 400 });
+    assert.equal(IplHeadshot.session.slowStreak, 0);
+    IplHeadshot.noteLoadTiming({ elapsed: 1600, timeout: true });
+    assert.equal(IplHeadshot.session.usePlaceholdersThroughout, false);
+  });
+
+  test("initials follow first and last name", () => {
+    assert.equal(IplHeadshot.initials("Virat Kohli"), "VK");
+    assert.equal(IplHeadshot.initials("MS Dhoni"), "MD");
+    assert.equal(IplHeadshot.initials("T Natarajan"), "TN");
+    assert.equal(IplHeadshot.initials(""), "?");
+  });
+});

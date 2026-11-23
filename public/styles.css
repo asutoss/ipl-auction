@@ -618,6 +618,85 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   gap: 3px;
   overflow: hidden;
 }
+
+/* Bidding-screen player headshot (hub + intro). Fixed size, no layout shift. */
+.player-headshot {
+  --ph-size: 72px;
+  position: relative;
+  width: var(--ph-size);
+  height: var(--ph-size);
+  flex: 0 0 var(--ph-size);
+  border-radius: 50%;
+  overflow: hidden;
+  isolation: isolate;
+  background: #0b1220;
+  box-shadow: inset 0 0 0 2px rgba(255, 210, 80, 0.28), 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.hub-inner .player-headshot {
+  --ph-size: clamp(52px, 36cqmin, 88px);
+  margin: 0 0 1px;
+}
+.hub-inner:has(.player-headshot) .hub-name {
+  font-size: clamp(16px, 12cqmin, 30px);
+}
+.player-headshot-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.08), transparent 55%),
+    radial-gradient(circle at 50% 110%, rgba(0, 0, 0, 0.35), transparent 50%);
+}
+.player-headshot.role-BAT .player-headshot-fallback { background-color: #1d3b2a; color: #8dffc3; }
+.player-headshot.role-WK .player-headshot-fallback { background-color: #3a2e12; color: #ffd36a; }
+.player-headshot.role-AR .player-headshot-fallback { background-color: #2a2150; color: #cbb8ff; }
+.player-headshot.role-BOWL .player-headshot-fallback { background-color: #1b2f55; color: #9ec5ff; }
+.player-headshot.role-UNK .player-headshot-fallback,
+.player-headshot.is-vfx .player-headshot-fallback { background-color: #10231c; color: #7fffd4; }
+.player-headshot-sil {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  fill: currentColor;
+  opacity: 0.35;
+}
+.player-headshot-initials {
+  position: relative;
+  z-index: 1;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: calc(var(--ph-size) * 0.32);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.player-headshot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  opacity: 0;
+  transition: opacity 280ms ease;
+  z-index: 2;
+  pointer-events: none;
+}
+.player-headshot img.is-ready { opacity: 1; }
+.player-intro-shot {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 12px;
+}
+.player-intro-shot.player-headshot,
+.player-intro-shot .player-headshot,
+#player-intro-shot {
+  --ph-size: clamp(96px, 28vw, 140px);
+  margin: 0 auto 12px;
+}
 .hub .hub-name {
   font-family: var(--display);
   font-size: clamp(20px, 15cqmin, 38px);

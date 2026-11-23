@@ -2116,3 +2116,38 @@ describe("phased results reveal", () => {
     assert.ok(room.resultsReveal.revealedCount >= 3, `expected further reveals, got ${room.resultsReveal.revealedCount}`);
   });
 });
+
+describe("bidding-screen headshots", () => {
+  const { hiddenNomineePlaceholder } = require("../server/powers");
+
+  test("Prabhas VFX withholds the official headshot URL from everyone except the owner", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { playerIntroMs: 0, powerRevealMs: 0, soldRevealMs: 0 });
+    room.assignCharacter(room.findByName("Ashutosh"), "narendra-modi");
+    room.assignCharacter(room.findByName("Priya"), "prabhas");
+    const kohli = players.find((p) => p.id === "virat-kohli");
+    const next = players.find((p) => p.id === "rohit-sharma") || players.find((p) => p.headshot && p.id !== (kohli && kohli.id));
+    assert.ok(kohli && kohli.headshot, "need Kohli headshot in the pool");
+    assert.ok(next && next.headshot, "need a second mapped player");
+    room.queue = [kohli, next];
+    room.phase = "auction";
+    room.nominateNext();
+    if (room.playerIntro) room.finishPlayerIntro();
+    const used = room.usePower("Priya");
+    assert.equal(used.ok, true, used.error);
+    room.sellCurrent();
+    if (room.playerIntro) room.finishPlayerIntro();
+    assert.equal(room.auction.vfxHidden, true);
+    assert.equal(room.auction.nominee.id, next.id);
+    const seer = room.getState("Priya");
+    const other = room.getState("Ashutosh");
+    assert.equal(seer.auction.nominee.headshot, next.headshot);
+    assert.equal(other.auction.nominee.vfxHidden, true);
+    assert.equal(other.auction.nominee.headshot, undefined);
+    assert.equal("headshot" in other.auction.nominee, false);
+    const packed = JSON.stringify(other.auction.nominee);
+    assert.equal(packed.includes("team-assets"), false);
+    assert.equal(packed.includes("headshot"), false);
+    const hidden = hiddenNomineePlaceholder();
+    assert.equal("headshot" in hidden, false);
+  });
+});

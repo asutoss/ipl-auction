@@ -1,5 +1,5 @@
 const { EventEmitter } = require("events");
-const { overallRating } = require("./players");
+const { overallRating, officialHeadshotUrl } = require("./players");
 const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthScore } = require("./simulate");
 const { shortenPowerReason } = require("../public/power-reasons");
 const {
@@ -376,6 +376,7 @@ class GameRoom extends EventEmitter {
       muteByKey: this.auction.muteByKey || null,
       lockFlip: this.auction.lockFlip || null,
       playerIntro: this.packPlayerIntro(),
+      nextHeadshot: officialHeadshotUrl(this.queue && this.queue[0] && this.queue[0].headshot),
     };
   }
 
