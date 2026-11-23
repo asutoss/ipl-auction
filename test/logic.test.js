@@ -770,6 +770,14 @@ describe("booster shop", () => {
     for (let i = 1; i < catalog.length; i++) {
       assert.ok(catalog[i - 1].impact.score >= catalog[i].impact.score, `${catalog[i - 1].id} before ${catalog[i].id}`);
     }
+    const bus = catalog.find((b) => b.id === "bus-breakdown");
+    const nazar = catalog.find((b) => b.id === "nazar");
+    assert.equal(bus.impact.rivalTitleWinPp, -16);
+    assert.equal(nazar.impact.rivalTitleWinPp, -9);
+    for (const b of catalog) {
+      if (b.id === "bus-breakdown" || b.id === "nazar") continue;
+      assert.equal(b.impact.rivalTitleWinPp, null, b.id);
+    }
     const room = primedRoom();
     room.beginCaptainPhase();
     assert.equal(room.phase, "captains");
@@ -812,7 +820,7 @@ describe("booster shop", () => {
 });
 
 describe("form boosters", () => {
-  const { getBooster, FORM_SELF_ID, FORM_RIVAL_ID, applyFormBoosters, rollUniformPct } = require("../server/boosters");
+  const { getBooster, FORM_SELF_ID, FORM_RIVAL_ID, applyFormBoosters, rollUniformPct, formatTitleChance } = require("../server/boosters");
 
   function primedThree() {
     const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
@@ -979,6 +987,31 @@ describe("form boosters", () => {
     assert.ok(snap.formBoostReveal.changes.some((c) => /Net Session Masterclass/.test(c.message)));
     assert.equal(long.skipFormBoostReveal("Ashutosh").ok, true);
     assert.equal(long.phase, "results");
+  });
+
+  test("a landed curse reveal mentions the rival title-chance impact", () => {
+    assert.equal(formatTitleChance(-9), "\u22129% title chance");
+    const hit = applyFormBoosters([
+      { name: "Priya", formPct: 112, boosters: [{ id: FORM_RIVAL_ID, targetName: "Ashutosh" }] },
+      { name: "Ashutosh", formPct: 110, boosters: [] },
+    ], { random: () => 0 });
+    assert.equal(hit.length, 1);
+    assert.equal(hit[0].kind, "curse");
+    assert.equal(hit[0].message, "Nazar Lag Gayi from Priya: Ashutosh form 110% -> 85% (\u22129% title chance)");
+
+    const noop = applyFormBoosters([
+      { name: "Priya", formPct: 90, boosters: [{ id: FORM_RIVAL_ID, targetName: "Ashutosh" }] },
+      { name: "Ashutosh", formPct: 88, boosters: [] },
+    ], { random: () => 0 });
+    assert.equal(noop[0].kind, "curse-noop");
+    assert.equal(noop[0].message.includes("title chance"), false);
+
+    const cancel = applyFormBoosters([
+      { name: "Priya", formPct: 90, boosters: [{ id: FORM_RIVAL_ID, targetName: "Ashutosh" }] },
+      { name: "Ashutosh", formPct: 107, boosters: [{ id: FORM_SELF_ID }] },
+    ], { random: () => 0 });
+    assert.equal(cancel[0].kind, "cancel");
+    assert.equal(cancel[0].message.includes("title chance"), false);
   });
 
   test("rollUniformPct stays inside the requested inclusive range", () => {

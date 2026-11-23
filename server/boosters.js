@@ -57,7 +57,7 @@ const BOOSTERS = [
     id: "bus-breakdown",
     name: "Team Bus Breakdown",
     pricePoints: 30,
-    impact: { size: "big", bars: 3, line: "Win chance about +4%. Rival title chance about -16%.", score: 22.966, titleWinPp: 4 },
+    impact: { size: "big", bars: 3, line: "Win chance about +4%. Rival title chance about -16%.", score: 22.966, titleWinPp: 4, rivalTitleWinPp: -16 },
     blurb: "Sabotage: one random rival arrives late and plays below par in every match.",
   },
   {
@@ -73,7 +73,7 @@ const BOOSTERS = [
     name: "Nazar Lag Gayi",
     pricePoints: 20,
     effect: "form-rival",
-    impact: { size: "medium", bars: 2, line: "Win chance about +2%. Rival form below 100% (title chance about -9%).", score: 12.414, titleWinPp: 2 },
+    impact: { size: "medium", bars: 2, line: "Win chance about +2%. Rival form below 100% (title chance about -9%).", score: 12.414, titleWinPp: 2, rivalTitleWinPp: -9 },
     needsTarget: true,
     blurb: "A lingering stare from the stands. Pick a rival and force their Current form below 100%.",
   },
@@ -111,6 +111,7 @@ function packImpact(b) {
     line: b.impact.line || "",
     score: Number(b.impact.score) || 0,
     titleWinPp: Number.isFinite(Number(b.impact.titleWinPp)) ? Number(b.impact.titleWinPp) : null,
+    rivalTitleWinPp: Number.isFinite(Number(b.impact.rivalTitleWinPp)) ? Number(b.impact.rivalTitleWinPp) : null,
   };
 }
 
@@ -147,6 +148,14 @@ function packBooster(b) {
   };
 }
 
+function formatTitleChance(pp) {
+  if (!Number.isFinite(Number(pp))) return "";
+  const n = Math.round(Number(pp));
+  if (n === 0) return "0% title chance";
+  const sign = n > 0 ? "+" : "\u2212";
+  return `${sign}${Math.abs(n)}% title chance`;
+}
+
 function rngRandom(rng) {
   if (typeof rng === "function") return rng;
   if (rng && typeof rng.random === "function") return rng.random.bind(rng);
@@ -178,6 +187,10 @@ function applyFormBoosters(teams, rng) {
   const events = [];
   const selfName = (getBooster(FORM_SELF_ID) || {}).name || "Net Session Masterclass";
   const curseName = (getBooster(FORM_RIVAL_ID) || {}).name || "Nazar Lag Gayi";
+  const curseImpact = (getBooster(FORM_RIVAL_ID) || {}).impact || {};
+  const curseChance = Number.isFinite(Number(curseImpact.rivalTitleWinPp))
+    ? ` (${formatTitleChance(curseImpact.rivalTitleWinPp)})`
+    : "";
 
   function casterLabel(casters) {
     return casters.map((c) => c.name).join(" & ");
@@ -246,7 +259,7 @@ function applyFormBoosters(teams, rng) {
           to,
           casters: casters.map((c) => c.name),
           boosterName: curseName,
-          message: `${curseName} from ${casterLabel(casters)}: ${name} form ${from}% -> ${to}%`,
+          message: `${curseName} from ${casterLabel(casters)}: ${name} form ${from}% -> ${to}%${curseChance}`,
         });
       }
     }
@@ -269,4 +282,5 @@ module.exports = {
   catalogByImpact,
   rollUniformPct,
   applyFormBoosters,
+  formatTitleChance,
 };

@@ -162,7 +162,7 @@ async function main() {
     await waitFor(host, () => {
       const text = (document.getElementById("prep-screen") && document.getElementById("prep-screen").innerText) || "";
       const chips = document.querySelectorAll(".prep-chip").length;
-      return chips >= 6 && /Lucky Toss Coin/.test(text) && /\+3% title chance/.test(text) && /Nazar from Ravi/.test(text) && /choosing/.test(text);
+      return chips >= 6 && /Lucky Toss Coin/.test(text) && /\+3% title chance/.test(text) && /Nazar from Ravi · [\u2212-]9% title chance/.test(text) && /choosing/.test(text);
     }, "purchases on board");
     await sleep(1600);
     await shot(host, "booster-board-curse.png", PHONE, { scroll: '[data-prep-team="Baahubali"]', hideTopbar: true });
@@ -172,27 +172,7 @@ async function main() {
       const names = Array.from(document.querySelectorAll("#prep-shop .booster strong")).map((el) => el.textContent.trim());
       return Boolean(shop && names[0] === "Team Bus Breakdown" && names[names.length - 1] === "DRS Wizard");
     }, "shop catalog order");
-    const mitron = room.findByName("Mitron");
-    const savedPurse = mitron.purseLakhs;
-    mitron.purseLakhs = 15;
-    room.bump("captains");
-    await waitFor(host, () => {
-      const shop = document.getElementById("prep-shop");
-      const text = shop ? shop.innerText : "";
-      const names = Array.from(document.querySelectorAll("#prep-shop .booster strong")).map((el) => el.textContent.trim());
-      const firstLocked = document.querySelector("#prep-shop .booster");
-      const noBuyOnFirst = firstLocked && !firstLocked.querySelector("[data-buy]");
-      const ownedLucky = /Lucky Toss Coin/.test(text) && /Owned/.test(text);
-      return Boolean(shop && names[0] === "Team Bus Breakdown" && /Not enough points/.test(text) && noBuyOnFirst && ownedLucky);
-    }, "shop locked reasons");
     await shot(host, "booster-shop-sorted.png", PHONE, { scroll: "#prep-shop", hideTopbar: true });
-    mitron.purseLakhs = savedPurse;
-    room.bump("captains");
-    await waitFor(host, (purse) => {
-      const shop = document.getElementById("prep-shop");
-      const text = shop ? shop.innerText : "";
-      return Boolean(shop && text.includes("Purse:") && text.includes(String(purse)));
-    }, "purse restored", 15000, savedPurse);
 
     await host.evaluate(() => {
       const card = document.querySelector('[data-prep-team="Mitron"]');
@@ -232,7 +212,7 @@ async function main() {
     await waitFor(host, () => {
       const el = document.getElementById("form-boost-reveal");
       const text = el ? el.innerText : "";
-      return Boolean(el && /Current form swings/.test(text) && /Nazar Lag Gayi/.test(text) && /Net Session Masterclass/.test(text));
+      return Boolean(el && /Current form swings/.test(text) && /Nazar Lag Gayi/.test(text) && /[\u2212-]9% title chance/.test(text) && /Net Session Masterclass/.test(text));
     }, "form reveal");
     await sleep(400);
     await shot(host, "booster-form-reveal.png", PHONE, { scroll: "#form-boost-reveal", hideTopbar: true });

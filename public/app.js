@@ -1736,12 +1736,22 @@ function prepBoosterKey(teamName, booster) {
   return `${teamName}::${booster && booster.id ? booster.id : ""}`;
 }
 
+function formatTitleChance(pp) {
+  if (pp == null || !Number.isFinite(Number(pp))) return "";
+  const n = Math.round(Number(pp));
+  if (n === 0) return "0% title chance";
+  const sign = n > 0 ? "+" : "\u2212";
+  return `${sign}${Math.abs(n)}% title chance`;
+}
+
 function titleChanceLabel(b) {
   const impact = impactOf(b);
-  if (!impact || impact.titleWinPp == null || !Number.isFinite(Number(impact.titleWinPp))) return "";
-  const n = Math.round(Number(impact.titleWinPp));
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${n}% title chance`;
+  return impact ? formatTitleChance(impact.titleWinPp) : "";
+}
+
+function rivalTitleChanceLabel(b) {
+  const impact = impactOf(b);
+  return impact ? formatTitleChance(impact.rivalTitleWinPp) : "";
 }
 
 function boosterChip(teamName, b) {
@@ -1763,7 +1773,10 @@ function curseChip(caster, booster, victimName) {
   let short = booster.name || "Curse";
   if (booster.id === "nazar") short = "🧿 Nazar";
   else if (booster.id === "bus-breakdown") short = "🚌 Bus Breakdown";
-  return `<span class="prep-chip prep-chip-curse ${fresh ? "is-fresh" : ""}">${esc(short)} from ${esc(caster.name)}</span>`;
+  const full = (catalogById().get(booster.id) || booster);
+  const chance = rivalTitleChanceLabel(full);
+  const label = chance ? `${short} from ${caster.name} · ${chance}` : `${short} from ${caster.name}`;
+  return `<span class="prep-chip prep-chip-curse ${fresh ? "is-fresh" : ""}">${esc(label)}</span>`;
 }
 
 function catalogById() {
