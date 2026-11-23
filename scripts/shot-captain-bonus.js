@@ -156,8 +156,10 @@ async function main() {
     await waitFor(host, () => {
       const card = document.querySelector('[data-prep-team="Mitron"]');
       const text = ((card && card.innerText) || "") + ((document.getElementById("prep-screen") && document.getElementById("prep-screen").innerText) || "");
-      return Boolean(card && /Virat Kohli · \+4\.9%/.test(text) && !/143 IPL matches as captain/.test(text) && !/captain bonus/.test(text));
+      return Boolean(card && /Virat Kohli · \+4\.9%/.test(text) && /Captain adds a hidden 0–5% boost, revealed after you pick/.test(text) && !/IPL matches as captain/.test(text) && !/captain bonus/.test(text));
     }, "kohli bonus revealed");
+    await sleep(300);
+    await shot(host, "captain-picker.png", PHONE_NARROW, { scroll: ".prep-you", hideTopbar: true });
 
     await host.evaluate(() => {
       const card = document.querySelector('[data-prep-team="Mitron"]');

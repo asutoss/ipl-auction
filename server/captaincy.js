@@ -39,19 +39,17 @@ function formatCaptainBonus(matches) {
 }
 
 function packCaptainBonus(player) {
-  const captainMatches = captainMatchesOf(player);
+  const matches = captainMatchesOf(player);
   return {
-    captainMatches,
-    captainBonus: captainBonus(captainMatches),
-    captainBonusPct: captainBonusPct(captainMatches),
-    captainBonusLabel: formatCaptainBonus(captainMatches),
+    captainBonus: captainBonus(matches),
+    captainBonusPct: captainBonusPct(matches),
+    captainBonusLabel: formatCaptainBonus(matches),
   };
 }
 
 function captainBonusFields(team) {
   if (!team || !team.captainId) {
     return {
-      captainMatches: null,
       captainBonus: null,
       captainBonusPct: null,
       captainBonusLabel: null,
@@ -60,7 +58,6 @@ function captainBonusFields(team) {
   const slot = (team.squad || []).find((s) => s.player && s.player.id === team.captainId);
   if (!slot) {
     return {
-      captainMatches: null,
       captainBonus: null,
       captainBonusPct: null,
       captainBonusLabel: null,

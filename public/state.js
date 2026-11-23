@@ -268,7 +268,6 @@
         const team = findTeam(state, evt.name);
         if (team) {
           team.captainId = evt.captainId;
-          if (Object.prototype.hasOwnProperty.call(evt, "captainMatches")) team.captainMatches = evt.captainMatches;
           if (Object.prototype.hasOwnProperty.call(evt, "captainBonus")) team.captainBonus = evt.captainBonus;
           if (Object.prototype.hasOwnProperty.call(evt, "captainBonusPct")) team.captainBonusPct = evt.captainBonusPct;
           if (Object.prototype.hasOwnProperty.call(evt, "captainBonusLabel")) team.captainBonusLabel = evt.captainBonusLabel;

@@ -189,6 +189,15 @@ describe("captain bonus", () => {
         priyaNeed[p.role] -= 1;
       }
     }
+    function assertNoCaptainMatches(value, path) {
+      if (!value || typeof value !== "object") return;
+      assert.equal(Object.prototype.hasOwnProperty.call(value, "captainMatches"), false, `captainMatches leaked at ${path}`);
+      if (Array.isArray(value)) {
+        value.forEach((item, i) => assertNoCaptainMatches(item, `${path}[${i}]`));
+        return;
+      }
+      for (const key of Object.keys(value)) assertNoCaptainMatches(value[key], `${path}.${key}`);
+    }
     const ash = room.findByName("Ashutosh");
     const kohli = ash.squad.find((s) => s.player.id === "virat-kohli");
     assert.ok(kohli, "Ashutosh should have been dealt Virat Kohli first");
@@ -196,10 +205,10 @@ describe("captain bonus", () => {
     const before = room.getState("ashutosh");
     assert.equal(before.you.captainId, null);
     assert.equal(before.you.captainBonusLabel, null);
+    assertNoCaptainMatches(before, "before");
     for (const f of before.franchises) {
       assert.equal(f.captainBonusLabel, null);
       for (const s of f.squad) {
-        assert.equal("captainMatches" in (s.player || {}), false, s.player && s.player.name);
         assert.equal("captainBonusLabel" in (s.player || {}), false);
       }
     }
@@ -208,14 +217,15 @@ describe("captain bonus", () => {
     const after = room.getState("priya");
     const team = after.franchises.find((f) => f.name === "Ashutosh");
     assert.equal(team.captainId, "virat-kohli");
-    assert.equal(team.captainMatches, 143);
     assert.equal(team.captainBonusLabel, "+4.9%");
+    assert.equal(team.captainBonusPct, 4.9);
     assert.ok(after.prepFeed.some((e) => e.message === "Ashutosh named Virat Kohli · +4.9%"));
-    for (const s of team.squad) {
-      assert.equal("captainMatches" in (s.player || {}), false);
-    }
+    assertNoCaptainMatches(after, "after");
     const stillChoosing = after.franchises.find((f) => f.name === "Priya");
     assert.equal(stillChoosing.captainBonusLabel, null);
+    room.findByName("Priya").captainId = priya.squad[0].player.id;
+    room.finishCaptains();
+    assertNoCaptainMatches(room.getState("ashutosh"), "results");
   });
 });
 

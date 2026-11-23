@@ -1970,7 +1970,7 @@ function captainView() {
       <div class="prep-board">${board}</div>
       <div class="panel prep-you">
         <h2>Choose your captain</h2>
-        <p class="lede">A 0–5% rating boost, based on IPL matches as captain, is revealed after you pick. Auto-picks if time runs out.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
+        <p class="lede">Captain adds a hidden 0–5% boost, revealed after you pick. Auto-picks if time runs out.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
         <div class="captain-grid">${picks}</div>
       </div>
       <div class="panel prep-shop" id="prep-shop">
