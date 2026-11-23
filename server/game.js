@@ -5,6 +5,8 @@ const { captainBonusFields, packCaptainBonus } = require("./captaincy");
 const { shortenPowerReason } = require("../public/power-reasons");
 const {
   ROLES,
+  roleLabel,
+  roleArticle,
   MIN_PLAYERS,
   MAX_PLAYERS,
   FRANCHISES,
@@ -760,6 +762,31 @@ class GameRoom extends EventEmitter {
     return roles;
   }
 
+  /**
+   * Why this player cannot be nominated. Computed from teams that still
+   * need his role, before pickDefaultTeam may eliminate anyone who cannot
+   * afford the starting bid.
+   */
+  skipNominationReason(player, startBid) {
+    const role = player && player.role;
+    const label = roleLabel(role);
+    const article = roleArticle(role);
+    const cost = startBid != null ? startBid : MIN_START_BID;
+    const needing = this.activeFranchises().filter((f) => {
+      if (isSquadComplete(f.squad, this.mode)) return false;
+      return (remainingQuota(f.squad, this.mode)[role] || 0) > 0;
+    });
+    const withSpot = needing.filter((f) => canAddToSquad(f.squad, player, this.mode).ok);
+    if (withSpot.length === 0) {
+      return `Skipped: no team has a spot left for ${article} ${label}.`;
+    }
+    const canAfford = withSpot.filter((f) => (Number(f.purseLakhs) || 0) >= cost);
+    if (canAfford.length === 0) {
+      return "Skipped: no team with a spot left can afford his starting bid.";
+    }
+    return "Skipped: no team with a spot left can take him right now.";
+  }
+
   isRetired(id) {
     return Boolean(id && this.retiredIds && this.retiredIds.has(id));
   }
@@ -1101,18 +1128,20 @@ class GameRoom extends EventEmitter {
       }
       const player = this.queue.shift();
       if (!player || this.soldIds.has(player.id) || this.unaffordableIds.has(player.id)) continue;
-      if (!this.neededRoles().has(player.role)) continue;
-
       const startBid = this.rollStartBid();
+      if (!this.neededRoles().has(player.role)) {
+        const reason = this.skipNominationReason(player, startBid);
+        this.lastEvent = { type: "skipped", player, reason };
+        this.emitDelta({ type: "skipped", player, reason });
+        continue;
+      }
+
+      const reason = this.skipNominationReason(player, startBid);
       const defaultTeam = this.pickDefaultTeam(player, startBid);
       if (!defaultTeam) {
         this.unaffordableIds.add(player.id);
-        this.lastEvent = {
-          type: "skipped",
-          player,
-          reason: "No remaining team can afford this player.",
-        };
-        this.emitDelta({ type: "skipped", player, reason: this.lastEvent.reason });
+        this.lastEvent = { type: "skipped", player, reason };
+        this.emitDelta({ type: "skipped", player, reason });
         continue;
       }
 

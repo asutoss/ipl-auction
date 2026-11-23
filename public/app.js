@@ -291,7 +291,9 @@ function fillSoldModal(evt) {
   if (playerEl) playerEl.textContent = (evt.player && evt.player.name) || "";
   const line = document.getElementById("sold-line");
   if (line) {
-    if (unsold) {
+    if (evt.type === "skipped") {
+      line.textContent = evt.reason || "Went unsold.";
+    } else if (unsold) {
       line.innerHTML = "Went unsold.";
     } else {
       const buyer = esc(evt.buyerName || evt.short || "a team");
@@ -1492,8 +1494,11 @@ function auctionView() {
   if (event && event.player && event.player.id !== p.id) {
     if (event.type === "sold") {
       banner = `<div class="sold-banner"><strong style="color:${esc(event.color || "")}">${esc(event.buyerName || event.short)}</strong> signed ${esc(event.player.name)} for ${money(event.priceLakhs)}.</div>`;
-    } else if (event.type === "unsold" || event.type === "skipped") {
-      banner = `<div class="sold-banner unsold">${esc(event.player.name)} was skipped — no team could take this player.</div>`;
+    } else if (event.type === "skipped") {
+      const reason = event.reason || `${event.player.name} was skipped — no team could take this player.`;
+      banner = `<div class="sold-banner unsold">${esc(event.player.name)} — ${esc(reason)}</div>`;
+    } else if (event.type === "unsold") {
+      banner = `<div class="sold-banner unsold">${esc(event.player.name)} went unsold.</div>`;
     } else if (event.type === "eliminated") {
       banner = `<div class="sold-banner unsold"><strong>${esc(event.buyerName || event.short || event.name)}</strong> ${esc(event.reason || "Eliminated - insufficient purse")}.</div>`;
     }

@@ -447,10 +447,53 @@ describe("default bid, round-robin and elimination", () => {
     const bat = players.find((p) => p.id === "karun-nair");
     room.queue = [leftover, bat];
     room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
     room.nominateNext();
     // Both teams already have their WK, so the extra keeper is skipped and a batter comes up.
     assert.equal(room.auction.nominee.id, bat.id);
     assert.ok(!room.findByName("Ashutosh").squad.some((s) => s.player.id === leftover.id));
+    const skip = events.find((e) => e.type === "skipped");
+    assert.ok(skip, "expected a skipped event");
+    assert.equal(skip.player.id, leftover.id);
+    assert.equal(skip.reason, "Skipped: no team has a spot left for a wicket-keeper.");
+    assert.equal(room.getState("Ashutosh").lastEvent.reason, skip.reason);
+    assert.ok(!room.unaffordableIds.has(leftover.id), "role-skipped players can come back if a slot reopens");
+  });
+
+  test("skips a player when teams still need his role but none can afford the starting bid", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { soldRevealMs: 0 }, { mode: "bullet" });
+    // Two incomplete teams, so last-team fill does not take over.
+    room.findByName("Ashutosh").purseLakhs = 1; // below the 2-point start bid
+    room.findByName("Priya").purseLakhs = 1;
+    const bat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.queue = [bat];
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.nominateNext();
+    const skip = events.find((e) => e.type === "skipped");
+    assert.ok(skip, "expected a skipped event");
+    assert.equal(skip.player.id, bat.id);
+    assert.equal(skip.reason, "Skipped: no team with a spot left can afford his starting bid.");
+    assert.ok(room.unaffordableIds.has(bat.id));
+    assert.equal(room.findByName("Ashutosh").eliminated, true);
+    assert.equal(room.findByName("Priya").eliminated, true);
+  });
+
+  test("skips a player when teams have a spot but cannot bid right now", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const wk = players.filter((p) => p.role === "WK")[0];
+    room.findByName("Ashutosh").bidBlockedUntilLot = 999;
+    room.findByName("Priya").bidBlockedUntilLot = 999;
+    room.queue = [wk, players.find((p) => p.id === "karun-nair")];
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.nominateNext();
+    const skip = events.find((e) => e.type === "skipped" && e.player.id === wk.id);
+    assert.ok(skip, "expected a skipped event");
+    assert.equal(skip.reason, "Skipped: no team with a spot left can take him right now.");
   });
 
   test("auction continues after one team completes its squad and ends only when every active team is complete", () => {

@@ -1,4 +1,20 @@
 const ROLES = ["BAT", "WK", "AR", "BOWL"];
+const ROLE_LABELS = {
+  BAT: "batter",
+  WK: "wicket-keeper",
+  AR: "all-rounder",
+  BOWL: "bowler",
+};
+
+function roleLabel(role) {
+  return ROLE_LABELS[role] || "player";
+}
+
+function roleArticle(role) {
+  const label = roleLabel(role);
+  return /^[aeiou]/i.test(label) ? "an" : "a";
+}
+
 const QUOTA = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
 const SQUAD_SIZE = 11;
 const MAX_OVERSEAS = 4;
@@ -376,6 +392,9 @@ function availablePlayers({ allPlayers, soldIds, excludeId }) {
 
 module.exports = {
   ROLES,
+  ROLE_LABELS,
+  roleLabel,
+  roleArticle,
   QUOTA,
   SQUAD_SIZE,
   MAX_OVERSEAS,
