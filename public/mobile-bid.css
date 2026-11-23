@@ -1,0 +1,452 @@
+/* Mobile-first current-bid board, thumb-zone bid button, and phone UX fixes. */
+
+/* Inputs stay at least 16px so iOS doesn't zoom on focus */
+input, select, textarea { font-size: 16px; }
+button, .btn, .emote-btn, .character-choice, .game-mode {
+  touch-action: manipulation;
+}
+
+/* ---- Current bid board ---- */
+.live-bid-wrap {
+  margin: 0 0 12px;
+}
+.live-bid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px 14px;
+  align-items: center;
+  background:
+    linear-gradient(180deg, rgba(245, 197, 24, 0.08), transparent 40%),
+    #0b1712;
+  border: 2px solid color-mix(in srgb, var(--c, var(--gold)) 65%, #1a3a28);
+  border-radius: 16px;
+  padding: 10px 14px 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+.live-bid.is-winning {
+  border-color: #3ee0a0;
+  box-shadow: 0 0 0 1px rgba(62, 224, 160, 0.45), 0 0 22px rgba(62, 224, 160, 0.25);
+  background:
+    linear-gradient(180deg, rgba(62, 224, 160, 0.14), transparent 50%),
+    #0b1712;
+}
+.live-bid.is-outbid {
+  border-color: #ff7a4a;
+  box-shadow: 0 0 0 1px rgba(255, 122, 74, 0.4), 0 0 18px rgba(255, 93, 108, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 93, 108, 0.12), transparent 50%),
+    #0b1712;
+}
+.live-bid-label {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.live-bid-num {
+  margin: 0;
+  font-family: var(--score, var(--display));
+  font-size: clamp(40px, 11vw, 64px);
+  font-weight: 700;
+  line-height: 0.9;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 16px rgba(245, 197, 24, 0.35);
+}
+.live-bid.is-winning .live-bid-num { color: #8ff3c4; text-shadow: 0 0 16px rgba(62, 224, 160, 0.35); }
+.live-bid-unit {
+  margin-left: 0.2em;
+  font-size: 0.38em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+  vertical-align: 0.15em;
+}
+.live-bid-status { min-width: 0; }
+.live-bid-banner {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.live-bid-banner.is-win { color: #8ff3c4; }
+.live-bid-banner.is-out { color: #ffb4a8; }
+.live-bid-banner.is-open { color: var(--gold-2, var(--gold)); }
+.live-bid-sub, .live-bid-call {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.3;
+}
+.live-bid-call { color: var(--gold-2, var(--gold)); font-weight: 700; }
+.live-bid-held {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 14px;
+  min-width: 0;
+}
+.live-bid-held .team-mark-wrap { width: 32px; height: 32px; flex: none; }
+.live-bid-held strong { font-weight: 800; }
+.live-bid-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+.live-timer {
+  margin: 0;
+  font-family: var(--score, var(--display));
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #1a1400;
+  background: var(--gold);
+  border-radius: 999px;
+  padding: 6px 12px 7px;
+  min-width: 3.4em;
+  text-align: center;
+  box-shadow: 0 0 12px rgba(245, 197, 24, 0.35);
+}
+.live-timer.low { background: var(--danger); color: #fff; box-shadow: 0 0 12px rgba(255, 93, 108, 0.4); }
+.live-timer.paused { background: #9aa6c3; color: #0b1220; box-shadow: none; }
+.you-dock {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.you-dock-purse {
+  font-family: var(--score, var(--display));
+  font-size: 18px;
+  color: var(--gold);
+  line-height: 1.1;
+}
+.you-dock-squad { color: #c5d4cc; font-size: 12px; font-weight: 700; }
+.you-pill { display: inline-flex; gap: 8px; align-items: center; }
+.nominee-kicker { display: none; }
+
+.live-bid.is-flash {
+  animation: live-bid-flash 480ms cubic-bezier(0.2, 1.3, 0.3, 1);
+}
+.live-bid.is-flash .live-bid-num,
+.live-bid.is-flash .live-bid-held,
+.live-bid.is-flash .live-bid-banner {
+  animation: live-bid-swap 420ms cubic-bezier(0.2, 1.2, 0.3, 1);
+}
+@keyframes live-bid-flash {
+  0% { transform: scale(0.985); filter: brightness(1.35); }
+  60% { transform: scale(1.015); filter: brightness(1.08); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes live-bid-swap {
+  0% { transform: translateY(8px); opacity: 0.35; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ---- Primary thumb-zone bid button ---- */
+.bid-cta { display: grid; gap: 8px; }
+.bid-primary {
+  width: 100%;
+  min-height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  box-shadow: 0 8px 22px rgba(245, 197, 24, 0.32);
+}
+.bid-primary-label {
+  font-family: var(--score, var(--display));
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.bid-extras { margin-top: 2px; }
+.bid-extra {
+  min-height: 48px;
+}
+.why {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* Desktop: bid board sits above the ring; primary is still clear but not full-viewport */
+@media (min-width: 701px) {
+  .live-bid { padding: 12px 18px 14px; }
+  .bid-primary { min-height: 52px; }
+  .bid-bar { display: grid; gap: 10px; }
+}
+
+/* ---- Phone auction layout ---- */
+@media (max-width: 700px) {
+  html { -webkit-text-size-adjust: 100%; }
+  html.is-auction {
+    --bid-sheet: 280px;
+  }
+  html.is-auction #app {
+    padding: 8px 12px calc(var(--bid-sheet, 280px) + 10px);
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    overflow-x: hidden;
+  }
+  html.is-auction .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 28;
+    margin-bottom: 6px;
+    padding-top: env(safe-area-inset-top, 0px);
+    background: linear-gradient(180deg, rgba(6, 17, 13, 0.96), rgba(6, 17, 13, 0.88));
+    backdrop-filter: blur(8px);
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  html.is-auction .brand { padding: 4px 8px 4px 6px; min-width: 0; }
+  html.is-auction .brand h1 {
+    font-size: 18px;
+    white-space: nowrap;
+    line-height: 1.1;
+  }
+  html.is-auction .brand-ball { width: 20px; height: 20px; }
+  html.is-auction .top-meta {
+    flex: 1;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    min-width: 0;
+    gap: 8px;
+  }
+  html.is-auction .top-meta > .pill { display: none; }
+  html.is-auction .top-actions { display: flex; gap: 8px; margin-left: auto; flex: none; }
+  html.is-auction .top-actions .btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 12px;
+  }
+
+  .live-bid-wrap {
+    position: sticky;
+    top: calc(48px + env(safe-area-inset-top, 0px));
+    z-index: 27;
+    margin: 0 0 8px;
+  }
+  .live-bid {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "amount meta"
+      "status status";
+    gap: 4px 10px;
+    padding: 7px 11px 8px;
+    border-radius: 14px;
+  }
+  .live-bid-amount { grid-area: amount; }
+  .live-bid-status { grid-area: status; }
+  .live-bid-meta { grid-area: meta; }
+  .live-bid-num { font-size: clamp(34px, 11vw, 48px); }
+  .live-bid-banner { font-size: 14px; }
+  .live-bid-sub, .live-bid-call { margin-top: 2px; font-size: 12px; }
+  .live-bid-held { margin-top: 4px; font-size: 13px; }
+  .live-timer { font-size: 20px; min-width: 3.1em; padding: 4px 10px 5px; }
+  .you-dock-purse { font-size: 16px; }
+
+  html.is-auction .player-card > .lede {
+    font-size: 11px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  html.is-auction .ring-wrap {
+    width: min(220px, 64vw, calc(100dvh - var(--bid-sheet, 280px) - 280px));
+  }
+  html.is-auction .auction-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-height: 0;
+  }
+  html.is-auction .bid-box .team-strip {
+    max-width: 100%;
+    gap: 6px;
+    margin: 0 0 8px;
+    padding: 0 0 6px;
+    -webkit-overflow-scrolling: touch;
+    flex: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  html.is-auction .bid-box .team-chip {
+    padding: 3px 6px 3px 3px;
+    border-radius: 10px;
+  }
+  html.is-auction .bid-box .team-chip .team-mark-wrap { width: 28px; height: 28px; }
+  html.is-auction .hub .hub-timer,
+  html.is-auction .hub .hub-leader { display: none; }
+  .team-chip {
+    padding: 4px 7px 4px 4px;
+  }
+  .team-chip .team-mark-wrap { width: 32px; height: 32px; }
+  .team-chip .chip-name { max-width: 56px; font-size: 11px; }
+
+  .bid-box {
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .bid-label { display: none; }
+  .power-btn {
+    min-height: 44px;
+    margin: 0 0 8px;
+    padding: 6px 10px 6px 6px;
+  }
+  .power-btn .team-mark-wrap, .power-btn .team-mark { width: 32px; height: 32px; }
+  .power-btn-copy strong { font-size: 16px; }
+  .power-why {
+    margin: 0 0 8px;
+    font-size: 13px;
+  }
+  .bid-cta { gap: 6px; }
+  .why { margin: 0; font-size: 13px; }
+  .bid-primary {
+    width: 100%;
+    min-height: 56px;
+    border-radius: 16px;
+    padding: 12px 14px;
+  }
+  .bid-primary-label { font-size: 26px; }
+  .bid-extras { gap: 8px; }
+  .bid-extra {
+    min-height: 48px;
+    flex: 1 1 0;
+  }
+  .bid-optout {
+    width: 100%;
+    min-height: 44px;
+  }
+  .bid-box .error { margin-top: 6px; }
+
+  html.is-auction .toast {
+    bottom: calc(var(--bid-sheet, 280px) + 12px);
+    left: 50%;
+    max-width: calc(100vw - 24px);
+  }
+  .emote-dock,
+  .ring-wrap .emote-dock,
+  .emote-dock.is-fixed,
+  html.is-auction .emote-dock,
+  html.is-auction .emote-dock.is-fixed {
+    bottom: calc(var(--bid-sheet, 280px) + 10px) !important;
+    right: 12px;
+  }
+}
+
+/* Safe area on home / lobby too */
+@media (max-width: 700px) {
+  #app {
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-bottom: max(64px, calc(24px + env(safe-area-inset-bottom, 0px)));
+  }
+  .topbar { padding-top: env(safe-area-inset-top, 0px); }
+  .btn, .game-mode {
+    min-height: 44px;
+  }
+  .lobby-share-actions .btn { min-height: 44px; }
+  .lobby { padding-bottom: 88px; }
+  .lobby-start {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 10px max(16px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-right, 0px));
+    background: linear-gradient(180deg, transparent, rgba(6, 17, 13, 0.97) 28%);
+  }
+  .lobby-start .btn { width: 100%; min-height: 48px; }
+  .lobby-start .hint { margin: 0; text-align: center; }
+
+  /* Modals must fit under notches and home indicators */
+  .sold-modal, .pause-modal, .power-modal, .wait-modal, .power-confirm,
+  .player-intro, .last-team-fill, .confirm-backdrop {
+    padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px));
+  }
+  .sold-card, .pause-card, .power-card, .wait-card, .power-confirm-card,
+  .confirm-card, .join-link, .game-over-page, .player-intro-card {
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Shorter phones: drop the lot lede so the ring and team strip stay on screen */
+@media (max-width: 700px) and (max-height: 780px) {
+  html.is-auction .player-card > .lede { display: none; }
+  html.is-auction .live-bid-call { display: none; }
+  html.is-auction .nominee-kicker {
+    display: block;
+    margin: 0 0 6px;
+    text-align: center;
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+  html.is-auction .hub .hub-rates,
+  html.is-auction .hub .tag.os { display: none; }
+  html.is-auction .ring-wrap {
+    width: min(200px, 62vw, calc(100dvh - var(--bid-sheet, 280px) - 200px));
+  }
+}
+
+/* Landscape phones: keep bid + current bid usable, shrink the ring */
+@media (max-width: 900px) and (orientation: landscape) {
+  html.is-auction #app { padding-bottom: calc(var(--bid-sheet, 180px) + 8px); }
+  html.is-auction .ring-wrap { width: min(200px, 42vh, 100%); }
+  html.is-auction .player-card > .lede { display: none; }
+  .live-bid {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "amount status meta";
+    padding: 6px 12px;
+  }
+  .live-bid-num { font-size: 32px; }
+  .live-timer { font-size: 18px; }
+  .bid-box {
+    max-height: 46dvh;
+    overflow-y: auto;
+    padding-top: 8px;
+  }
+  .bid-primary { min-height: 48px; }
+  .bid-primary-label { font-size: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-bid.is-flash,
+  .live-bid.is-flash .live-bid-num,
+  .live-bid.is-flash .live-bid-held,
+  .live-bid.is-flash .live-bid-banner {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 380px) {
+  html.is-auction .brand h1 { font-size: 16px; }
+  html.is-auction .top-actions .btn { padding: 8px 10px; font-size: 13px; }
+}

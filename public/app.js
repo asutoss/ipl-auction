@@ -17,6 +17,8 @@ let reveal = null; // { startedAt, skipped }
 let tickTimer = null;
 let lastNomineeId = null;
 let lastBidShown = null;
+let lastYouLed = null;
+let bidSheetObs = null;
 let soldModalTimer = null;
 let soldModalKey = null;
 let lastTeamFillTimer = null;
@@ -796,7 +798,7 @@ function renderTop() {
     ? `<button class="btn danger" id="end-game" type="button">End game</button>`
     : `<button class="btn secondary" id="leave" type="button">Leave</button>`;
   const youPill = you
-    ? `<span class="pill" style="display:inline-flex;gap:8px;align-items:center">${teamMark(you.franchise, "sm", you.name)}<span style="color:${esc(accentColor(you.franchise))}">${esc(you.name)}</span></span>`
+    ? `<span class="pill you-pill">${teamMark(you.franchise, "sm", you.name)}<span style="color:${esc(accentColor(you.franchise))}">${esc(you.name)}</span></span>`
     : "";
   if (state.phase === "lobby") {
     topMeta.innerHTML = `
@@ -854,7 +856,7 @@ function joinLinkView() {
       <h2>Join this room</h2>
       <p class="lede">Enter your team name to join. Rejoin with the same name if you were already in the game.</p>
       <label for="name">Team name</label>
-      <input id="name" maxlength="24" placeholder="e.g. Night Owls" autocomplete="nickname" />
+      <input id="name" maxlength="24" placeholder="e.g. Night Owls" autocomplete="nickname" enterkeyhint="go" autocapitalize="words" spellcheck="false" />
       <div class="actions">
         <button class="btn" id="join" type="button">Join room</button>
         <button class="btn secondary" id="go-home" type="button">Main page</button>
@@ -869,7 +871,7 @@ function homeView() {
     <section class="home">
       <div class="panel name-bar">
         <label for="name">Team name</label>
-        <input id="name" maxlength="24" placeholder="e.g. Night Owls" />
+        <input id="name" maxlength="24" placeholder="e.g. Night Owls" autocomplete="nickname" enterkeyhint="done" autocapitalize="words" spellcheck="false" />
         <p class="hint">Must be unique in the room. Rejoin with the same name and code.</p>
       </div>
       <section class="hero">
@@ -890,7 +892,7 @@ function homeView() {
           <div class="row">
             <div>
               <label for="code">Room code</label>
-              <input id="code" maxlength="6" placeholder="e.g. K7MQ2P" style="text-transform:uppercase" />
+              <input id="code" maxlength="6" placeholder="e.g. K7MQ2P" style="text-transform:uppercase" autocomplete="off" spellcheck="false" autocapitalize="characters" inputmode="text" enterkeyhint="go" />
             </div>
           </div>
           <div class="actions">
@@ -1297,6 +1299,155 @@ function bidParts(points) {
   return { n, unit: n === 1 ? "pt" : "pts" };
 }
 
+function youAreLeading(a, you) {
+  const name = you && you.name;
+  const leader = a && (a.currentBidderName || a.currentBidderShort);
+  return Boolean(name && leader && name === leader);
+}
+
+function youSquadLine(you) {
+  if (!you) return "";
+  const n = (you.squad || []).length;
+  if (you.complete) return `${n} player${n === 1 ? "" : "s"} · squad complete`;
+  const left = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0);
+  return `${n} player${n === 1 ? "" : "s"}${left ? ` · need ${left}` : ""}`;
+}
+
+function liveBidStatusHtml(a) {
+  const you = state && state.you;
+  const leaderName = (a && (a.currentBidderName || a.currentBidderShort)) || "";
+  const youLead = youAreLeading(a, you);
+  const open = Boolean(a && a.isDefaultBidLeading) || !leaderName;
+  const fr = leaderFranchise(a);
+  const color = (fr && (fr.text || fr.color)) || (a && a.currentBidderColor) || "var(--gold)";
+  const mark = fr && leaderName ? teamMark(fr, "sm", leaderName) : "";
+  const held = leaderName
+    ? `<span class="live-bid-held">${mark}<span>Held by <strong style="color:${esc(color)}">${esc(leaderName)}</strong></span></span>`
+    : "";
+  if (open && youLead) {
+    return `<p class="live-bid-banner is-win">You're winning</p>
+      <p class="live-bid-sub">No bids yet — this is yours unless someone bids</p>
+      ${held}`;
+  }
+  if (open) {
+    const base = Number(a && a.currentBidLakhs) || 0;
+    return `<p class="live-bid-banner is-open">Base price ${base}, no bids yet</p>
+      ${held}
+      <p class="live-bid-call">Bid to take the lead</p>`;
+  }
+  if (youLead) {
+    return `<p class="live-bid-banner is-win">You're winning</p>${held}`;
+  }
+  if (leaderName) {
+    return `<p class="live-bid-banner is-out">Outbid! ${esc(leaderName)} leads</p>${held}`;
+  }
+  return `<p class="live-bid-banner is-open">No bids yet</p>`;
+}
+
+function liveBidClass(a) {
+  const youLead = youAreLeading(a, state && state.you);
+  const open = Boolean(a && a.isDefaultBidLeading) || !(a && (a.currentBidderName || a.currentBidderShort));
+  const bits = ["live-bid"];
+  if (open) bits.push("is-open");
+  if (youLead) bits.push("is-winning");
+  else if (!open) bits.push("is-outbid");
+  return bits.join(" ");
+}
+
+function liveBidSig(a) {
+  if (!a) return "";
+  return `${a.currentBidLakhs}|${a.currentBidderName || ""}|${a.isDefaultBidLeading ? 1 : 0}`;
+}
+
+function liveTimerText(a) {
+  if (!a) return "Soon";
+  const intro = isPlayerIntroActive();
+  const frozen = isTimerFrozen();
+  if (intro || !a.endsAt) return "Soon";
+  if (frozen) return "Paused";
+  return `${Math.ceil(remainingMs(a.endsAt) / 1000)}s`;
+}
+
+function liveBidHtml(a) {
+  const amount = Number(a.currentBidLakhs) || 0;
+  const parts = bidParts(amount);
+  const open = Boolean(a.isDefaultBidLeading) || !(a.currentBidderName || a.currentBidderShort);
+  const you = state && state.you;
+  const color = a.currentBidderColor || "var(--gold)";
+  const intro = isPlayerIntroActive();
+  const frozen = isTimerFrozen();
+  const secs = Math.ceil(remainingMs(a.endsAt) / 1000);
+  const timerCls = `${!intro && secs <= 3 && !frozen && a.endsAt ? "low" : ""} ${frozen || intro || !a.endsAt ? "paused" : ""}`.trim();
+  return `<div class="${liveBidClass(a)}" id="live-bid" data-sig="${esc(liveBidSig(a))}" style="--c:${esc(color)}">
+    <div class="live-bid-amount">
+      <p class="live-bid-label">${open ? "Base price" : "Current bid"}</p>
+      <p class="live-bid-num" id="live-bid-num">${parts.n}<span class="live-bid-unit">${esc(parts.unit)}</span></p>
+    </div>
+    <div class="live-bid-status" id="live-bid-status">${liveBidStatusHtml(a)}</div>
+    <div class="live-bid-meta">
+      <p class="live-timer ${timerCls}" id="live-timer">${esc(liveTimerText(a))}</p>
+      ${you ? `<p class="you-dock" id="you-dock"><span class="you-dock-purse">${esc(money(you.purseLakhs))}</span><span class="you-dock-squad" id="you-dock-squad">${esc(youSquadLine(you))}</span></p>` : ""}
+    </div>
+  </div>`;
+}
+
+function syncLiveBid(a, { flash } = {}) {
+  const el = document.getElementById("live-bid");
+  if (!el || !a) return;
+  const prev = el.getAttribute("data-sig") || "";
+  const sig = liveBidSig(a);
+  const amount = document.getElementById("live-bid-num");
+  const parts = bidParts(a.currentBidLakhs);
+  if (amount) amount.innerHTML = `${parts.n}<span class="live-bid-unit">${esc(parts.unit)}</span>`;
+  const status = document.getElementById("live-bid-status");
+  if (status) status.innerHTML = liveBidStatusHtml(a);
+  const label = el.querySelector(".live-bid-label");
+  const open = Boolean(a.isDefaultBidLeading) || !(a.currentBidderName || a.currentBidderShort);
+  if (label) label.textContent = open ? "Base price" : "Current bid";
+  el.style.setProperty("--c", a.currentBidderColor || "var(--gold)");
+  const keptFlash = el.classList.contains("is-flash");
+  el.className = liveBidClass(a) + (keptFlash && !flash ? " is-flash" : "");
+  el.setAttribute("data-sig", sig);
+  if (flash && prev && prev !== sig) {
+    el.classList.remove("is-flash");
+    void el.offsetWidth;
+    el.classList.add("is-flash");
+  }
+}
+
+function maybeHapticOutbid(a) {
+  const youLead = youAreLeading(a, state && state.you);
+  if (lastYouLed === true && youLead === false && a && (a.currentBidderName || a.currentBidderShort)) {
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(40);
+    } catch {
+      /* ignore */
+    }
+  }
+  lastYouLed = youLead;
+}
+
+function observeBidSheet() {
+  const box = document.getElementById("bid-box");
+  const root = document.documentElement;
+  const apply = () => {
+    if (!box) {
+      root.style.removeProperty("--bid-sheet");
+      return;
+    }
+    const h = Math.ceil(box.getBoundingClientRect().height);
+    if (h > 0) root.style.setProperty("--bid-sheet", `${h + 12}px`);
+  };
+  apply();
+  if (bidSheetObs) {
+    bidSheetObs.disconnect();
+    bidSheetObs = null;
+  }
+  if (!box || typeof ResizeObserver === "undefined") return;
+  bidSheetObs = new ResizeObserver(apply);
+  bidSheetObs.observe(box);
+}
+
 function fitHubName() {
   const el = document.getElementById("hub-name");
   if (!el) return;
@@ -1315,18 +1466,28 @@ function fitHubName() {
 
 function bidButtonsHtml(a) {
   const choices = (window.IplState && IplState.bidChoices(state)) || { options: [], canOptOut: false };
-  const raises = choices.options
-    .filter((o) => o.show)
-    .map((o) => {
-      return `<button class="btn bid-amt" data-step="${o.step}" aria-label="Bid ${o.amount} points" ${o.enabled ? "" : "disabled"}>
+  const options = choices.options || [];
+  const shown = options.filter((o) => o.show);
+  const primaryOpt = shown[0] || options[0];
+  const rest = shown.slice(1);
+  let primary;
+  if (primaryOpt) {
+    const enabled = Boolean(shown[0] && shown[0].enabled);
+    primary = `<button class="btn bid-amt bid-primary" data-step="${primaryOpt.step}" aria-label="Bid ${primaryOpt.amount} points" ${enabled ? "" : "disabled"}>
+      <span class="bid-primary-label">Bid ${primaryOpt.amount}</span>
+    </button>`;
+  } else {
+    primary = `<button class="btn bid-amt bid-primary" type="button" disabled><span class="bid-primary-label">Bid</span></button>`;
+  }
+  const extras = rest
+    .map((o) => `<button class="btn bid-amt bid-extra" data-step="${o.step}" aria-label="Bid ${o.amount} points" ${o.enabled ? "" : "disabled"}>
         <span class="bid-amt-num">${o.amount}</span>
         <span class="bid-amt-unit">pt${o.amount === 1 ? "" : "s"}</span>
-      </button>`;
-    })
+      </button>`)
     .join("");
+  const extrasWrap = extras ? `<div class="bid-raises bid-extras">${extras}</div>` : "";
   const opt = `<button class="btn bid-optout" id="optout" ${choices.canOptOut ? "" : "disabled"}>Opt out</button>`;
-  const raisesWrap = raises ? `<div class="bid-raises">${raises}</div>` : "";
-  return `${raisesWrap}${opt}`;
+  return `${primary}${extrasWrap}${opt}`;
 }
 
 function auctionView() {
@@ -1354,6 +1515,8 @@ function auctionView() {
     <section class="auction-layout">
       <div class="panel player-card ${p.vfxHidden ? "is-vfx" : ""}">
         <p class="lede">${esc(modeInfo().compositionLabel)} · ${a.lotId && a.lotTotal ? `Lot ${a.lotId} of ${a.lotTotal}` : a.lotId ? `Lot ${a.lotId}` : "On the block"} · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
+        <div class="live-bid-wrap">${liveBidHtml(a)}</div>
+        <p class="nominee-kicker">${esc(p.name)}</p>
         <div class="auction-stage">
           <div class="ring-wrap">
             <div class="ring-stage">
@@ -1382,13 +1545,15 @@ function auctionView() {
               </div>
             </div>
           </div>
-          <div class="team-strip" id="team-strip">${teamStripHtml(a)}</div>
         </div>
         <div class="bid-box" id="bid-box">
+          <div class="team-strip" id="team-strip">${teamStripHtml(a)}</div>
           <div id="power-btn-wrap">${powerButtonHtml()}</div>
-          <p class="bid-label">Your bid</p>
-          <div class="bid-bar" id="bid-actions">${bidButtonsHtml(a)}</div>
-          ${a.youReason ? `<p class="why" id="bid-why">${esc(a.youReason)}</p>` : `<p class="why" id="bid-why" hidden></p>`}
+          <div class="bid-cta">
+            ${a.youReason ? `<p class="why" id="bid-why">${esc(a.youReason)}</p>` : `<p class="why" id="bid-why" hidden></p>`}
+            <p class="bid-label">Your bid</p>
+            <div class="bid-bar" id="bid-actions">${bidButtonsHtml(a)}</div>
+          </div>
           <p class="error">${esc(lastError)}</p>
         </div>
       </div>
@@ -1419,14 +1584,19 @@ function updateAuctionTimer() {
   const left = remainingMs(a.endsAt);
   const frozen = isTimerFrozen();
   IplRing.setTimer(svg, left, a.timerMs || 25000, frozen || !a.endsAt);
-  const t = document.getElementById("timer");
-  if (t) {
-    const intro = isPlayerIntroActive();
-    const secs = Math.ceil(left / 1000);
-    t.textContent = intro ? "Soon" : (frozen ? "Paused" : (a.endsAt ? `${secs}s` : "Soon"));
-    t.classList.toggle("low", !intro && secs <= 3 && !frozen && a.endsAt);
-    t.classList.toggle("paused", frozen || intro || !a.endsAt);
-    t.classList.toggle("is-zero", !intro && secs <= 0 && !frozen && a.endsAt);
+  const intro = isPlayerIntroActive();
+  const secs = Math.ceil(left / 1000);
+  const text = intro ? "Soon" : (frozen ? "Paused" : (a.endsAt ? `${secs}s` : "Soon"));
+  const low = !intro && secs <= 3 && !frozen && Boolean(a.endsAt);
+  const paused = frozen || intro || !a.endsAt;
+  const zero = !intro && secs <= 0 && !frozen && Boolean(a.endsAt);
+  for (const id of ["timer", "live-timer"]) {
+    const t = document.getElementById(id);
+    if (!t) continue;
+    t.textContent = text;
+    t.classList.toggle("low", low);
+    t.classList.toggle("paused", paused);
+    t.classList.toggle("is-zero", zero);
   }
   const wrap = document.querySelector(".ring-wrap");
   if (wrap) wrap.classList.toggle("bails-off", !intro && secs <= 0 && !frozen && Boolean(a.endsAt));
@@ -1438,6 +1608,8 @@ function setHubBid(points) {
   const unit = document.getElementById("hub-bid-unit");
   if (num) num.textContent = String(parts.n);
   if (unit) unit.textContent = parts.unit;
+  const live = document.getElementById("live-bid-num");
+  if (live) live.innerHTML = `${parts.n}<span class="live-bid-unit">${esc(parts.unit)}</span>`;
 }
 
 function animateBid(from, to) {
@@ -1475,9 +1647,17 @@ function patchAuction() {
   if (leader) leader.innerHTML = leaderLine(a);
   const hub = document.getElementById("auction-hub");
   if (hub) hub.style.setProperty("--c", a.currentBidderColor || "var(--gold)");
-  if (lastBidShown != null && lastBidShown !== a.currentBidLakhs) animateBid(lastBidShown, a.currentBidLakhs);
+  const bidChanged = lastBidShown != null && lastBidShown !== a.currentBidLakhs;
+  if (bidChanged) animateBid(lastBidShown, a.currentBidLakhs);
   else setHubBid(a.currentBidLakhs);
+  const leadChanged = Boolean(document.getElementById("live-bid") && document.getElementById("live-bid").getAttribute("data-sig") !== liveBidSig(a));
+  maybeHapticOutbid(a);
+  syncLiveBid(a, { flash: bidChanged || leadChanged });
   lastBidShown = a.currentBidLakhs;
+  const dockPurse = document.querySelector("#you-dock .you-dock-purse");
+  if (dockPurse && state.you) dockPurse.textContent = money(state.you.purseLakhs);
+  const dockSquad = document.getElementById("you-dock-squad");
+  if (dockSquad && state.you) dockSquad.textContent = youSquadLine(state.you);
   const actions = document.getElementById("bid-actions");
   if (actions) actions.innerHTML = bidButtonsHtml(a);
   const why = document.getElementById("bid-why");
@@ -1508,6 +1688,7 @@ function patchAuction() {
     lede.innerHTML = `${prefix}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${need}${form}`;
   }
   updateAuctionTimer();
+  observeBidSheet();
 }
 
 function captainView() {
@@ -2206,6 +2387,14 @@ function render() {
   else main.innerHTML = homeView();
   wireCurrent();
   if (state.phase === "auction") mountAuctionRing();
+  if (state && state.phase === "auction" && state.auction) {
+    maybeHapticOutbid(state.auction);
+    observeBidSheet();
+  } else if (bidSheetObs) {
+    bidSheetObs.disconnect();
+    bidSheetObs = null;
+    document.documentElement.style.removeProperty("--bid-sheet");
+  }
   syncEmoteDock();
 }
 
@@ -2459,6 +2648,7 @@ socket.on("state", (next) => {
   if (state?.auction?.nominee?.id !== prevNominee) {
     bidDraft = state?.auction?.minBidLakhs ?? null;
     lastError = "";
+    lastYouLed = null;
   }
   if (state?.phase === "results" && prevPhase !== "results" && !isResultsRevealPending()) {
     loadMatches();
@@ -2481,6 +2671,7 @@ socket.on("delta", (evt) => {
   if (state.auction?.nominee?.id !== prevNominee) {
     bidDraft = state.auction?.minBidLakhs ?? null;
     lastError = "";
+    lastYouLed = null;
   }
   if (state.phase === "results" && (prevPhase !== "results" || (evt && evt.type === "resultsReveal" && evt.complete)) && !isResultsRevealPending()) {
     loadMatches();
