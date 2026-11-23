@@ -1,6 +1,6 @@
 const { EventEmitter } = require("events");
 const { overallRating, officialHeadshotUrl } = require("./players");
-const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthScore } = require("./simulate");
+const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthBreakdown } = require("./simulate");
 const { captainBonusFields, packCaptainBonus } = require("./captaincy");
 const { shortenPowerReason } = require("../public/power-reasons");
 const {
@@ -489,6 +489,7 @@ class GameRoom extends EventEmitter {
       eliminatedReason: null,
       eliminatedAt: null,
       banned: false,
+      mode: this.mode && this.mode.id,
       formPct: null,
       spentLakhs: 0,
       bidBlockedUntilLot: null,
@@ -1918,6 +1919,26 @@ class GameRoom extends EventEmitter {
     this.startResultsReveal();
   }
 
+  packTeamStrength(team) {
+    const b = squadStrengthBreakdown(team, this.mode);
+    return {
+      squadScore: b.score,
+      battingStrength: b.battingStrength,
+      bowlingStrength: b.bowlingStrength,
+      fieldingStrength: b.fieldingStrength,
+      overallStrength: b.overallStrength,
+    };
+  }
+
+  applyStrengthFields(target, team) {
+    const packed = team ? this.packTeamStrength(team) : null;
+    target.squadScore = packed ? packed.squadScore : (target.squadScore != null ? target.squadScore : 0);
+    target.battingStrength = packed ? packed.battingStrength : (target.battingStrength != null ? target.battingStrength : 0);
+    target.bowlingStrength = packed ? packed.bowlingStrength : (target.bowlingStrength != null ? target.bowlingStrength : 0);
+    target.fieldingStrength = packed ? packed.fieldingStrength : (target.fieldingStrength != null ? target.fieldingStrength : 0);
+    target.overallStrength = packed ? packed.overallStrength : (target.overallStrength != null ? target.overallStrength : 0);
+  }
+
   decorateResultPositions() {
     const t = this.tournament;
     if (!t || !Array.isArray(t.positions)) return;
@@ -1925,7 +1946,7 @@ class GameRoom extends EventEmitter {
     for (const pos of t.positions) {
       const team = this.franchises.find((f) => f.name === pos.name);
       pos.formPct = team && team.formPct != null ? team.formPct : (pos.formPct != null ? pos.formPct : null);
-      pos.squadScore = team ? squadStrengthScore(team) : (pos.squadScore != null ? pos.squadScore : 0);
+      this.applyStrengthFields(pos, team);
       pos.finish = this.finishLabel(pos, playoffs);
       if (team && team.franchise) {
         pos.characterId = pos.characterId || characterIdOf(team.franchise);
@@ -2056,7 +2077,7 @@ class GameRoom extends EventEmitter {
         points: row ? row.points : 0,
         nrr: row ? row.nrr : 0,
         formPct: f.formPct != null ? f.formPct : (row && row.formPct != null ? row.formPct : null),
-        squadScore: pos && pos.squadScore != null ? pos.squadScore : squadStrengthScore(f),
+        ...this.packTeamStrength(f),
         finish: pos ? (pos.finish || this.finishLabel(pos, t.playoffs || {})) : (f.eliminated ? "Eliminated" : null),
         coOwner: pos && pos.coOwner ? pos.coOwner : (displayName(f) || null),
         topPerformerId,

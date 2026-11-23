@@ -15,7 +15,7 @@ const {
   getMode,
 } = require("../server/rules");
 const { GameRoom } = require("../server/game");
-const { simulateTournament, teamStrength, squadStrengthScore, SCORE_STRENGTH_CAP, matchStrength } = require("../server/simulate");
+const { simulateTournament, teamStrength, squadStrengthScore, squadStrengthBreakdown, STRENGTH_WEIGHTS, PILLAR_RAW_CAP, SCORE_SCALE, matchStrength, formMultiplier, FORM_EFFECT } = require("../server/simulate");
 
 const { meta, players } = loadPlayers();
 
@@ -2617,7 +2617,7 @@ describe("phased results reveal", () => {
     }
   }
 
-  test("squad strength score is 0–1000 and tracks simulated match strength", () => {
+  test("squad strength score is 0–1000 and follows the overall × form formula", () => {
     const empty = { name: "Empty", franchise: { color: "#000" }, squad: [], mode: "classical", boosters: [] };
     assert.equal(squadStrengthScore(empty), 0);
     const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
@@ -2638,8 +2638,15 @@ describe("phased results reveal", () => {
       boosters: [],
     };
     const score = squadStrengthScore(typical);
-    const raw = matchStrength(typical, { chasing: false, nerfed: false }).strength;
-    assert.equal(score, Math.round(Math.max(0, Math.min(SCORE_STRENGTH_CAP, raw)) / SCORE_STRENGTH_CAP * 1000));
+    const b = squadStrengthBreakdown(typical);
+    assert.equal(score, b.score);
+    const overall = Math.round(
+      STRENGTH_WEIGHTS.batting * b.battingStrength
+      + STRENGTH_WEIGHTS.bowling * b.bowlingStrength
+      + STRENGTH_WEIGHTS.fielding * b.fieldingStrength
+    );
+    assert.equal(b.overallStrength, Math.max(0, Math.min(1000, overall)));
+    assert.equal(score, Math.max(0, Math.min(1000, Math.round(b.overallStrength * formMultiplier(typical) * SCORE_SCALE))));
     assert.ok(score >= 500 && score <= 950, `typical score ${score}`);
     const halfNeed = { BAT: 2, WK: 1, AR: 0, BOWL: 2 };
     const half = [];
@@ -3098,5 +3105,212 @@ describe("simulated player stats and results payload", () => {
         assert.ok("priceLakhs" in s);
       }
     }
+  });
+});
+
+
+describe("three-pillar overall strength", () => {
+  function stubPlayer(id, role, batting, bowling, extra = {}) {
+    return { id, name: id, role, batting, bowling, overseas: false, captainMatches: 0, ...extra };
+  }
+
+  function completeSquad(modeId, rating = 70) {
+    const mode = getMode(modeId);
+    const squad = [];
+    let n = 0;
+    for (const role of ["BAT", "WK", "AR", "BOWL"]) {
+      const count = mode.quota[role] || 0;
+      for (let i = 0; i < count; i += 1) {
+        n += 1;
+        squad.push({ player: stubPlayer(`${modeId}-${role}-${i}`, role, rating, rating), priceLakhs: 2 });
+      }
+    }
+    return {
+      name: `${modeId}-side`,
+      formPct: 100,
+      franchise: { color: "#fc0" },
+      squad,
+      captainId: squad[0].player.id,
+      mode: modeId,
+      boosters: [],
+      size: n,
+    };
+  }
+
+  test("a complete even-rated side scores 700 in every mode at form 100", () => {
+    for (const mode of ["classical", "rapid", "bullet"]) {
+      const team = completeSquad(mode, 70);
+      const b = squadStrengthBreakdown(team);
+      assert.equal(b.battingStrength, 700, `${mode} bat`);
+      assert.equal(b.bowlingStrength, 700, `${mode} bowl`);
+      assert.equal(b.fieldingStrength, 700, `${mode} field`);
+      assert.equal(b.overallStrength, 700, `${mode} overall`);
+      assert.equal(b.score, 700, `${mode} score`);
+    }
+  });
+
+  test("Rapid and Bullet complete sides are not crushed into the 200–300 band", () => {
+    for (const mode of ["rapid", "bullet"]) {
+      const team = completeSquad(mode, 70);
+      const asClassical = squadStrengthScore({ ...team, mode: undefined });
+      const correct = squadStrengthScore(team);
+      assert.ok(asClassical >= 200 && asClassical <= 350, `${mode} mis-scored as Classical ${asClassical}`);
+      assert.ok(correct >= 650 && correct <= 800, `${mode} correct ${correct}`);
+      assert.ok(correct - asClassical >= 300, `${mode} gap ${correct} vs ${asClassical}`);
+    }
+  });
+
+  test("a Rapid room stamps mode on the franchise so standings use Rapid quotas", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { captainMs: 10 }, { mode: "rapid" });
+    assert.equal(room.findByName("Ashutosh").mode, "rapid");
+    giveSquad(room, "Ashutosh", { BAT: 2, WK: 1, AR: 0, BOWL: 2 });
+    giveSquad(room, "Priya", { BAT: 2, WK: 1, AR: 0, BOWL: 2 });
+    room.findByName("Ashutosh").formPct = 100;
+    room.findByName("Priya").formPct = 100;
+    room.findByName("Ashutosh").captainId = room.findByName("Ashutosh").squad[0].player.id;
+    room.findByName("Priya").captainId = room.findByName("Priya").squad[0].player.id;
+    room.phase = "captains";
+    room.finishCaptains();
+    const scores = room.tournament.positions.map((p) => p.squadScore);
+    for (const pos of room.tournament.positions) {
+      assert.ok(pos.squadScore >= 500 && pos.squadScore <= 950, `${pos.name} ${pos.squadScore}`);
+      assert.ok(pos.squadScore > 350, `${pos.name} still looks like the old Rapid bug: ${pos.squadScore}`);
+      assert.equal(typeof pos.battingStrength, "number");
+      assert.equal(typeof pos.bowlingStrength, "number");
+      assert.equal(typeof pos.fieldingStrength, "number");
+      assert.equal(typeof pos.overallStrength, "number");
+    }
+    const snap = room.getState("Ashutosh");
+    const packed = snap.tournament.teams.find((t) => t.name === "Ashutosh");
+    assert.equal(packed.squadScore, room.tournament.positions.find((p) => p.name === "Ashutosh").squadScore);
+    assert.ok(packed.battingStrength >= 0 && packed.battingStrength <= 1000);
+    assert.ok(Math.max(...scores) > 700);
+  });
+
+  test("all-rounders contribute batting and bowling, and incomplete units are penalised", () => {
+    const ars = [
+      stubPlayer("ar-1", "AR", 90, 60),
+      stubPlayer("ar-2", "AR", 90, 60),
+    ];
+    const bats = [0, 1, 2, 3].map((i) => stubPlayer(`bat-${i}`, "BAT", 80, 20));
+    const wk = stubPlayer("wk-1", "WK", 80, 20);
+    const bowls = [0, 1, 2, 3].map((i) => stubPlayer(`bowl-${i}`, "BOWL", 20, 70));
+    const full = {
+      name: "Full",
+      formPct: 100,
+      franchise: { color: "#fc0" },
+      squad: [...bats, wk, ...ars, ...bowls].map((p) => ({ player: p, priceLakhs: 2 })),
+      captainId: bats[0].id,
+      mode: "classical",
+      boosters: [],
+    };
+    const noArBowl = {
+      ...full,
+      name: "NoAR",
+      squad: [...bats, wk, ...bowls].map((p) => ({ player: p, priceLakhs: 2 })),
+    };
+    const withAr = squadStrengthBreakdown(full);
+    const withoutAr = squadStrengthBreakdown(noArBowl);
+    assert.ok(withAr.bowlingStrength > withoutAr.bowlingStrength, `${withAr.bowlingStrength} vs ${withoutAr.bowlingStrength}`);
+    assert.ok(withAr.battingStrength > withoutAr.battingStrength, `${withAr.battingStrength} vs ${withoutAr.battingStrength}`);
+    assert.equal(withAr.battingStrength, Math.round((4 * 80 + 80 + 2 * 90) / 7 / PILLAR_RAW_CAP * 1000));
+    assert.equal(withAr.bowlingStrength, Math.round((2 * 60 + 4 * 70) / 6 / PILLAR_RAW_CAP * 1000));
+  });
+
+  test("form, captain bonus and standing boosters still change the score, auto-fill does not", () => {
+    const base = completeSquad("rapid", 70);
+    const hot = { ...base, formPct: 115 };
+    const cold = { ...base, formPct: 85 };
+    assert.equal(formMultiplier(hot), 1 + (1.15 - 1) * FORM_EFFECT);
+    assert.equal(squadStrengthScore(hot), Math.round(700 * formMultiplier(hot) * SCORE_SCALE));
+    assert.equal(squadStrengthScore(cold), Math.round(700 * formMultiplier(cold) * SCORE_SCALE));
+    assert.ok(squadStrengthScore(hot) > squadStrengthScore(base));
+    assert.ok(squadStrengthScore(cold) < squadStrengthScore(base));
+
+    const captained = completeSquad("rapid", 70);
+    captained.squad[0].player.captainMatches = 158;
+    assert.ok(squadStrengthScore(captained) > squadStrengthScore(base));
+
+    const cheer = { ...base, boosters: [{ id: "cheerleaders" }] };
+    const curator = { ...base, boosters: [{ id: "home-curator" }] };
+    const cheerB = squadStrengthBreakdown(cheer);
+    const curatorB = squadStrengthBreakdown(curator);
+    const baseB = squadStrengthBreakdown(base);
+    assert.ok(cheerB.battingStrength > baseB.battingStrength);
+    assert.ok(cheerB.bowlingStrength > baseB.bowlingStrength);
+    assert.equal(cheerB.fieldingStrength, baseB.fieldingStrength);
+    assert.ok(curatorB.bowlingStrength > baseB.bowlingStrength);
+    assert.equal(curatorB.battingStrength, baseB.battingStrength);
+
+    const auto = { ...base, autoFilled: true, lastTeamFill: true };
+    assert.equal(squadStrengthScore(auto), squadStrengthScore(base));
+  });
+
+  test("nothing exceeds 1000 even with a loaded star side", () => {
+    const team = completeSquad("classical", 99);
+    team.formPct = 115;
+    team.squad[0].player.captainMatches = 235;
+    team.boosters = [{ id: "cheerleaders" }, { id: "home-curator" }, { id: "friendly-umpire" }];
+    const b = squadStrengthBreakdown(team);
+    assert.ok(b.battingStrength <= 1000);
+    assert.ok(b.bowlingStrength <= 1000);
+    assert.ok(b.fieldingStrength <= 1000);
+    assert.ok(b.overallStrength <= 1000);
+    assert.ok(b.score <= 1000);
+    assert.ok(b.score >= 900, `loaded side should be near the cap, got ${b.score}`);
+  });
+
+  test("Monte Carlo: typical auctions have top team above 700 and no score above 1000", async () => {
+    const NAMES = ["Ashutosh", "Priya", "Rohan", "Neha", "Vikram", "Meera", "Kabir", "Ananya"];
+    function drainAuction(room, maxLots = 800) {
+      let i = 0;
+      while (room.phase === "auction" && i++ < maxLots) {
+        if (room.playerIntro) room.finishPlayerIntro();
+        if (!room.auction) {
+          if (room.revealUntil) room.finishReveal();
+          else break;
+          continue;
+        }
+        const lot = room.lotId;
+        const leader = room.auction.currentBidderKey;
+        for (const f of room.franchises) {
+          if (room.lotId !== lot || !room.auction) break;
+          if (f.key !== leader) room.optOut(f.name);
+        }
+      }
+      return i;
+    }
+    const tops = [];
+    const bottoms = [];
+    let games = 0;
+    // Keep this sample modest and yield between games so a parallel e2e
+    // suite in the same process can still service sockets.
+    for (const mode of ["bullet", "rapid", "classical"]) {
+      for (let n = 2; n <= 8; n += 1) {
+        for (const seed of [11, 29]) {
+          const names = NAMES.slice(0, n);
+          const room = roomWith(names, { captainMs: 10 }, { mode, seed: seed * 1000 + n * 17 + mode.length });
+          assert.equal(room.startAuction(names[0]).ok, true);
+          drainAuction(room);
+          if (room.phase === "captains") room.finishCaptains();
+          assert.equal(room.phase, "results", `${mode} x ${n} seed ${seed} phase ${room.phase}`);
+          const scores = room.tournament.positions.map((p) => p.squadScore);
+          assert.equal(scores.length, n);
+          for (const score of scores) {
+            assert.ok(score >= 0 && score <= 1000, `${mode} x ${n} score ${score}`);
+          }
+          tops.push(Math.max(...scores));
+          bottoms.push(Math.min(...scores));
+          games += 1;
+          await new Promise((r) => setImmediate(r));
+        }
+      }
+    }
+    const pTop = tops.filter((s) => s > 700).length / tops.length;
+    assert.equal(games, 3 * 7 * 2);
+    assert.ok(pTop >= 0.9, `P(top>700)=${pTop} over ${games} games; tops ${Math.min(...tops)}–${Math.max(...tops)}`);
+    assert.ok(Math.max(...tops) <= 1000);
+    assert.ok(Math.min(...bottoms) >= 400, `unexpectedly weak bottom ${Math.min(...bottoms)}`);
+    assert.ok(Math.max(...tops) >= 750);
   });
 });

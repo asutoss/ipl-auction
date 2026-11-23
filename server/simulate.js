@@ -37,22 +37,45 @@ function formatOvers(balls) {
   return ballsToOvers(balls).toFixed(1);
 }
 
+function derivedFielding(player) {
+  if (!player) return 0;
+  // No separate fielding ratings exist. Keepers are judged mainly on their
+  // batting class (plus a little bowling), everyone else on overall class.
+  if (player.role === "WK") return player.batting * 0.85 + player.bowling * 0.15;
+  return overallRating(player);
+}
+
 function playerRatings(slot, isCaptain) {
   const p = slot.player;
   const boost = isCaptain ? 1 + captainBonus(captainMatchesOf(p)) : 1;
-  return { batting: p.batting * boost, bowling: p.bowling * boost };
+  return {
+    batting: p.batting * boost,
+    bowling: p.bowling * boost,
+    fielding: derivedFielding(p) * boost,
+  };
+}
+
+function resolveTeamMode(team, modeArg) {
+  if (modeArg && typeof modeArg === "object" && modeArg.id) return resolveMode(modeArg.id);
+  if (modeArg) return resolveMode(modeArg);
+  return resolveMode(team && team.mode);
 }
 
 const EXPECTED_BATTERS = 7;
 const EXPECTED_BOWLERS = 6;
 
-function teamStrength(franchise) {
+function teamUnits(franchise, modeArg) {
   const squad = franchise.squad || [];
   const captainId = franchise.captainId;
+  const mode = resolveTeamMode(franchise, modeArg);
   let batSum = 0;
   let batN = 0;
   let bowlSum = 0;
   let bowlN = 0;
+  let wkSum = 0;
+  let wkN = 0;
+  let restFieldSum = 0;
+  let restFieldN = 0;
   for (const slot of squad) {
     const isCap = slot.player.id === captainId;
     const r = playerRatings(slot, isCap);
@@ -69,12 +92,27 @@ function teamStrength(franchise) {
       bowlSum += r.bowling;
       bowlN += 1;
     }
+    if (role === "WK") {
+      wkSum += r.fielding;
+      wkN += 1;
+    } else {
+      restFieldSum += r.fielding;
+      restFieldN += 1;
+    }
   }
-  const mode = resolveMode(franchise.mode);
   const batting = batSum / Math.max(batN, mode.expectedBatters);
   const bowling = bowlSum / Math.max(bowlN, mode.expectedBowlers);
+  const wkExpected = Math.max(1, mode.quota.WK || 1);
+  const restExpected = Math.max(1, mode.squadSize - wkExpected);
+  const wk = wkSum / Math.max(wkN, wkExpected);
+  const rest = restFieldSum / Math.max(restFieldN, restExpected);
+  const fielding = 0.7 * wk + 0.3 * rest;
   const strength = 0.52 * batting + 0.48 * bowling;
-  return { batting, bowling, strength, batN, bowlN };
+  return { batting, bowling, fielding, strength, batN, bowlN, wkN, restFieldN, mode };
+}
+
+function teamStrength(franchise, modeArg) {
+  return teamUnits(franchise, modeArg);
 }
 
 function battersOf(team) {
@@ -118,8 +156,8 @@ function formMultiplier(team) {
   return 1 + (Number(pct) / 100 - 1) * FORM_EFFECT;
 }
 
-function matchStrength(team, { chasing = false, nerfed = false } = {}) {
-  const s = teamStrength(team);
+function matchStrength(team, { chasing = false, nerfed = false, mode } = {}) {
+  const s = teamStrength(team, mode);
   let batting = s.batting;
   let bowling = s.bowling;
   if (hasBooster(team, "cheerleaders")) {
@@ -143,28 +181,77 @@ function matchStrength(team, { chasing = false, nerfed = false } = {}) {
 }
 
 /**
- * Squad strength score out of 1000.
+ * Standings strength, rebuilt around three unit pillars.
  *
- * Starts from matchStrength (non-chasing, not bus-nerfed): batting and bowling
- * averages with empty-slot penalties (sum / max(count, expected slots for the
- * mode)), the captain's 0–5% rating bump (scaled by IPL matches as captain),
- * standing boosters (cheerleaders,
- * home curator, friendly umpire), and the team's form multiplier. Dew-factor
- * is omitted because it only applies when chasing.
+ * Batting, bowling and Fielding/WK are each 0–1000, normalised to the mode's
+ * role quotas so a complete Rapid or Bullet side is not treated as a short
+ * Classical XI (empty slots still count as zero). All-rounders contribute
+ * their batting to the batting unit and their bowling to the bowling unit.
+ * The captain's 0–5% bump applies to every pillar. Standing boosters
+ * (cheerleaders, home curator, friendly umpire) apply to batting/bowling
+ * where they always did; dew-factor and the bus nerf are omitted.
  *
- * Combined strength S = 0.52 * batting + 0.48 * bowling (same weights as the
- * simulation). Score = round(clamp(S, 0, 110) / 110 * 1000).
+ * Fielding/WK is 70% the keeper (derived from batting class, since there is
+ * no fielding rating) and 30% the rest of the unit's overall class, each
+ * divided by the mode's expected slots.
  *
- * Typical complete Classical XIs land roughly 600–850; a weak or incomplete
- * side drops below that; a loaded squad with captain, form and boosters can
- * approach 1000. An empty squad scores 0.
+ * Overall strength (before form) is 40% batting + 40% bowling + 20%
+ * Fielding/WK: bat and ball decide most matches, the keeper/fielding unit is
+ * the third pillar but a smaller share. The displayed score is
+ * overall × form multiplier (FORM_EFFECT unchanged) × SCORE_SCALE, rounded
+ * and clamped to 0–1000. Typical complete sides land roughly 500–950; the
+ * top team in a typical game is usually above 700.
  */
-const SCORE_STRENGTH_CAP = 110;
+const STRENGTH_WEIGHTS = Object.freeze({ batting: 0.4, bowling: 0.4, fielding: 0.2 });
+const PILLAR_RAW_CAP = 100;
+const SCORE_SCALE = 1;
 
-function squadStrengthScore(team) {
-  const s = matchStrength(team, { chasing: false, nerfed: false });
-  const raw = Number(s && s.strength) || 0;
-  return Math.max(0, Math.min(1000, Math.round((raw / SCORE_STRENGTH_CAP) * 1000)));
+function applyStandingBoosters(units, team) {
+  let batting = units.batting;
+  let bowling = units.bowling;
+  const fielding = units.fielding;
+  if (hasBooster(team, "cheerleaders")) {
+    batting *= 1.04;
+    bowling *= 1.04;
+  }
+  if (hasBooster(team, "home-curator")) bowling += 8;
+  if (hasBooster(team, "friendly-umpire")) {
+    batting *= 1.03;
+    bowling *= 1.03;
+  }
+  return { batting, bowling, fielding };
+}
+
+function toPillar(raw) {
+  return Math.max(0, Math.min(1000, Math.round((Number(raw) || 0) / PILLAR_RAW_CAP * 1000)));
+}
+
+function squadStrengthBreakdown(team, mode) {
+  const units = teamUnits(team, mode);
+  const boosted = applyStandingBoosters(units, team);
+  const battingStrength = toPillar(boosted.batting);
+  const bowlingStrength = toPillar(boosted.bowling);
+  const fieldingStrength = toPillar(boosted.fielding);
+  const overallStrength = Math.max(0, Math.min(1000, Math.round(
+    STRENGTH_WEIGHTS.batting * battingStrength
+    + STRENGTH_WEIGHTS.bowling * bowlingStrength
+    + STRENGTH_WEIGHTS.fielding * fieldingStrength
+  )));
+  const form = formMultiplier(team);
+  const score = Math.max(0, Math.min(1000, Math.round(overallStrength * form * SCORE_SCALE)));
+  return {
+    battingStrength,
+    bowlingStrength,
+    fieldingStrength,
+    overallStrength,
+    score,
+    form,
+    formPct: team && team.formPct != null ? team.formPct : null,
+  };
+}
+
+function squadStrengthScore(team, mode) {
+  return squadStrengthBreakdown(team, mode).score;
 }
 
 function inningsBallsAndWickets(rng, bowling, allOutLikely, format) {
@@ -1011,8 +1098,12 @@ module.exports = {
   FORM_RANK_SHIFT,
   formRankShift,
   matchStrength,
+  squadStrengthBreakdown,
   squadStrengthScore,
-  SCORE_STRENGTH_CAP,
+  derivedFielding,
+  STRENGTH_WEIGHTS,
+  PILLAR_RAW_CAP,
+  SCORE_SCALE,
   QUOTA,
   ROLES,
 };

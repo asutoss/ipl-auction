@@ -2089,7 +2089,10 @@ function resultStandingsCard(pos, fresh) {
     ${mark}
     <h3 class="result-name">${esc(pos.name || pos.short || "")}</h3>
     <div class="result-meta">
-      <p class="result-score"><strong>${esc(score)}</strong><span>/1000</span></p>
+      <div class="result-score-block">
+        <p class="result-score"><strong>${esc(score)}</strong><span>/1000</span></p>
+        <p class="result-score-label">Overall</p>
+      </div>
       ${form ? `<p class="result-form">${form}</p>` : ""}
     </div>
   </article>`;
@@ -2152,7 +2155,7 @@ function teamReportCard(team) {
         ${teamMark({ id: characterIdOf(team), characterId: characterIdOf(team), color: team.color, color2: team.color2, text: team.text }, "lg", team.name)}
         <div>
           <h3 style="color:${esc(team.text || team.color)}">${esc(team.name || team.short)}</h3>
-          <p class="lede">${team.finish || team.title ? esc(team.finish || team.title) : ""}${team.eliminated ? ((team.finish || team.title) ? " · " : "") + "eliminated" : ""}${formPctOf(team) != null ? `${team.finish || team.title || team.eliminated ? " · " : ""}${formLabel(team)}` : ""}${team.squadScore != null ? `${team.finish || team.title || team.eliminated || formPctOf(team) != null ? " · " : ""}Squad ${team.squadScore}/1000` : ""}</p>
+          <p class="lede">${team.finish || team.title ? esc(team.finish || team.title) : ""}${team.eliminated ? ((team.finish || team.title) ? " · " : "") + "eliminated" : ""}${formPctOf(team) != null ? `${team.finish || team.title || team.eliminated ? " · " : ""}${formLabel(team)}` : ""}${team.squadScore != null ? `${team.finish || team.title || team.eliminated || formPctOf(team) != null ? " · " : ""}Overall strength ${team.squadScore}/1000` : ""}</p>
         </div>
         <p class="record">${team.won || 0}W–${team.lost || 0}L–${team.nr || 0}NR · ${team.points || 0} pts · NRR ${nrrText(team.nrr)}</p>
       </header>
@@ -2192,6 +2195,27 @@ function playerStatLines(slot) {
   return lines;
 }
 
+
+function strengthStat(label, value) {
+  if (value == null || value === "") return "";
+  return `<div><span>${esc(label)}</span><strong>${esc(String(value))}</strong></div>`;
+}
+
+function strengthBreakdownHtml(team) {
+  if (!team) return "";
+  const bat = team.battingStrength;
+  const bowl = team.bowlingStrength;
+  const field = team.fieldingStrength;
+  const overall = team.squadScore != null ? team.squadScore : team.overallStrength;
+  if (bat == null && bowl == null && field == null && overall == null) return "";
+  return `<div class="sheet-strength">
+      ${strengthStat("Batting", bat)}
+      ${strengthStat("Bowling", bowl)}
+      ${strengthStat("Fielding / WK", field)}
+      ${overall != null ? `<div class="is-overall"><span>Overall strength</span><strong>${esc(String(overall))}</strong><span class="sheet-strength-cap">/1000</span></div>` : ""}
+    </div>`;
+}
+
 function fillResultsTeamSheet(name) {
   const body = document.getElementById("results-team-sheet-body");
   const team = resultsTeamByName(name);
@@ -2221,7 +2245,8 @@ function fillResultsTeamSheet(name) {
         <p class="kicker">${esc(team.finish || team.title || "")}${record ? ` · ${esc(record)}` : ""}</p>
         <h2 id="results-team-sheet-title">${esc(team.name)}</h2>
         ${team.coOwner && team.coOwner !== team.name ? `<p class="lede">${esc(team.coOwner)}</p>` : ""}
-        <p class="lede">${form}${team.squadScore != null ? `${form ? " · " : ""}<strong>${team.squadScore}</strong>/1000 performance` : ""}</p>
+        ${form ? `<p class="lede">${form}</p>` : ""}
+        ${strengthBreakdownHtml(team)}
       </div>
     </header>
     <ul class="sheet-squad">${rows || `<li class="lede">No players</li>`}</ul>`;

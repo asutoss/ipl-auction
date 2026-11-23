@@ -1922,9 +1922,18 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   flex-shrink: 0;
 }
 .result-form { margin: 0; font-size: 12px; white-space: nowrap; line-height: 1; }
+.result-score-block { text-align: right; min-width: 0; }
 .result-score { margin: 0; line-height: 1; white-space: nowrap; }
 .result-score strong { font-size: 16px; color: var(--gold); font-variant-numeric: tabular-nums; }
 .result-score span { color: var(--muted); font-size: 11px; margin-left: 1px; }
+.result-score-label {
+  margin: 3px 0 0;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
 .result-card .team-mark-wrap { width: 28px; height: 28px; flex: 0 0 28px; }
 @keyframes champ-reveal {
   0% { transform: scale(0.86); opacity: 0; filter: brightness(1.8); }
@@ -1954,6 +1963,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   .result-form .form-pct { font-weight: 700; letter-spacing: 0; }
   .result-score strong { font-size: 13px; }
   .result-score span { font-size: 10px; }
+  .result-score-label { font-size: 8px; }
   .result-card .team-mark-wrap { width: 24px; height: 24px; flex-basis: 24px; }
 }
 
@@ -2019,6 +2029,47 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   padding-right: 36px;
 }
 .sheet-head h2 { margin: 0 0 2px; }
+.sheet-strength {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.sheet-strength > div {
+  background: color-mix(in srgb, var(--card) 82%, #000);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  padding: 8px 6px 10px;
+  text-align: center;
+  min-width: 0;
+}
+.sheet-strength span {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.sheet-strength strong {
+  font-size: 18px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+}
+.sheet-strength .is-overall {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  padding: 10px 12px;
+}
+.sheet-strength .is-overall span { margin: 0; }
+.sheet-strength .is-overall strong { font-size: 22px; }
+.sheet-strength-cap { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 .sheet-squad { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .sheet-player {
   display: grid;
