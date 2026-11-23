@@ -33,7 +33,6 @@ const { getBooster, canAffordAny, publicCatalog, packBooster, applyFormBoosters 
 const {
   CHARACTERS,
   getCharacter,
-  nextCharacter,
   publicCharacter,
   getCharacterLine,
   findLine,
@@ -205,6 +204,13 @@ class GameRoom extends EventEmitter {
     return this.characterOrder.map((id) => publicCharacter(id)).filter(Boolean);
   }
 
+  /** First co-owner in this room's shuffled order that nobody has taken. */
+  nextRoomCharacter(takenIds) {
+    const taken = takenIds instanceof Set ? takenIds : new Set(takenIds || []);
+    const id = (this.characterOrder || []).find((cid) => !taken.has(cid));
+    return id ? publicCharacter(id) : null;
+  }
+
   assignCharacter(team, id) {
     const pack = publicCharacter(id);
     if (!pack) return false;
@@ -252,7 +258,7 @@ class GameRoom extends EventEmitter {
         taken.add(id);
         continue;
       }
-      const next = nextCharacter(taken);
+      const next = this.nextRoomCharacter(taken);
       if (next) {
         this.assignCharacter(f, next.id);
         taken.add(next.id);
@@ -467,7 +473,7 @@ class GameRoom extends EventEmitter {
       return { ok: false, error: "This room is full (10 franchises)." };
     }
 
-    const pack = publicCharacter(nextCharacter(this.takenCharacterIds()));
+    const pack = this.nextRoomCharacter(this.takenCharacterIds());
     if (!pack) return { ok: false, error: "No co-owners left to assign." };
     const franchise = {
       key: nameKey(name),

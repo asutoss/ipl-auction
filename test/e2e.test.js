@@ -455,6 +455,15 @@ describe("e2e: Kim wipe updates every client's squad", () => {
     const code = created.code;
     assert.equal((await ack(victim, "joinRoom", { code, name: "Victim" })).ok, true);
     assert.equal((await ack(spectator, "joinRoom", { code, name: "Spectator" })).ok, true);
+    // Defaults follow the room's shuffled order, so first move everyone off
+    // the three co-owners this test needs, then pick them explicitly.
+    const wanted = ["kim-jong-un", "ravi-kishan", "narendra-modi"];
+    const pickRoom = ctx.manager.get(code);
+    const fillers = pickRoom.characterOrder.filter((id) => !wanted.includes(id));
+    for (const [i, sock] of [kim, victim, spectator].entries()) {
+      const id = fillers[i];
+      assert.equal((await ack(sock, "selectCharacter", { characterId: id, identityId: id })).ok, true);
+    }
     assert.equal((await ack(kim, "selectCharacter", { characterId: "kim-jong-un", identityId: "kim-jong-un" })).ok, true);
     assert.equal((await ack(victim, "selectCharacter", { characterId: "ravi-kishan", identityId: "ravi-kishan" })).ok, true);
     assert.equal((await ack(spectator, "selectCharacter", { characterId: "narendra-modi", identityId: "narendra-modi" })).ok, true);

@@ -1330,6 +1330,30 @@ describe("team characters", () => {
     }
     assert.ok(orders.size >= 8, `expected varied room orders, got ${orders.size}`);
   });
+
+  test("default co-owner on join is the first free one in the room's order", () => {
+    const { CHARACTERS } = require("../public/characters");
+    const order = [...CHARACTERS.map((c) => c.id)].reverse();
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"], {}, { characterOrder: order });
+    assert.deepEqual(room.franchises.map((f) => f.franchise.id), order.slice(0, 3));
+    // Free up the first slot; the next joiner takes it, not a canonical-first id.
+    assert.equal(room.selectCharacter("Ashutosh", order[5]).ok, true);
+    assert.equal(room.addPlayer("Neha", "sock-neha").ok, true);
+    assert.equal(room.findByName("Neha").franchise.id, order[0]);
+  });
+
+  test("auto-assign at start fills unpicked teams in the room's order", () => {
+    const { CHARACTERS } = require("../public/characters");
+    const order = [...CHARACTERS.map((c) => c.id)].reverse();
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"], {}, { characterOrder: order });
+    assert.equal(room.selectCharacter("Ashutosh", order[4]).ok, true);
+    room.findByName("Priya").franchise = { id: "unknown" };
+    room.findByName("Rohan").franchise = { id: "unknown" };
+    room.startAuction("Ashutosh");
+    assert.equal(room.findByName("Ashutosh").franchise.id, order[4]);
+    assert.equal(room.findByName("Priya").franchise.id, order[0]);
+    assert.equal(room.findByName("Rohan").franchise.id, order[1]);
+  });
 });
 
 describe("random starting bids", () => {
