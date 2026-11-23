@@ -4,7 +4,8 @@
     "updated": "2026-11",
     "currency": "All bids and base prices are in points. Every player has a flat base price of 2 points.",
     "nomination": "The auction queue is a full random shuffle of the pool so stars and weaker known names appear in mixed order.",
-    "headshots": "Official IPL headshot URLs from www.iplt20.com (team-assets), matched offline by name/slug. See scripts/map-headshots.js. The client hotlinks these; images are not rehosted."
+    "headshots": "Official IPL headshot URLs from www.iplt20.com (team-assets), matched offline by name/slug. See scripts/map-headshots.js. The client hotlinks these; images are not rehosted.",
+    "captainMatches": "IPL official matches as captain through the 2026 season. 0 if the player never captained. See scripts/captain-matches.js for sources and notes."
   },
   "players": [
     {
@@ -16,7 +17,8 @@
       "basePriceLakhs": 2,
       "batting": 93,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/13144.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/13144.png&brand=ipl",
+      "captainMatches": 143
     },
     {
       "id": "rohit-sharma",
@@ -27,7 +29,8 @@
       "basePriceLakhs": 2,
       "batting": 88,
       "bowling": 15,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/11326.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/11326.png&brand=ipl",
+      "captainMatches": 158
     },
     {
       "id": "shubman-gill",
@@ -38,7 +41,8 @@
       "basePriceLakhs": 2,
       "batting": 90,
       "bowling": 14,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/65345.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/65345.png&brand=ipl",
+      "captainMatches": 43
     },
     {
       "id": "suryakumar-yadav",
@@ -49,7 +53,8 @@
       "basePriceLakhs": 2,
       "batting": 91,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/20861.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/20861.png&brand=ipl",
+      "captainMatches": 5
     },
     {
       "id": "ruturaj-gaikwad",
@@ -60,7 +65,8 @@
       "basePriceLakhs": 2,
       "batting": 86,
       "bowling": 10,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/64377.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/64377.png&brand=ipl",
+      "captainMatches": 33
     },
     {
       "id": "shreyas-iyer",
@@ -71,7 +77,8 @@
       "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 22,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/22014.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/22014.png&brand=ipl",
+      "captainMatches": 101
     },
     {
       "id": "yashasvi-jaiswal",
@@ -82,7 +89,8 @@
       "basePriceLakhs": 2,
       "batting": 89,
       "bowling": 14,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/68314.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/68314.png&brand=ipl",
+      "captainMatches": 2
     },
     {
       "id": "sai-sudharsan",
@@ -93,7 +101,8 @@
       "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 18,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/74538.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/74538.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "tilak-varma",
@@ -104,7 +113,8 @@
       "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 32,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/69845.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/69845.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rinku-singh",
@@ -115,7 +125,8 @@
       "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 18,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/33718.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/33718.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "faf-du-plessis",
@@ -126,7 +137,8 @@
       "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/14151.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/14151.png&brand=ipl",
+      "captainMatches": 44
     },
     {
       "id": "travis-head",
@@ -137,7 +149,8 @@
       "basePriceLakhs": 2,
       "batting": 88,
       "bowling": 38,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/21033.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/21033.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "harry-brook",
@@ -148,7 +161,8 @@
       "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 15,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/38952.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/38952.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "tim-david",
@@ -159,7 +173,8 @@
       "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 20,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/67369.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/67369.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "tristan-stubbs",
@@ -170,7 +185,8 @@
       "basePriceLakhs": 2,
       "batting": 82,
       "bowling": 24,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/73364.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/73364.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jake-fraser-mcgurk",
@@ -181,7 +197,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/69824.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/69824.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "david-miller",
@@ -192,7 +209,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/13575.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/13575.png&brand=ipl",
+      "captainMatches": 6
     },
     {
       "id": "shimron-hetmyer",
@@ -203,7 +221,8 @@
       "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/23713.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/23713.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rovman-powell",
@@ -214,7 +233,8 @@
       "basePriceLakhs": 2,
       "batting": 77,
       "bowling": 18,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/20866.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/20866.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rajat-patidar",
@@ -225,7 +245,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 10,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/29333.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/29333.png&brand=ipl",
+      "captainMatches": 28
     },
     {
       "id": "devdutt-padikkal",
@@ -236,7 +257,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 10,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/68292.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/68292.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ajinkya-rahane",
@@ -247,7 +269,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/12685.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/12685.png&brand=ipl",
+      "captainMatches": 52
     },
     {
       "id": "mayank-agarwal",
@@ -258,7 +281,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 10,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/16946.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/16946.png&brand=ipl",
+      "captainMatches": 14
     },
     {
       "id": "prithvi-shaw",
@@ -269,7 +293,8 @@
       "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/65301.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/65301.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "nitish-rana",
@@ -280,7 +305,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 42,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/23460.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/23460.png&brand=ipl",
+      "captainMatches": 14
     },
     {
       "id": "angkrish-raghuvanshi",
@@ -291,7 +317,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/76204.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/76204.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vaibhav-suryavanshi",
@@ -302,7 +329,8 @@
       "basePriceLakhs": 2,
       "batting": 75,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/83313.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/83313.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "karun-nair",
@@ -313,7 +341,8 @@
       "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 14,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/16936.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/16936.png&brand=ipl",
+      "captainMatches": 3
     },
     {
       "id": "gautam-gambhir",
@@ -324,7 +353,8 @@
       "batting": 68,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/11319.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/11319.png&brand=ipl",
+      "captainMatches": 129
     },
     {
       "id": "ashutosh-sharma",
@@ -335,7 +365,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/67627.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/67627.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rishabh-pant",
@@ -346,7 +377,8 @@
       "basePriceLakhs": 2,
       "batting": 88,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/17617.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/17617.png&brand=ipl",
+      "captainMatches": 71
     },
     {
       "id": "jos-buttler",
@@ -357,7 +389,8 @@
       "basePriceLakhs": 2,
       "batting": 90,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/16261.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/16261.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sanju-samson",
@@ -368,7 +401,8 @@
       "basePriceLakhs": 2,
       "batting": 86,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/17613.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/17613.png&brand=ipl",
+      "captainMatches": 67
     },
     {
       "id": "kl-rahul",
@@ -379,7 +413,8 @@
       "basePriceLakhs": 2,
       "batting": 87,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/20451.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/20451.png&brand=ipl",
+      "captainMatches": 64
     },
     {
       "id": "ms-dhoni",
@@ -390,7 +425,8 @@
       "basePriceLakhs": 2,
       "batting": 66,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/11318.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/11318.png&brand=ipl",
+      "captainMatches": 235
     },
     {
       "id": "heinrich-klaasen",
@@ -401,7 +437,8 @@
       "basePriceLakhs": 2,
       "batting": 86,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/23673.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/23673.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "nicholas-pooran",
@@ -412,7 +449,8 @@
       "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 10,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/23906.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/23906.png&brand=ipl",
+      "captainMatches": 1
     },
     {
       "id": "phil-salt",
@@ -423,7 +461,8 @@
       "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/28502.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/28502.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ishan-kishan",
@@ -434,7 +473,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/20227.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/20227.png&brand=ipl",
+      "captainMatches": 7
     },
     {
       "id": "dhruv-jurel",
@@ -445,7 +485,8 @@
       "basePriceLakhs": 2,
       "batting": 77,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/71456.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/71456.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "hardik-pandya",
@@ -456,7 +497,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/16093.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/16093.png&brand=ipl",
+      "captainMatches": 70
     },
     {
       "id": "ravindra-jadeja",
@@ -467,7 +509,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 86,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/13143.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/13143.png&brand=ipl",
+      "captainMatches": 8
     },
     {
       "id": "axar-patel",
@@ -478,7 +521,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 84,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/17616.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/17616.png&brand=ipl",
+      "captainMatches": 27
     },
     {
       "id": "andre-russell",
@@ -489,7 +533,8 @@
       "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/12377.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/12377.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sunil-narine",
@@ -500,7 +545,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 87,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/11658.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/11658.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "glenn-maxwell",
@@ -511,7 +557,8 @@
       "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/12614.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/12614.png&brand=ipl",
+      "captainMatches": 14
     },
     {
       "id": "cameron-green",
@@ -522,7 +569,8 @@
       "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/65397.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/65397.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "abhishek-sharma",
@@ -533,7 +581,8 @@
       "basePriceLakhs": 2,
       "batting": 85,
       "bowling": 64,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/65346.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/65346.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "nitish-kumar-reddy",
@@ -544,7 +593,8 @@
       "basePriceLakhs": 2,
       "batting": 79,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/74028.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/74028.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "liam-livingstone",
@@ -555,7 +605,8 @@
       "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/23875.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/23875.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mitchell-marsh",
@@ -566,7 +617,8 @@
       "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/12612.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/12612.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shivam-dube",
@@ -577,7 +629,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 64,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/63520.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/63520.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "washington-sundar",
@@ -588,7 +641,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 79,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/20226.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/20226.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "will-jacks",
@@ -599,7 +653,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 66,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/65551.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/65551.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rachin-ravindra",
@@ -610,7 +665,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 68,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/26162.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/26162.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "krunal-pandya",
@@ -621,7 +677,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/20456.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/20456.png&brand=ipl",
+      "captainMatches": 6
     },
     {
       "id": "jasprit-bumrah",
@@ -632,7 +689,8 @@
       "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 97,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/16096.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/16096.png&brand=ipl",
+      "captainMatches": 1
     },
     {
       "id": "rashid-khan",
@@ -643,7 +701,8 @@
       "basePriceLakhs": 2,
       "batting": 42,
       "bowling": 93,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/25242.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/25242.png&brand=ipl",
+      "captainMatches": 3
     },
     {
       "id": "jofra-archer",
@@ -654,7 +713,8 @@
       "basePriceLakhs": 2,
       "batting": 32,
       "bowling": 91,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/28503.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/28503.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kagiso-rabada",
@@ -665,7 +725,8 @@
       "basePriceLakhs": 2,
       "batting": 20,
       "bowling": 90,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/19720.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/19720.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "pat-cummins",
@@ -676,7 +737,8 @@
       "basePriceLakhs": 2,
       "batting": 36,
       "bowling": 90,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/14153.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/14153.png&brand=ipl",
+      "captainMatches": 38
     },
     {
       "id": "mitchell-starc",
@@ -687,7 +749,8 @@
       "basePriceLakhs": 2,
       "batting": 24,
       "bowling": 89,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/14328.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/14328.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "trent-boult",
@@ -698,7 +761,8 @@
       "basePriceLakhs": 2,
       "batting": 20,
       "bowling": 88,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/14330.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/14330.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "josh-hazlewood",
@@ -709,7 +773,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 88,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/14327.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/14327.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kuldeep-yadav",
@@ -720,7 +785,8 @@
       "basePriceLakhs": 2,
       "batting": 24,
       "bowling": 88,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/20030.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/20030.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "varun-chakravarthy",
@@ -731,7 +797,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 87,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/68649.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/68649.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "yuzvendra-chahal",
@@ -742,7 +809,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 86,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/14621.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/14621.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mohammed-siraj",
@@ -753,7 +821,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 85,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/44904.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/44904.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mohammed-shami",
@@ -764,7 +833,8 @@
       "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 86,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/11458.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/11458.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "arshdeep-singh",
@@ -775,7 +845,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 84,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/67190.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/67190.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "matheesha-pathirana",
@@ -786,7 +857,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 86,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/72580.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/72580.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mayank-yadav",
@@ -797,7 +869,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 85,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/76160.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/76160.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "t-natarajan",
@@ -808,7 +881,8 @@
       "basePriceLakhs": 2,
       "batting": 8,
       "bowling": 83,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/37001.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/37001.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ravi-bishnoi",
@@ -819,7 +893,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/70430.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/70430.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "bhuvneshwar-kumar",
@@ -830,7 +905,8 @@
       "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/12690.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/12690.png&brand=ipl",
+      "captainMatches": 8
     },
     {
       "id": "harshal-patel",
@@ -841,7 +917,8 @@
       "basePriceLakhs": 2,
       "batting": 26,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/18000.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/18000.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "avesh-khan",
@@ -852,7 +929,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/20223.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/20223.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "harshit-rana",
@@ -863,7 +941,8 @@
       "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 81,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/77153.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/77153.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "noor-ahmad",
@@ -874,7 +953,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 83,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/71151.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/71151.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "khaleel-ahmed",
@@ -885,7 +965,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 79,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/43272.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/43272.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sai-kishore",
@@ -896,7 +977,8 @@
       "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/65783.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/65783.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "amit-mishra",
@@ -907,7 +989,8 @@
       "batting": 18,
       "bowling": 75,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/6185/1026/22296.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/6185/1026/22296.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "nehal-wadhera",
@@ -918,7 +1001,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 18,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/68289.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/68289.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rahul-tripathi",
@@ -929,7 +1013,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/22692.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/22692.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "manish-pandey",
@@ -940,7 +1025,8 @@
       "basePriceLakhs": 2,
       "batting": 67,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/16935.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/16935.png&brand=ipl",
+      "captainMatches": 1
     },
     {
       "id": "martin-guptill",
@@ -951,7 +1037,8 @@
       "batting": 70,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/14323.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/14323.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "lendl-simmons",
@@ -962,7 +1049,8 @@
       "batting": 67,
       "bowling": 10,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/12368.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/12368.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shikhar-dhawan",
@@ -973,7 +1061,8 @@
       "batting": 71,
       "bowling": 12,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/11707.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/11707.png&brand=ipl",
+      "captainMatches": 27
     },
     {
       "id": "sameer-rizvi",
@@ -984,7 +1073,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/71449.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/71449.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "aaron-finch",
@@ -995,7 +1085,8 @@
       "batting": 73,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/12604.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/12604.png&brand=ipl",
+      "captainMatches": 10
     },
     {
       "id": "shaun-marsh",
@@ -1006,7 +1097,8 @@
       "batting": 72,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/14149.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/14149.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sharukh-khan",
@@ -1017,7 +1109,8 @@
       "basePriceLakhs": 2,
       "batting": 73,
       "bowling": 20,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/27214.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/27214.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "abdul-samad",
@@ -1028,7 +1121,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 22,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/70433.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/70433.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "dewald-brevis",
@@ -1039,7 +1133,8 @@
       "basePriceLakhs": 2,
       "batting": 79,
       "bowling": 28,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/75144.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/75144.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ben-duckett",
@@ -1050,7 +1145,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 10,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/17314.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/17314.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "finn-allen",
@@ -1061,7 +1157,8 @@
       "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/26170.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/26170.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jason-roy",
@@ -1072,7 +1169,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/14271.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/14271.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rilee-rossouw",
@@ -1083,7 +1181,8 @@
       "basePriceLakhs": 2,
       "batting": 77,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/10696.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/10696.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kane-williamson",
@@ -1094,7 +1193,8 @@
       "basePriceLakhs": 2,
       "batting": 82,
       "bowling": 18,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/14329.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/14329.png&brand=ipl",
+      "captainMatches": 46
     },
     {
       "id": "steve-smith",
@@ -1105,7 +1205,8 @@
       "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 14,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/14326.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/14326.png&brand=ipl",
+      "captainMatches": 43
     },
     {
       "id": "marnus-labuschagne",
@@ -1115,7 +1216,8 @@
       "country": "AUS",
       "basePriceLakhs": 2,
       "batting": 62,
-      "bowling": 22
+      "bowling": 22,
+      "captainMatches": 0
     },
     {
       "id": "hashim-amla",
@@ -1126,7 +1228,8 @@
       "batting": 65,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/14148.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/14148.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "chris-lynn",
@@ -1137,7 +1240,8 @@
       "batting": 74,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/10922.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/10922.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "matthew-short",
@@ -1148,7 +1252,8 @@
       "basePriceLakhs": 2,
       "batting": 77,
       "bowling": 42,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/20067.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/20067.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "david-warner",
@@ -1159,7 +1264,8 @@
       "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/11657.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/11657.png&brand=ipl",
+      "captainMatches": 83
     },
     {
       "id": "robin-uthappa",
@@ -1170,7 +1276,8 @@
       "batting": 66,
       "bowling": 10,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/11320.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/11320.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ambati-rayudu",
@@ -1181,7 +1288,8 @@
       "batting": 69,
       "bowling": 12,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/15264.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/15264.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mandeep-singh",
@@ -1192,7 +1300,8 @@
       "batting": 64,
       "bowling": 14,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/13573.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/13573.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "cheteshwar-pujara",
@@ -1203,7 +1312,8 @@
       "batting": 52,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/12678.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/12678.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "manoj-tiwary",
@@ -1214,7 +1324,8 @@
       "batting": 63,
       "bowling": 16,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/12681.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/12681.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "naman-dhir",
@@ -1225,7 +1336,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 30,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/79429.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/79429.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "musheer-khan",
@@ -1236,7 +1348,8 @@
       "basePriceLakhs": 2,
       "batting": 71,
       "bowling": 40,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/79510.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/79510.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kevin-pietersen",
@@ -1247,7 +1360,8 @@
       "batting": 74,
       "bowling": 10,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/6185/1014/12332.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/6185/1014/12332.png&brand=ipl",
+      "captainMatches": 17
     },
     {
       "id": "eoin-morgan",
@@ -1258,7 +1372,8 @@
       "batting": 70,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/11654.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/11654.png&brand=ipl",
+      "captainMatches": 24
     },
     {
       "id": "chris-gayle",
@@ -1269,7 +1384,8 @@
       "batting": 78,
       "bowling": 14,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/12097.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/12097.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "brendon-mccullum",
@@ -1280,7 +1396,8 @@
       "batting": 74,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/10788.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/10788.png&brand=ipl",
+      "captainMatches": 14
     },
     {
       "id": "colin-munro",
@@ -1291,7 +1408,8 @@
       "batting": 71,
       "bowling": 12,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/15640.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/15640.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "alex-hales",
@@ -1302,7 +1420,8 @@
       "basePriceLakhs": 2,
       "batting": 75,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/14063.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/14063.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "dawid-malan",
@@ -1313,7 +1432,8 @@
       "basePriceLakhs": 2,
       "batting": 73,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/12296.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/12296.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jitesh-sharma",
@@ -1324,7 +1444,8 @@
       "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/20033.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/20033.png&brand=ipl",
+      "captainMatches": 4
     },
     {
       "id": "quinton-de-kock",
@@ -1335,7 +1456,8 @@
       "basePriceLakhs": 2,
       "batting": 84,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/17614.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/17614.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jonny-bairstow",
@@ -1346,7 +1468,8 @@
       "basePriceLakhs": 2,
       "batting": 81,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/13284.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/13284.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rahmanullah-gurbaz",
@@ -1357,7 +1480,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/67497.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/67497.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "prabhsimran-singh",
@@ -1368,7 +1492,8 @@
       "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/68831.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/68831.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ryan-rickelton",
@@ -1379,7 +1504,8 @@
       "basePriceLakhs": 2,
       "batting": 79,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/37670.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/37670.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "devon-conway",
@@ -1390,7 +1516,8 @@
       "basePriceLakhs": 2,
       "batting": 83,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/21804.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/21804.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "dinesh-karthik",
@@ -1401,7 +1528,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/14615.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/14615.png&brand=ipl",
+      "captainMatches": 43
     },
     {
       "id": "wriddhiman-saha",
@@ -1412,7 +1540,8 @@
       "basePriceLakhs": 2,
       "batting": 64,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/11452.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/11452.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "parthiv-patel",
@@ -1423,7 +1552,8 @@
       "batting": 64,
       "bowling": 8,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/11702.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/11702.png&brand=ipl",
+      "captainMatches": 1
     },
     {
       "id": "josh-inglis",
@@ -1434,7 +1564,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/37709.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/37709.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "glenn-phillips",
@@ -1445,7 +1576,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 28,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/26160.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/26160.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "aiden-markram",
@@ -1456,7 +1588,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 64,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/27774.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/27774.png&brand=ipl",
+      "captainMatches": 13
     },
     {
       "id": "venkatesh-iyer",
@@ -1467,7 +1600,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 58,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/34170.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/34170.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "marcus-stoinis",
@@ -1478,7 +1612,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 68,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/10925.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/10925.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sam-curran",
@@ -1489,7 +1624,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/21837.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/21837.png&brand=ipl",
+      "captainMatches": 11
     },
     {
       "id": "marco-jansen",
@@ -1500,7 +1636,8 @@
       "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/68021.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/68021.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "moeen-ali",
@@ -1511,7 +1648,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/15852.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/15852.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shahbaz-ahmed",
@@ -1522,7 +1660,8 @@
       "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/70625.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/70625.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "romario-shepherd",
@@ -1533,7 +1672,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/58377.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/58377.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shashank-singh",
@@ -1544,7 +1684,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 58,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/34331.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/34331.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rahul-tewatia",
@@ -1555,7 +1696,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/50536.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/50536.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "deepak-hooda",
@@ -1566,7 +1708,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 60,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/20738.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/20738.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vijay-shankar",
@@ -1577,7 +1720,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 62,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/27213.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/27213.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ramandeep-singh",
@@ -1588,7 +1732,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 58,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/65478.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/65478.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mitchell-santner",
@@ -1599,7 +1744,8 @@
       "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/14334.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/14334.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ben-stokes",
@@ -1610,7 +1756,8 @@
       "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/16074.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/16074.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "wanindu-hasaranga",
@@ -1621,7 +1768,8 @@
       "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 86,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/26489.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/26489.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kyle-mayers",
@@ -1632,7 +1780,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 64,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/15108.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/15108.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "chris-morris",
@@ -1643,7 +1792,8 @@
       "batting": 68,
       "bowling": 80,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/17615.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/17615.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shakib-al-hasan",
@@ -1654,7 +1804,8 @@
       "batting": 76,
       "bowling": 82,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/12990.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/12990.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "azmatullah-omarzai",
@@ -1665,7 +1816,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/66512.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/66512.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jacob-bethell",
@@ -1676,7 +1828,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 64,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/73907.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/73907.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kieron-pollard",
@@ -1687,7 +1840,8 @@
       "batting": 82,
       "bowling": 70,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/12376.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/12376.png&brand=ipl",
+      "captainMatches": 6
     },
     {
       "id": "dwayne-bravo",
@@ -1698,7 +1852,8 @@
       "batting": 72,
       "bowling": 78,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/12369.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/12369.png&brand=ipl",
+      "captainMatches": 1
     },
     {
       "id": "gerald-coetzee",
@@ -1709,7 +1864,8 @@
       "basePriceLakhs": 2,
       "batting": 24,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/66452.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/66452.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "lockie-ferguson",
@@ -1720,7 +1876,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 84,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/20183.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/20183.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "anrich-nortje",
@@ -1731,7 +1888,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 85,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/23659.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/23659.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "deepak-chahar",
@@ -1742,7 +1900,8 @@
       "basePriceLakhs": 2,
       "batting": 28,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/19257.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/19257.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shardul-thakur",
@@ -1753,7 +1912,8 @@
       "basePriceLakhs": 2,
       "batting": 44,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/27765.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/27765.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mukesh-kumar",
@@ -1764,7 +1924,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 77,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/31742.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/31742.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "tushar-deshpande",
@@ -1775,7 +1936,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/44044.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/44044.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rp-singh",
@@ -1786,7 +1948,8 @@
       "batting": 12,
       "bowling": 66,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/6185/1014/17624.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/6185/1014/17624.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "harbhajan-singh",
@@ -1797,7 +1960,8 @@
       "batting": 28,
       "bowling": 76,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/14019.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/14019.png&brand=ipl",
+      "captainMatches": 20
     },
     {
       "id": "prasidh-krishna",
@@ -1808,7 +1972,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/59553.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/59553.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "umran-malik",
@@ -1819,7 +1984,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/73981.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/73981.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "adam-zampa",
@@ -1830,7 +1996,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 85,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/13490.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/13490.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "adil-rashid",
@@ -1841,7 +2008,8 @@
       "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/12731.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/12731.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "fazalhaq-farooqi",
@@ -1852,7 +2020,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/67208.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/67208.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sandeep-sharma",
@@ -1863,7 +2032,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 79,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/15660.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/15660.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "maheesh-theekshana",
@@ -1874,7 +2044,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/67860.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/67860.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rahul-chahar",
@@ -1885,7 +2056,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/63511.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/63511.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "suyash-sharma",
@@ -1896,7 +2068,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/80525.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/80525.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "nandre-burger",
@@ -1907,7 +2080,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/52827.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/52827.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "nuwan-thushara",
@@ -1918,7 +2092,8 @@
       "basePriceLakhs": 2,
       "batting": 8,
       "bowling": 81,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/51461.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/51461.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "alzarri-joseph",
@@ -1929,7 +2104,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/28768.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/28768.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vaibhav-arora",
@@ -1940,7 +2116,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/72965.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/72965.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jaydev-unadkat",
@@ -1951,7 +2128,8 @@
       "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/15271.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/15271.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mohit-sharma",
@@ -1962,7 +2140,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/17612.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/17612.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "akash-deep",
@@ -1973,7 +2152,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/70603.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/70603.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "nathan-ellis",
@@ -1984,7 +2164,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/68917.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/68917.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "reece-topley",
@@ -1995,7 +2176,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/11258.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/11258.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "lungi-ngidi",
@@ -2006,7 +2188,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 81,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/28230.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/28230.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "naveen-ul-haq",
@@ -2017,7 +2200,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/39409.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/39409.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "keshav-maharaj",
@@ -2028,7 +2212,8 @@
       "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/16664.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/16664.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mayank-markande",
@@ -2039,7 +2224,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/67641.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/67641.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kwena-maphaka",
@@ -2050,7 +2236,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/76217.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/76217.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "praveen-kumar",
@@ -2061,7 +2248,8 @@
       "batting": 20,
       "bowling": 67,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/6185/1026/13142.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/6185/1026/13142.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "umesh-yadav",
@@ -2072,7 +2260,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 71,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/11660.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/11660.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ishant-sharma",
@@ -2083,7 +2272,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/17701.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/17701.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "piyush-chawla",
@@ -2094,7 +2284,8 @@
       "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 71,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/11325.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/11325.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "karn-sharma",
@@ -2105,7 +2296,8 @@
       "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 69,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/20618.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/20618.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ashish-nehra",
@@ -2116,7 +2308,8 @@
       "batting": 14,
       "bowling": 74,
       "basePriceLakhs": 2,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/10806.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/10806.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "akshat-raghuwanshi",
@@ -2127,7 +2320,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/76593.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/76593.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "aman-khan",
@@ -2138,7 +2332,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 18,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/74139.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/74139.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "aman-rao",
@@ -2149,7 +2344,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/87914.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/87914.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "aniket-verma",
@@ -2160,7 +2356,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/87977.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/87977.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "pyla-avinash",
@@ -2171,7 +2368,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/83182.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/83182.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ayush-badoni",
@@ -2182,7 +2380,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 20,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/68296.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/68296.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ayush-mhatre",
@@ -2193,7 +2392,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/86445.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/86445.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "daksh-kamra",
@@ -2204,7 +2404,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/95066.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/95066.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "danish-malewar",
@@ -2215,7 +2416,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/87528.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/87528.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "harnoor-singh",
@@ -2226,7 +2428,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/76208.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/76208.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "himmat-singh",
@@ -2237,7 +2440,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 14,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/54303.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/54303.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "krish-bhagat",
@@ -2248,7 +2452,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/87066.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/87066.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "macneil-noronha",
@@ -2259,7 +2464,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/83038.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/83038.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "madhav-tiwari",
@@ -2270,7 +2476,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/87978.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/87978.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mayank-rawat",
@@ -2281,7 +2488,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/65550.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/65550.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "pathum-nissanka",
@@ -2292,7 +2500,8 @@
       "basePriceLakhs": 2,
       "batting": 82,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/34256.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/34256.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "prashant-veer",
@@ -2303,7 +2512,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/82907.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/82907.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "priyansh-arya",
@@ -2314,7 +2524,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/75656.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/75656.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ramakrishna-ghosh",
@@ -2325,7 +2536,8 @@
       "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 18,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/78758.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/78758.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ravi-singh",
@@ -2336,7 +2548,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/86608.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/86608.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ravichandran-smaran",
@@ -2347,7 +2560,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/83039.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/83039.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rs-ambrish",
@@ -2358,7 +2572,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/90360.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/90360.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ruchit-ahir",
@@ -2369,7 +2584,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/87900.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/87900.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sahil-parakh",
@@ -2380,7 +2596,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/86350.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/86350.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sarfaraz-khan",
@@ -2391,7 +2608,8 @@
       "basePriceLakhs": 2,
       "batting": 82,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/20224.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/20224.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sarthak-ranjan",
@@ -2402,7 +2620,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/60039.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/60039.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sherfane-rutherford",
@@ -2413,7 +2632,8 @@
       "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 20,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/66048.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/66048.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shivang-kumar",
@@ -2424,7 +2644,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/90837.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/90837.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shubham-dubey",
@@ -2435,7 +2656,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/74047.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/74047.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vihaan-malhotra",
@@ -2446,7 +2668,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/86477.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/86477.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "yash-punja",
@@ -2457,7 +2680,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 12,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/92045.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/92045.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "abishek-porel",
@@ -2468,7 +2692,8 @@
       "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/76558.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/76558.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "anuj-rawat",
@@ -2479,7 +2704,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/66837.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/66837.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "connor-esterhuizen",
@@ -2490,7 +2716,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/77032.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/77032.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "donovan-ferreira",
@@ -2501,7 +2728,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 16,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/68473.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/68473.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jordan-cox",
@@ -2512,7 +2740,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/69894.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/69894.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kartik-sharma",
@@ -2523,7 +2752,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/87338.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/87338.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kumar-kushagra",
@@ -2534,7 +2764,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/72805.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/72805.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "lhuan-dre-pretorius",
@@ -2545,7 +2776,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/81719.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/81719.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "luvnith-sisodia",
@@ -2556,7 +2788,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/70503.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/70503.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "matthew-breetzke",
@@ -2567,7 +2800,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/32332.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/32332.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mukul-choudhary",
@@ -2578,7 +2812,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/79805.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/79805.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "robin-minz",
@@ -2589,7 +2824,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/84159.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/84159.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "salil-arora",
@@ -2600,7 +2836,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/72140.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/72140.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "tejasvi-dahiya",
@@ -2611,7 +2848,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/86769.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/86769.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "tim-seifert",
@@ -2622,7 +2860,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/20009.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/20009.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "tom-banton",
@@ -2633,7 +2872,8 @@
       "basePriceLakhs": 2,
       "batting": 78,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/65546.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/65546.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "urvil-patel",
@@ -2644,7 +2884,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/67543.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/67543.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vishnu-vinod",
@@ -2655,7 +2896,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 8,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/34672.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/34672.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ajay-mandal",
@@ -2666,7 +2908,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 68,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/41417.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/41417.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "anukul-roy",
@@ -2677,7 +2920,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/65841.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/65841.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "arshin-kulkarni",
@@ -2688,7 +2932,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 68,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/82909.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/82909.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "atharva-ankolekar",
@@ -2699,7 +2944,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/72144.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/72144.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "brydon-carse",
@@ -2710,7 +2956,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/16178.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/16178.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "cooper-connolly",
@@ -2721,7 +2968,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/73472.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/73472.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "corbin-bosch",
@@ -2732,7 +2980,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/22181.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/22181.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "dasun-shanaka",
@@ -2743,7 +2992,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/16094.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/16094.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "dian-forrester",
@@ -2754,7 +3004,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/82390.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/82390.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "emanjot-singh-chahal",
@@ -2765,7 +3016,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 66,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/87006.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/87006.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "george-linde",
@@ -2776,7 +3028,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/20680.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/20680.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jack-edwards",
@@ -2787,7 +3040,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/65954.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/65954.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jamie-overton",
@@ -2798,7 +3052,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/10301.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/10301.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jason-holder",
@@ -2809,7 +3064,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 84,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/12693.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/12693.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jayant-yadav",
@@ -2820,7 +3076,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/18001.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/18001.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kamindu-mendis",
@@ -2831,7 +3088,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/26488.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/26488.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mahipal-lomror",
@@ -2842,7 +3100,8 @@
       "basePriceLakhs": 2,
       "batting": 74,
       "bowling": 62,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/20222.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/20222.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mitch-owen",
@@ -2853,7 +3112,8 @@
       "basePriceLakhs": 2,
       "batting": 76,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/73856.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/73856.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "nishant-sindhu",
@@ -2864,7 +3124,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/76212.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/76212.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "raj-bawa",
@@ -2875,7 +3136,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 68,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/76211.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/76211.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rehan-ahmed",
@@ -2886,7 +3148,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/74536.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/74536.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "riyan-parag",
@@ -2897,7 +3160,8 @@
       "basePriceLakhs": 2,
       "batting": 80,
       "bowling": 66,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/65476.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/65476.png&brand=ipl",
+      "captainMatches": 22
     },
     {
       "id": "shreyas-gopal",
@@ -2908,7 +3172,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/16937.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/16937.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "suryansh-shedge",
@@ -2919,7 +3184,8 @@
       "basePriceLakhs": 2,
       "batting": 70,
       "bowling": 68,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/78777.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/78777.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "swapnil-singh",
@@ -2930,7 +3196,8 @@
       "basePriceLakhs": 2,
       "batting": 68,
       "bowling": 70,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/20729.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/20729.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "zak-foulkes",
@@ -2941,7 +3208,8 @@
       "basePriceLakhs": 2,
       "batting": 72,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/75966.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/75966.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "abhinandan-singh",
@@ -2952,7 +3220,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/86886.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/86886.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "adam-milne",
@@ -2963,7 +3232,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/20007.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/20007.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "akash-madhwal",
@@ -2974,7 +3244,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/72670.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/72670.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "akash-singh",
@@ -2985,7 +3256,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/69004.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/69004.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "akeal-hosein",
@@ -2996,7 +3268,8 @@
       "basePriceLakhs": 2,
       "batting": 24,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/24868.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/24868.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "am-ghazanfar",
@@ -3007,7 +3280,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/78206.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/78206.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "amit-kumar",
@@ -3018,7 +3292,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/94972.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/94972.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "anshul-kamboj",
@@ -3029,7 +3304,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/70442.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/70442.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "arjun-tendulkar",
@@ -3040,7 +3316,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/68286.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/68286.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "arshad-khan",
@@ -3051,7 +3328,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/74055.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/74055.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ashok-sharma",
@@ -3062,7 +3340,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/76540.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/76540.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ashwani-kumar",
@@ -3073,7 +3352,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/72996.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/72996.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "auqib-nabi-dar",
@@ -3084,7 +3364,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/68788.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/68788.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "ben-dwarshuis",
@@ -3095,7 +3376,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/46139.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/46139.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "blessing-muzarabani",
@@ -3106,7 +3388,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/66839.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/66839.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "brijesh-sharma",
@@ -3117,7 +3400,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/90896.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/90896.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "david-payne",
@@ -3128,7 +3412,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/11256.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/11256.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "digvesh-singh-rathi",
@@ -3139,7 +3424,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/86771.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/86771.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "dilshan-madushanka",
@@ -3150,7 +3436,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/69841.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/69841.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "dushmantha-chameera",
@@ -3161,7 +3448,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 82,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/13294.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/13294.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "eshan-malinga",
@@ -3172,7 +3460,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/77440.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/77440.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "gurjapneet-singh",
@@ -3183,7 +3472,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/74631.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/74631.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "gurnoor-brar",
@@ -3194,7 +3484,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/76164.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/76164.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "harpreet-brar",
@@ -3205,7 +3496,8 @@
       "basePriceLakhs": 2,
       "batting": 24,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/69782.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/69782.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "harsh-dubey",
@@ -3216,7 +3508,8 @@
       "basePriceLakhs": 2,
       "batting": 20,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/74025.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/74025.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "jacob-duffy",
@@ -3227,7 +3520,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/15670.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/15670.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kanishk-chouhan",
@@ -3238,7 +3532,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/91255.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/91255.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kartik-tyagi",
@@ -3249,7 +3544,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/66831.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/66831.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "krains-fuletra",
@@ -3260,7 +3556,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/88265.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/88265.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kuldeep-sen",
@@ -3271,7 +3568,8 @@
       "basePriceLakhs": 2,
       "batting": 10,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/69043.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/69043.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kuldip-yadav",
@@ -3282,7 +3580,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/72756.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/72756.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kulwant-khejroliya",
@@ -3293,7 +3592,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/65727.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/65727.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "kyle-jamieson",
@@ -3304,7 +3604,8 @@
       "basePriceLakhs": 2,
       "batting": 22,
       "bowling": 84,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/33186.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/33186.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "luke-wood",
@@ -3315,7 +3616,8 @@
       "basePriceLakhs": 2,
       "batting": 18,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/41054.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/41054.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "manav-suthar",
@@ -3326,7 +3628,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/70453.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/70453.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mangesh-yadav",
@@ -3337,7 +3640,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/90854.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/90854.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "manimaran-siddharth",
@@ -3348,7 +3652,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/69572.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/69572.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "matt-henry",
@@ -3359,7 +3664,8 @@
       "basePriceLakhs": 2,
       "batting": 20,
       "bowling": 86,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/18052.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/18052.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mohammed-izhar",
@@ -3370,7 +3676,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/94165.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/94165.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mohsin-khan",
@@ -3381,7 +3688,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/67617.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/67617.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mukesh-choudhary",
@@ -3392,7 +3700,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/70580.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/70580.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "mustafizur-rahman",
@@ -3403,7 +3712,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 88,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/19402.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/19402.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "naman-tiwari",
@@ -3414,7 +3724,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/83310.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/83310.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "navdeep-saini",
@@ -3425,7 +3736,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/16790.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/16790.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "onkar-tarmale",
@@ -3436,7 +3748,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/90418.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/90418.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "praful-hinge",
@@ -3447,7 +3760,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/87731.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/87731.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "prashant-solanki",
@@ -3458,7 +3772,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/74067.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/74067.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "praveen-dubey",
@@ -3469,7 +3784,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/49784.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/49784.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "prince-yadav",
@@ -3480,7 +3796,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/84374.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2880/84374.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "raghu-sharma",
@@ -3491,7 +3808,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/66897.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1854/66897.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "rasikh-dar",
@@ -3502,7 +3820,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/68859.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/68859.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "richard-gleeson",
@@ -3513,7 +3832,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/27711.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/27711.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sakib-hussain",
@@ -3524,7 +3844,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/78832.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/78832.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "satvik-deswal",
@@ -3535,7 +3856,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/91380.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/91380.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "saurabh-dubey",
@@ -3546,7 +3868,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/72721.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1873/72721.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "shivam-mavi",
@@ -3557,7 +3880,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 78,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/65553.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/65553.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "spencer-johnson",
@@ -3568,7 +3892,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/66728.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1622/66728.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "sushant-mishra",
@@ -3579,7 +3904,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/71452.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/71452.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "tripurana-vijay",
@@ -3590,7 +3916,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/76128.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/76128.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vicky-ostwal",
@@ -3601,7 +3928,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/76210.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/76210.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vignesh-puthur",
@@ -3612,7 +3940,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/87852.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/87852.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vijaykumar-vyshak",
@@ -3623,7 +3952,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/74053.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/74053.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vipraj-nigam",
@@ -3634,7 +3964,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/86874.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1396/86874.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "vishal-nishad",
@@ -3645,7 +3976,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/86859.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/86859.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "xavier-bartlett",
@@ -3656,7 +3988,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/55170.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/55170.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "yarra-prithviraj",
@@ -3667,7 +4000,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/66840.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2879/66840.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "yash-dayal",
@@ -3678,7 +4012,8 @@
       "basePriceLakhs": 2,
       "batting": 12,
       "bowling": 80,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/68716.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2138/68716.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "yash-thakur",
@@ -3689,7 +4024,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 76,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/65344.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/2040/65344.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "yudhvir-singh-charak",
@@ -3700,7 +4036,8 @@
       "basePriceLakhs": 2,
       "batting": 16,
       "bowling": 74,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/72710.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1558/72710.png&brand=ipl",
+      "captainMatches": 0
     },
     {
       "id": "zeeshan-ansari",
@@ -3711,7 +4048,8 @@
       "basePriceLakhs": 2,
       "batting": 14,
       "bowling": 72,
-      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/20236.png&brand=ipl"
+      "headshot": "https://www.iplt20.com/api/team-assets?pathname=player/8903/1153/20236.png&brand=ipl",
+      "captainMatches": 0
     }
   ]
 }

@@ -1720,6 +1720,11 @@ function captainPlayerOf(team) {
   return slot ? slot.player : null;
 }
 
+function captainBonusLabelOf(team) {
+  if (!team || !team.captainId) return "";
+  return team.captainBonusLabel || "";
+}
+
 function cursedByOf(team, franchises) {
   const name = team && team.name;
   if (!name) return [];
@@ -1820,8 +1825,9 @@ function prepCard(team) {
   const catalog = catalogById();
   let details = "";
   if (expanded) {
+    const capBonus = captainBonusLabelOf(team);
     const capBlock = captain
-      ? `<div class="prep-detail-cap"><strong>${esc(captain.name)}</strong> <span class="tag">Captain</span><p class="lede">${esc(captain.role)} · bat ${esc(captain.batting)} · bowl ${esc(captain.bowling)}</p></div>`
+      ? `<div class="prep-detail-cap"><strong>${esc(captain.name)}</strong> <span class="tag">Captain</span><p class="lede">${esc(captain.role)} · bat ${esc(captain.batting)} · bowl ${esc(captain.bowling)}</p>${capBonus ? `<p class="prep-cap-bonus">${esc(capBonus)}</p>` : ""}</div>`
       : `<p class="lede">Captain still choosing...</p>`;
     const boostLines = (team.boosters || []).map((b) => {
       const full = catalog.get(b.id) || b;
@@ -1839,6 +1845,7 @@ function prepCard(team) {
         <div class="prep-card-copy">
           <h3>${esc(team.name)}</h3>
           <p class="prep-captain-line">${captain ? esc(captain.name) : "choosing..."}</p>
+          ${captain && captainBonusLabelOf(team) ? `<p class="prep-cap-bonus">${esc(captainBonusLabelOf(team))}</p>` : ""}
           <div class="prep-chips">${chips}</div>
         </div>
         <div class="prep-card-meta">
@@ -1902,13 +1909,19 @@ function captainView() {
   const left = formatClock(remainingMs(state.captainEndsAt));
   const catalog = state.boosterCatalog || [];
   const owned = new Set((you?.boosters || []).map((b) => b.id));
+  const yourBonus = captainBonusLabelOf(you);
   const picks = (you?.squad || [])
     .map(
-      (s) => `
-      <button class="pick ${you.captainId === s.player.id ? "selected" : ""}" data-captain="${esc(s.player.id)}">
+      (s) => {
+        const selected = you && you.captainId === s.player.id;
+        const bonus = selected && yourBonus ? `<p class="prep-cap-bonus">${esc(yourBonus)}</p>` : "";
+        return `
+      <button class="pick ${selected ? "selected" : ""}" data-captain="${esc(s.player.id)}">
         <strong>${esc(s.player.name)}</strong>
         <div class="lede" style="margin:4px 0 0">${s.player.role} · bat ${s.player.batting} · bowl ${s.player.bowling}</div>
-      </button>`
+        ${bonus}
+      </button>`;
+      }
     )
     .join("");
   const shopList = catalog.slice().sort((a, b) => {
@@ -1954,7 +1967,7 @@ function captainView() {
       <div class="prep-board">${board}</div>
       <div class="panel prep-you">
         <h2>Choose your captain</h2>
-        <p class="lede">+5% rating. Auto-picks if time runs out.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
+        <p class="lede">A 0–5% rating boost, based on IPL matches as captain, is revealed after you pick. Auto-picks if time runs out.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
         <div class="captain-grid">${picks}</div>
       </div>
       <div class="panel prep-shop" id="prep-shop">
@@ -2185,6 +2198,7 @@ function fillResultsTeamSheet(name) {
       <div class="sheet-shot" id="${shotId}"></div>
       <div class="sheet-player-body">
         <p class="sheet-player-name">${s.isCaptain ? '<span class="cap">CAP</span> ' : ""}${esc(p.name || "")}${top ? ' <span class="sheet-top-tag">Top performer</span>' : ""}</p>
+        ${s.isCaptain && captainBonusLabelOf(team) ? `<p class="sheet-cap-bonus">${esc(captainBonusLabelOf(team))}</p>` : ""}
         <p class="sheet-player-meta">${roleTag(p.role)} · ${money(s.priceLakhs)}</p>
         <p class="sheet-player-stats">${lines}</p>
       </div>

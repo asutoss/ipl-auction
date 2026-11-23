@@ -87,6 +87,138 @@ describe("player pool", () => {
   });
 });
 
+describe("captain bonus", () => {
+  const {
+    captainMatchesOf,
+    captainBonus,
+    captainBonusPct,
+    formatCaptainBonus,
+    CAPTAIN_BONUS_MAX,
+    CAPTAIN_MATCHES_FOR_MAX,
+  } = require("../server/captaincy");
+  const { countFor } = require("../scripts/captain-matches");
+
+  test("every player has an IPL captaincy-match count, 0 if they never captained", () => {
+    assert.equal(players.length, 337);
+    const expected = {
+      "MS Dhoni": 235,
+      "Rohit Sharma": 158,
+      "Virat Kohli": 143,
+      "Gautam Gambhir": 129,
+      "Shreyas Iyer": 101,
+      "KL Rahul": 64,
+      "Steve Smith": 43,
+      "Shubman Gill": 43,
+      "Jasprit Bumrah": 1,
+      "Abhishek Sharma": 0,
+      "Jofra Archer": 0,
+    };
+    for (const p of players) {
+      const n = captainMatchesOf(p);
+      assert.equal(Number.isInteger(n) && n >= 0, true, p.name);
+      assert.equal("captainMatches" in p, false, `loaded player should not expose captainMatches: ${p.name}`);
+      if (expected[p.name] != null) assert.equal(n, expected[p.name], p.name);
+      assert.equal(n, countFor(p.name), p.name);
+    }
+  });
+
+  test("bonus is 0–5%, log-scaled, and caps at Rohit Sharma's 158 matches", () => {
+    assert.equal(CAPTAIN_MATCHES_FOR_MAX, 158);
+    assert.equal(CAPTAIN_BONUS_MAX, 0.05);
+    assert.equal(captainBonus(0), 0);
+    assert.equal(captainBonus(158), 0.05);
+    assert.equal(captainBonus(235), 0.05);
+    assert.equal(captainBonusPct(0), 0);
+    assert.equal(captainBonusPct(158), 5);
+    assert.equal(captainBonusPct(235), 5);
+    assert.equal(captainBonusPct(143), 4.9);
+    assert.equal(captainBonusPct(43), 3.7);
+    assert.equal(captainBonusPct(5), 1.8);
+    assert.equal(captainBonusPct(1), 0.7);
+    let prev = -1;
+    for (let n = 0; n <= 158; n++) {
+      const b = captainBonus(n);
+      assert.ok(b >= prev - 1e-12, `monotonic at ${n}`);
+      assert.ok(b >= 0 && b <= 0.05 + 1e-12);
+      prev = b;
+    }
+    assert.equal(formatCaptainBonus(0), "+0.0% captain bonus · never captained in the IPL");
+    assert.equal(formatCaptainBonus(1), "+0.7% captain bonus · 1 IPL match as captain");
+    assert.equal(formatCaptainBonus(43), "+3.7% captain bonus · 43 IPL matches as captain");
+    assert.equal(formatCaptainBonus(143), "+4.9% captain bonus · 143 IPL matches as captain");
+    assert.equal(formatCaptainBonus(158), "+5.0% captain bonus · 158 IPL matches as captain");
+    assert.equal(formatCaptainBonus(235), "+5.0% captain bonus · 235 IPL matches as captain");
+  });
+
+  test("the captain's rating boost uses the curve, not a flat 5%", () => {
+    const kohli = players.find((p) => p.id === "virat-kohli");
+    const rookie = players.find((p) => p.id === "abhishek-sharma") || players.find((p) => captainMatchesOf(p) === 0);
+    assert.ok(kohli && rookie);
+    const cap = { name: "A", formPct: 100, mode: "classical", boosters: [], squad: [{ player: kohli, priceLakhs: 2 }], captainId: kohli.id };
+    const noCap = { ...cap, captainId: null };
+    const capS = teamStrength(cap).batting;
+    const noS = teamStrength(noCap).batting;
+    assert.ok(Math.abs(capS - noS * (1 + captainBonus(143))) < 1e-9, `${capS} vs ${noS}`);
+    const rookieCap = { name: "B", formPct: 100, mode: "classical", boosters: [], squad: [{ player: rookie, priceLakhs: 2 }], captainId: rookie.id };
+    const rookieNo = { ...rookieCap, captainId: null };
+    assert.equal(teamStrength(rookieCap).batting, teamStrength(rookieNo).batting);
+  });
+
+  test("the bonus is hidden until a captain is selected, then packed for every client", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+    for (const name of ["Ashutosh", "Priya"]) {
+      const team = room.findByName(name);
+      for (const p of players) {
+        if ((need[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+          team.squad.push({ player: p, priceLakhs: 2 });
+          room.soldIds.add(p.id);
+          need[p.role] -= 1;
+        }
+      }
+      if (name === "Priya") need.BAT = 4, need.WK = 1, need.AR = 2, need.BOWL = 4;
+    }
+    // Re-fill Priya properly
+    room.findByName("Priya").squad = [];
+    const priyaNeed = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+    const priya = room.findByName("Priya");
+    for (const p of players) {
+      if ((priyaNeed[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+        priya.squad.push({ player: p, priceLakhs: 2 });
+        room.soldIds.add(p.id);
+        priyaNeed[p.role] -= 1;
+      }
+    }
+    const ash = room.findByName("Ashutosh");
+    const kohli = ash.squad.find((s) => s.player.id === "virat-kohli");
+    assert.ok(kohli, "Ashutosh should have been dealt Virat Kohli first");
+    room.beginCaptainPhase();
+    const before = room.getState("ashutosh");
+    assert.equal(before.you.captainId, null);
+    assert.equal(before.you.captainBonusLabel, null);
+    for (const f of before.franchises) {
+      assert.equal(f.captainBonusLabel, null);
+      for (const s of f.squad) {
+        assert.equal("captainMatches" in (s.player || {}), false, s.player && s.player.name);
+        assert.equal("captainBonusLabel" in (s.player || {}), false);
+      }
+    }
+    const pick = room.selectCaptain("Ashutosh", "virat-kohli");
+    assert.equal(pick.ok, true);
+    const after = room.getState("priya");
+    const team = after.franchises.find((f) => f.name === "Ashutosh");
+    assert.equal(team.captainId, "virat-kohli");
+    assert.equal(team.captainMatches, 143);
+    assert.equal(team.captainBonusLabel, "+4.9% captain bonus · 143 IPL matches as captain");
+    assert.ok(after.prepFeed.some((e) => /Virat Kohli/.test(e.message) && /\+4\.9% captain bonus/.test(e.message)));
+    for (const s of team.squad) {
+      assert.equal("captainMatches" in (s.player || {}), false);
+    }
+    const stillChoosing = after.franchises.find((f) => f.name === "Priya");
+    assert.equal(stillChoosing.captainBonusLabel, null);
+  });
+});
+
 describe("bid increments", () => {
   test("raises are +1, +2 or +5 points from the current bid", () => {
     const { BID_STEPS, isLegalRaise } = require("../server/rules");

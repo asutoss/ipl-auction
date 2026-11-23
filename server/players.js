@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { BASE_PRICE_POINTS } = require("./rules");
+const { registerCaptainMatches } = require("./captaincy");
 
 const DATA_PATH = path.join(__dirname, "..", "data", "players.json");
 
@@ -32,6 +33,7 @@ function loadPlayers() {
       batting: Number(p.batting),
       bowling: Number(p.bowling),
     };
+    registerCaptainMatches(p.id, p.captainMatches);
     const shot = officialHeadshotUrl(p.headshot);
     if (shot) row.headshot = shot;
     return row;

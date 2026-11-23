@@ -338,7 +338,16 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .prep-card-face .team-mark-wrap { width: 40px; height: 40px; flex: 0 0 40px; }
 .prep-card-copy { min-width: 0; }
 .prep-card-copy h3 { margin: 0; font-size: 16px; color: var(--ct, var(--text)); }
-.prep-captain-line { margin: 2px 0 6px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prep-captain-line { margin: 2px 0 4px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prep-cap-bonus, .sheet-cap-bonus {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1.3;
+  white-space: normal;
+}
+.pick .prep-cap-bonus { margin: 6px 0 0; }
 .prep-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .prep-chip {
   display: inline-flex;
@@ -366,6 +375,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 @media (max-width: 700px) {
   .prep-chip { font-size: 10px; }
   .prep-boost-line { font-size: 12px; }
+  .prep-cap-bonus, .sheet-cap-bonus { font-size: 10px; }
 }
 .prep-card-meta { text-align: right; display: grid; gap: 4px; justify-items: end; }
 .prep-form { margin: 0; }
@@ -1994,6 +2004,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   overflow: hidden;
 }
 .sheet-player-name { margin: 0 0 2px; font-weight: 700; }
+.sheet-cap-bonus { margin: 0 0 4px; }
 .sheet-player-meta, .sheet-player-stats { margin: 0; color: var(--muted); font-size: 12px; }
 .sheet-player-stats { display: flex; flex-wrap: wrap; gap: 0 10px; margin-top: 2px; }
 .sheet-top-tag {

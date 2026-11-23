@@ -1,4 +1,5 @@
 const { overallRating } = require("./players");
+const { captainBonus, captainMatchesOf } = require("./captaincy");
 const { ROLES, QUOTA, formatPoints, resolveMode, inningsFormat } = require("./rules");
 const { hasBooster } = require("./boosters");
 
@@ -38,7 +39,7 @@ function formatOvers(balls) {
 
 function playerRatings(slot, isCaptain) {
   const p = slot.player;
-  const boost = isCaptain ? 1.05 : 1;
+  const boost = isCaptain ? 1 + captainBonus(captainMatchesOf(p)) : 1;
   return { batting: p.batting * boost, bowling: p.bowling * boost };
 }
 
@@ -146,7 +147,8 @@ function matchStrength(team, { chasing = false, nerfed = false } = {}) {
  *
  * Starts from matchStrength (non-chasing, not bus-nerfed): batting and bowling
  * averages with empty-slot penalties (sum / max(count, expected slots for the
- * mode)), the captain's +5% on their ratings, standing boosters (cheerleaders,
+ * mode)), the captain's 0–5% rating bump (scaled by IPL matches as captain),
+ * standing boosters (cheerleaders,
  * home curator, friendly umpire), and the team's form multiplier. Dew-factor
  * is omitted because it only applies when chasing.
  *

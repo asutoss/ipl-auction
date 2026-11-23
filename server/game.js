@@ -1,6 +1,7 @@
 const { EventEmitter } = require("events");
 const { overallRating, officialHeadshotUrl } = require("./players");
 const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthScore } = require("./simulate");
+const { captainBonusFields, packCaptainBonus } = require("./captaincy");
 const { shortenPowerReason } = require("../public/power-reasons");
 const {
   ROLES,
@@ -326,6 +327,7 @@ class GameRoom extends EventEmitter {
       remainingQuota: remainingQuota(f.squad, this.mode),
       complete: isSquadComplete(f.squad, this.mode),
       captainId: f.captainId || null,
+      ...captainBonusFields(f),
       formPct: f.formPct != null ? f.formPct : null,
       eliminated: Boolean(f.eliminated),
       banned: Boolean(f.banned) || (f.eliminated && f.eliminatedReason === "match_fixing"),
@@ -1724,7 +1726,10 @@ class GameRoom extends EventEmitter {
     if (this.formBoostReveal) return { ok: false, error: "Captain selection is not open." };
     team.captainId = playerId;
     const captainName = slot.player && slot.player.name;
-    const message = captainName ? `${team.name} named ${captainName} captain` : `${team.name} picked a captain`;
+    const bonus = packCaptainBonus(slot.player);
+    const message = captainName
+      ? `${team.name} named ${captainName} captain · ${bonus.captainBonusLabel}`
+      : `${team.name} picked a captain · ${bonus.captainBonusLabel}`;
     const feed = this.appendPrepFeed({
       kind: "captain",
       name: team.name,
@@ -1733,6 +1738,7 @@ class GameRoom extends EventEmitter {
       message,
       captainId: playerId,
       captainName: captainName || null,
+      ...bonus,
     });
     this.emitDelta({
       type: "captain",
@@ -1743,6 +1749,7 @@ class GameRoom extends EventEmitter {
       captainName: captainName || null,
       message,
       feed,
+      ...bonus,
     });
     this.maybeFinishPrep();
     return { ok: true };
@@ -1888,6 +1895,7 @@ class GameRoom extends EventEmitter {
       remainingQuota: remainingQuota(f.squad, this.mode),
       complete: isSquadComplete(f.squad, this.mode),
       captainId: f.captainId,
+      ...captainBonusFields(f),
       boosters: (f.boosters || []).map((b) => packBooster(b)),
       eliminated: Boolean(f.eliminated),
       banned: Boolean(f.banned) || (f.eliminated && f.eliminatedReason === "match_fixing"),
@@ -1965,6 +1973,7 @@ class GameRoom extends EventEmitter {
         identityId: characterIdOf(f.franchise),
         franchiseName: f.name,
         captainId: f.captainId,
+        ...captainBonusFields(f),
         purseLakhs: f.purseLakhs,
         boosters: (f.boosters || []).map((b) => packBooster(b)),
         moments: (t.moments || []).filter((m) => m.teamName === f.name),
