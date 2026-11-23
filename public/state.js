@@ -228,7 +228,8 @@
         if (team) {
           team.purseLakhs = evt.purseLakhs;
           team.squad = team.squad || [];
-          team.squad.push({ player: evt.player, priceLakhs: evt.priceLakhs, isCaptain: false });
+          const already = evt.player && team.squad.some((s) => s.player && s.player.id === evt.player.id);
+          if (!already) team.squad.push({ player: evt.player, priceLakhs: evt.priceLakhs, isCaptain: false });
           recomputeTeam(team, quotas, squadSize);
         }
         syncYou(state);

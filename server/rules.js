@@ -303,10 +303,40 @@ function canTakeRole(squad, player, mode) {
   return Boolean(neededAfterPurchase(squad, player, mode));
 }
 
+function isSquadFull(squad, mode) {
+  return (squad || []).length >= resolveMode(mode).squadSize;
+}
+
+/**
+ * Whether `player` can be added to `squad` without exceeding the mode's
+ * squad size or a role quota. This is the single choke point for every
+ * path that grows a squad.
+ */
+function canAddToSquad(squad, player, mode) {
+  if (!player) return { ok: false, reason: "No player on the block." };
+  if (isSquadFull(squad, mode)) {
+    return { ok: false, reason: "Your squad is already full." };
+  }
+  if (!canTakeRole(squad, player, mode)) {
+    return { ok: false, reason: `Your ${player.role} quota is full.` };
+  }
+  return { ok: true };
+}
+
+function addToSquad(team, player, priceLakhs, mode) {
+  if (!team) return { ok: false, reason: "You are not in this room." };
+  const check = canAddToSquad(team.squad, player, mode);
+  if (!check.ok) return check;
+  if (!Array.isArray(team.squad)) team.squad = [];
+  team.squad.push({ player, priceLakhs });
+  return { ok: true };
+}
+
 /**
  * Whether a franchise can legally bid `amountLakhs` (points) for `player`.
  * Voluntary bids must leave 1 point per remaining role slot to complete the squad.
- * The automatic default bid only checks role quota and purse >= bid.
+ * The automatic default bid checks that the team can add this player
+ * (free squad slot and open role quota) and purse >= bid.
  */
 function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
   const mode = opts.mode || franchise.mode;
@@ -317,6 +347,8 @@ function canBidFor(franchise, player, amountLakhs, available, opts = {}) {
   if (isSquadComplete(franchise.squad, mode)) {
     return { ok: false, reason: "Your squad is already complete." };
   }
+  const add = canAddToSquad(franchise.squad, player, mode);
+  if (!add.ok) return add;
   const after = neededAfterPurchase(franchise.squad, player, mode);
   if (!after) {
     return { ok: false, reason: `Your ${player.role} quota is full.` };
@@ -383,6 +415,9 @@ module.exports = {
   minCostToReachSize,
   reserveToReachSize,
   canTakeRole,
+  isSquadFull,
+  canAddToSquad,
+  addToSquad,
   canBidFor,
   availablePlayers,
 };

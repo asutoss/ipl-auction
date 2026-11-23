@@ -10,6 +10,9 @@ const {
   MAX_OVERSEAS,
   isSquadComplete,
   pendingSlots,
+  canAddToSquad,
+  addToSquad,
+  getMode,
 } = require("../server/rules");
 const { GameRoom } = require("../server/game");
 const { simulateTournament, teamStrength, squadStrengthScore, SCORE_STRENGTH_CAP, matchStrength } = require("../server/simulate");
@@ -344,7 +347,7 @@ describe("auction opt-out and lock-in", () => {
     assert.equal(room.auction.currentBidderKey, "priya");
   });
 
-  test("default bid still goes to a team whose role quota is full; others may bid, that team cannot bid again while leading", () => {
+  test("default bid skips a team whose role quota is full and goes to a team that can add the player", () => {
     const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
     const wks = players.filter((p) => p.role === "WK");
     room.findByName("Ashutosh").squad.push({ player: wks[0], priceLakhs: 2 });
@@ -352,22 +355,19 @@ describe("auction opt-out and lock-in", () => {
     room.soldIds.add(wks[0].id);
     room.queue = [wks[1], players.find((p) => p.id === "karun-nair")];
     room.phase = "auction";
+    room.rrIndex = 0; // Ashutosh's slot — must skip to Priya
     room.nominateNext();
-    // Default bid never skips a full quota — Ashutosh gets it.
-    assert.equal(room.auction.currentBidderKey, "ashutosh");
     assert.equal(room.auction.nominee.id, wks[1].id);
+    assert.equal(room.auction.currentBidderKey, "priya");
     const names = room.stillInTeams().map((f) => f.name).sort();
-    assert.deepEqual(names, ["Ashutosh", "Priya", "Rohan"]);
-    const state = room.getState("Ashutosh");
-    assert.equal(state.auction.youCanBid, false);
-    assert.match(state.auction.youReason, /leading bid/i);
-    // Voluntary bid from Priya is allowed (her WK quota is open).
-    assert.equal(room.getState("Priya").auction.youCanBid, true);
-    room.optOut("Priya");
+    assert.deepEqual(names, ["Priya", "Rohan"]);
+    assert.equal(room.getState("Ashutosh").auction.youCanBid, false);
+    assert.match(room.getState("Ashutosh").auction.youReason, /quota is full/i);
+    assert.equal(room.getState("Priya").auction.youCanBid, false);
+    assert.match(room.getState("Priya").auction.youReason, /leading bid/i);
     room.optOut("Rohan");
-    const squad = room.findByName("Ashutosh").squad;
-    assert.equal(squad.length, 2);
-    assert.equal(squad.filter((s) => s.player.role === "WK").length, 2);
+    assert.equal(room.findByName("Priya").squad[0].player.id, wks[1].id);
+    assert.equal(room.findByName("Ashutosh").squad.filter((s) => s.player.role === "WK").length, 1);
   });
 });
 
@@ -396,7 +396,7 @@ describe("default bid, round-robin and elimination", () => {
     assert.equal(room.auction.nominee.id, bats[2].id);
   });
 
-  test("default bid is given even when that team's role quota is already full", () => {
+  test("default bid is not given to a team whose role quota is already full", () => {
     const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
     const bats = players.filter((p) => !p.overseas && p.role === "BAT");
     const a = room.findByName("Ashutosh");
@@ -408,13 +408,13 @@ describe("default bid, round-robin and elimination", () => {
     const nextBat = bats[4];
     room.queue = [nextBat, players.find((p) => p.id === "karun-nair")];
     room.phase = "auction";
-    room.rrIndex = 0; // Ashutosh's turn
+    room.rrIndex = 0; // Ashutosh's turn — skip to Priya
     room.nominateNext();
     assert.equal(room.auction.nominee.id, nextBat.id);
-    assert.equal(room.auction.currentBidderKey, "ashutosh");
-    room.optOut("Priya");
+    assert.equal(room.auction.currentBidderKey, "priya");
     room.optOut("Rohan");
-    assert.equal(a.squad.filter((s) => s.player.role === "BAT").length, 5);
+    assert.equal(room.findByName("Priya").squad[0].player.id, nextBat.id);
+    assert.equal(a.squad.filter((s) => s.player.role === "BAT").length, 4);
   });
 
   test("eliminates a team that cannot afford the default-bid base price", () => {
@@ -596,7 +596,7 @@ describe("squad completion and sold reveal", () => {
     assert.equal(room.auction.currentBidderKey, "rohan");
   });
 
-  test("default bid still lands on a team whose role is full if their squad is not complete", () => {
+  test("default bid skips a team whose role is full even if their squad is not complete", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
     giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
     const nextBat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
@@ -604,13 +604,10 @@ describe("squad completion and sold reveal", () => {
     room.phase = "auction";
     room.rrIndex = 0;
     room.nominateNext();
-    // Priya still needs BAT, so this batter is nominated; Ashutosh is default even with 4 BAT.
-    assert.equal(room.auction.nominee.id, nextBat.id);
-    assert.equal(room.auction.currentBidderKey, "ashutosh");
-    assert.equal(room.optOut("Priya").ok, true);
-    assert.equal(room.findByName("Ashutosh").squad.filter((s) => s.player.role === "BAT").length, 5);
+    // Priya is the only team that can take this batter, so the lot sells to her immediately.
+    assert.equal(room.findByName("Priya").squad[0].player.id, nextBat.id);
+    assert.equal(room.findByName("Ashutosh").squad.filter((s) => s.player.role === "BAT").length, 4);
     assert.equal(isSquadComplete(room.findByName("Ashutosh").squad), false);
-    assert.equal(room.phase, "auction");
   });
 
   test("fills leftover needed-role players from the remaining pool when the queue runs out before every team is full", () => {
@@ -1875,6 +1872,100 @@ describe("auction list", () => {
       }
     }
   });
+  test("no team exceeds squad size in the default-only bullet game that used to overflow to 5 or 6 of 3", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"], { soldRevealMs: 0 }, { mode: "bullet", seed: 1 });
+    assert.equal(room.startAuction("Ashutosh").ok, true);
+    const lots = drainAuction(room);
+    assert.ok(lots < 800, "auction did not finish");
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+    const cap = getMode("bullet").squadSize;
+    const sizes = {};
+    for (const f of room.franchises) {
+      sizes[f.name] = f.squad.map((s) => s.player.role).join(",");
+      assert.ok(f.squad.length <= cap, `${f.name} has ${f.squad.length} of ${cap}: ${sizes[f.name]}`);
+      assert.equal(isSquadComplete(f.squad, "bullet"), true, `${f.name} incomplete: ${sizes[f.name]}`);
+    }
+  });
+
+  test("sellCurrent does not push a player onto a squad that is already full", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { soldRevealMs: 0 }, { mode: "bullet" });
+    giveSquad(room, "Ashutosh", { BAT: 1, WK: 1, AR: 0, BOWL: 1 });
+    const extra = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.phase = "auction";
+    room.lotId = 1;
+    room.auction = {
+      nominee: extra,
+      startBidLakhs: 2,
+      currentBidLakhs: 2,
+      currentBidderKey: "ashutosh",
+      defaultBidderKey: "ashutosh",
+      optedOut: new Set(["priya"]),
+      endsAt: Date.now() + 15_000,
+      timerMs: 15_000,
+    };
+    room.sellCurrent();
+    assert.equal(room.findByName("Ashutosh").squad.length, 3);
+    assert.ok(!room.findByName("Ashutosh").squad.some((s) => s.player.id === extra.id));
+    assert.ok(room.soldIds.has(extra.id) === false);
+  });
+
+  test("random default-only and mixed-bid auctions never exceed the mode squad size", () => {
+    const modes = ["bullet", "rapid", "classical"];
+    const teamCounts = [2, 3, 4, 6];
+    let games = 0;
+    for (const mode of modes) {
+      const cap = getMode(mode).squadSize;
+      for (const n of teamCounts) {
+        // More seeds on the smaller modes, where overflow used to appear first.
+        const seeds = mode === "classical" ? [1, 7, 42] : [1, 2, 3, 7, 11, 42, 99, 2026];
+        for (const seed of seeds) {
+          const names = Array.from({ length: n }, (_, i) => `Team${i + 1}`);
+          const room = roomWith(names, { soldRevealMs: 0 }, { mode, seed });
+          assert.equal(room.startAuction(names[0]).ok, true);
+          let i = 0;
+          let raiseEvery = seed % 4; // 0 = default-only; else a volunteer raise on some lots
+          while (room.phase === "auction" && i++ < 800) {
+            if (room.playerIntro) room.finishPlayerIntro();
+            if (!room.auction) {
+              if (room.revealUntil) room.finishReveal();
+              else break;
+              continue;
+            }
+            const lot = room.lotId;
+            const leader = room.auction.currentBidderKey;
+            const bidder = room.franchises.find((f) => f.key !== leader && room.stillInTeams().some((t) => t.key === f.key));
+            if (raiseEvery && bidder && i % raiseEvery === 0 && room.auction) {
+              const bid = room.bid(bidder.name);
+              if (bid && bid.ok && room.lotId === lot && room.auction) {
+                // others (except new leader) opt out
+                for (const f of room.franchises) {
+                  if (room.lotId !== lot || !room.auction) break;
+                  if (f.key !== room.auction.currentBidderKey) room.optOut(f.name);
+                }
+                continue;
+              }
+            }
+            for (const f of room.franchises) {
+              if (room.lotId !== lot || !room.auction) break;
+              if (f.key !== leader) room.optOut(f.name);
+            }
+          }
+          games += 1;
+          assert.ok(i < 800, `${mode} x ${n} seed ${seed} did not finish`);
+          assert.ok(["captains", "simulating", "results"].includes(room.phase), `${mode} x ${n} seed ${seed} phase ${room.phase}`);
+          for (const f of room.franchises) {
+            const roles = f.squad.map((s) => s.player.role).join(",");
+            assert.ok(
+              f.squad.length <= cap,
+              `${mode} x ${n} seed ${seed}: ${f.name} has ${f.squad.length} of ${cap} (${roles})`
+            );
+          }
+        }
+      }
+    }
+    assert.ok(games >= 40, `expected many fuzz games, got ${games}`);
+  });
+
 });
 
 describe("character powers", () => {

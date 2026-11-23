@@ -12,6 +12,8 @@ const {
   overseasCount,
   remainingQuota,
   isSquadComplete,
+  canAddToSquad,
+  addToSquad,
   pendingSlots,
   resolveMode,
   publicMode,
@@ -891,10 +893,9 @@ class GameRoom extends EventEmitter {
 
   /**
    * Assign the automatic base-price bid in join-order round-robin.
-   * Skip eliminated teams and teams whose squad is already complete (every
-   * required role count is met). A team that still needs players can be the
-   * default even if this player's role quota is already full, and must keep
-   * the player if nobody outbids. If the chosen team cannot afford the
+   * Skip eliminated teams, teams whose squad is already complete, and teams
+   * that cannot add this player (squad already at the mode's size cap, or
+   * this role quota is already full). If the chosen team cannot afford the
    * starting bid, eliminate them and continue.
    */
   pickDefaultTeam(player, startBid) {
@@ -907,6 +908,7 @@ class GameRoom extends EventEmitter {
       const team = this.franchises[idx];
       if (team.eliminated || team.banned || isSquadComplete(team.squad, this.mode)) continue;
       if (isBidBlocked(this, team)) continue;
+      if (!canAddToSquad(team.squad, player, this.mode).ok) continue;
       if (team.purseLakhs < cost) {
         this.eliminate(team);
         continue;
@@ -1003,7 +1005,8 @@ class GameRoom extends EventEmitter {
         if (isOut(team)) break;
         continue;
       }
-      team.squad.push({ player, priceLakhs: startBid });
+      const added = addToSquad(team, player, startBid, this.mode);
+      if (!added.ok) continue;
       const paid = debit(this, team, startBid);
       team.spentLakhs = (team.spentLakhs || 0) + paid;
       this.soldIds.add(player.id);
@@ -1402,7 +1405,13 @@ class GameRoom extends EventEmitter {
     } else if (flip && flip.result === "lose") {
       price = Number(price) * 2;
     }
-    winner.squad.push({ player, priceLakhs: price });
+    const added = addToSquad(winner, player, price, this.mode);
+    if (!added.ok) {
+      this.auction.currentBidderKey = null;
+      this.auction.defaultBidderKey = null;
+      this.unsoldCurrent();
+      return;
+    }
     const paid = debit(this, winner, price);
     winner.spentLakhs = (Number(winner.spentLakhs) || 0) + paid;
     this.soldIds.add(player.id);
@@ -1598,7 +1607,8 @@ class GameRoom extends EventEmitter {
         const left = remainingQuota(team.squad, this.mode);
         const pick = leftover.find((p) => (left[p.role] || 0) > 0 && team.purseLakhs >= fillPrice);
         if (!pick) continue;
-        team.squad.push({ player: pick, priceLakhs: fillPrice });
+        const added = addToSquad(team, pick, fillPrice, this.mode);
+        if (!added.ok) continue;
         const paid = debit(this, team, fillPrice);
         team.spentLakhs = (Number(team.spentLakhs) || 0) + paid;
         this.soldIds.add(pick.id);

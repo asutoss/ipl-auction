@@ -2,9 +2,9 @@ const { ROLES, resolveMode, remainingQuota } = require("./rules");
 const { shuffle, resolveRng } = require("./random");
 
 /**
- * Extra players picked per role so the list still covers teams that
- * receive a default-bid overflow (a player whose role is already full).
- * Half a set, at least one, is enough without padding the auction much.
+ * Extra players picked per role so the list still covers unsolds and
+ * teams that still need that role. Half a set, at least one, is enough
+ * without padding the auction much.
  */
 function roleBuffer(numTeams) {
   const n = Math.max(0, Math.floor(Number(numTeams) || 0));

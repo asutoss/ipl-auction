@@ -4,7 +4,7 @@
  * module supplies canUse() / apply() so each character has a distinct effect.
  */
 
-const { remainingQuota, isSquadComplete, nextBidAmount, canBidFor } = require("./rules");
+const { remainingQuota, isSquadComplete, canAddToSquad, addToSquad, nextBidAmount, canBidFor } = require("./rules");
 const { CHARACTERS } = require("../public/characters");
 
 const POWER_REVEAL_MS = 5000;
@@ -128,8 +128,7 @@ function lastSoldRivalTargets(room, actor, opts = {}) {
     if (found.team.key === actor.key) continue;
     if (isOut(found.team)) continue;
     if (needOpenSlot) {
-      const left = remainingQuota(actor.squad, room.mode);
-      if ((left[entry.player.role] || 0) <= 0) continue;
+      if (!canAddToSquad(actor.squad, entry.player, room.mode).ok) continue;
     }
     seen.add(id);
     out.push({
@@ -374,6 +373,8 @@ definePower({
     if (isSquadComplete(team.squad, room.mode)) {
       return { ok: false, error: "Your squad is already complete." };
     }
+    const add = canAddToSquad(team.squad, room.auction.nominee, room.mode);
+    if (!add.ok) return { ok: false, error: add.reason };
     const price = (Number(room.auction.currentBidLakhs) || 0) + 1;
     if ((Number(team.purseLakhs) || 0) < price) {
       return { ok: false, error: `You cannot afford ${price} points.` };
@@ -488,9 +489,11 @@ definePower({
     }
     const found = playerStillOnSquad(room, choice.playerId);
     if (!found) return { ok: false, error: "That player is no longer on a squad." };
+    const add = canAddToSquad(team.squad, found.slot.player, room.mode);
+    if (!add.ok) return { ok: false, error: add.reason };
     const rival = found.team;
     rival.squad = rival.squad.filter((s) => s.player.id !== choice.playerId);
-    team.squad.push({ player: found.slot.player, priceLakhs: price });
+    addToSquad(team, found.slot.player, price, room.mode);
     const paid = debit(room, team, price);
     credit(room, rival, paid);
     if (team.spentLakhs != null) team.spentLakhs += paid;
