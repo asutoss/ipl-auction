@@ -24,7 +24,7 @@ function roomWith(names, timers, opts = {}) {
     code: "TEST",
     purseLakhs: purse,
     mode,
-    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, ...(timers || {}) },
+    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 90_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, formBoostRevealMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
     seed: opts.seed,
@@ -708,7 +708,7 @@ describe("nomination order and timers", () => {
     assert.ok(bidLeft > 24000 && bidLeft <= 25100, `bid reset ${bidLeft}`);
   });
 
-  test("default timers are 25s for lots and bids, 3s for the player intro, 2.8s for results steps, and 5s for the sold and power reveals", () => {
+  test("default timers are 25s for lots and bids, 90s for captains, 3s for the player intro, 2.8s for results steps, and 5s for the sold and power reveals", () => {
     const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS", "PLAYER_INTRO_MS", "RESULTS_REVEAL_STEP_MS"];
     const prev = {};
     for (const k of keys) {
@@ -720,7 +720,8 @@ describe("nomination order and timers", () => {
       assert.equal(room.timers.lotStartMs, 25000);
       assert.equal(room.timers.bidMs, 25000);
       assert.equal(room.timers.soldRevealMs, 5000);
-      assert.equal(room.timers.captainMs, 45000);
+      assert.equal(room.timers.captainMs, 90000);
+      assert.equal(room.timers.formBoostRevealMs, 6000);
       assert.equal(room.timers.powerRevealMs, 5000);
       assert.equal(room.timers.playerIntroMs, 3000);
       assert.equal(room.timers.resultsRevealStepMs, 2800);
@@ -762,7 +763,7 @@ describe("booster shop", () => {
     const room = primedRoom();
     room.beginCaptainPhase();
     assert.equal(room.phase, "captains");
-    assert.ok(room.captainEndsAt - Date.now() > 40000);
+    assert.ok(room.captainEndsAt - Date.now() > 80000);
     const cheer = getBooster("cheerleaders");
     assert.equal(room.buyBooster("Ashutosh", cheer.id).ok, true);
     assert.equal(room.findByName("Ashutosh").purseLakhs, 40 - cheer.pricePoints);
@@ -797,6 +798,185 @@ describe("booster shop", () => {
       assert.ok("nr" in row);
       assert.equal(row.points, row.won * 2 + (row.nr || 0));
     }
+  });
+});
+
+describe("form boosters", () => {
+  const { getBooster, FORM_SELF_ID, FORM_RIVAL_ID, applyFormBoosters, rollUniformPct } = require("../server/boosters");
+
+  function primedThree() {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    for (const name of ["Ashutosh", "Priya", "Rohan"]) {
+      const team = room.findByName(name);
+      const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+      for (const p of players) {
+        if ((need[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+          team.squad.push({ player: p, priceLakhs: 2 });
+          room.soldIds.add(p.id);
+          need[p.role] -= 1;
+        }
+      }
+      team.purseLakhs = 80;
+      team.captainId = team.squad[0].player.id;
+    }
+    return room;
+  }
+
+  test("Net Session Masterclass re-rolls form into 101–115, or leaves it if already above 100", () => {
+    const self = getBooster(FORM_SELF_ID);
+    assert.equal(self.name, "Net Session Masterclass");
+    assert.equal(self.pricePoints, 28);
+    const room = primedThree();
+    const ash = room.findByName("Ashutosh");
+    ash.formPct = 96;
+    room.beginCaptainPhase();
+    assert.equal(room.buyBooster("Ashutosh", FORM_SELF_ID).ok, true);
+    assert.equal(ash.formPct, 96);
+    room.finishCaptains();
+    assert.equal(room.phase, "results");
+    assert.ok(ash.formPct >= 101 && ash.formPct <= 115, `reroll ${ash.formPct}`);
+    const pos = room.tournament.positions.find((p) => p.name === "Ashutosh");
+    assert.equal(pos.formPct, ash.formPct);
+
+    const room2 = primedThree();
+    const ash2 = room2.findByName("Ashutosh");
+    ash2.formPct = 108;
+    room2.beginCaptainPhase();
+    assert.equal(room2.buyBooster("Ashutosh", FORM_SELF_ID).ok, true);
+    room2.finishCaptains();
+    assert.equal(ash2.formPct, 108);
+  });
+
+  test("Nazar Lag Gayi needs a valid rival and forces form into 85–99, or leaves it if already below 100", () => {
+    const curse = getBooster(FORM_RIVAL_ID);
+    assert.equal(curse.name, "Nazar Lag Gayi");
+    assert.equal(curse.pricePoints, 34);
+    assert.equal(curse.needsTarget, true);
+    const room = primedThree();
+    const ash = room.findByName("Ashutosh");
+    const priya = room.findByName("Priya");
+    priya.formPct = 112;
+    ash.formPct = 101;
+    room.beginCaptainPhase();
+    assert.equal(room.buyBooster("Ashutosh", FORM_RIVAL_ID).ok, false);
+    assert.equal(room.buyBooster("Ashutosh", FORM_RIVAL_ID, "Ashutosh").ok, false);
+    assert.equal(room.buyBooster("Ashutosh", FORM_RIVAL_ID, "Nobody").ok, false);
+    priya.eliminated = true;
+    assert.equal(room.buyBooster("Ashutosh", FORM_RIVAL_ID, "Priya").ok, false);
+    priya.eliminated = false;
+    const bought = room.buyBooster("Ashutosh", FORM_RIVAL_ID, "Priya");
+    assert.equal(bought.ok, true);
+    assert.equal(priya.formPct, 112);
+    assert.equal(ash.boosters[0].targetName, "Priya");
+    room.finishCaptains();
+    assert.ok(priya.formPct >= 85 && priya.formPct <= 99, `curse ${priya.formPct}`);
+    const pos = room.tournament.positions.find((p) => p.name === "Priya");
+    assert.equal(pos.formPct, priya.formPct);
+
+    const room2 = primedThree();
+    room2.findByName("Priya").formPct = 88;
+    room2.beginCaptainPhase();
+    assert.equal(room2.buyBooster("Ashutosh", FORM_RIVAL_ID, "Priya").ok, true);
+    room2.finishCaptains();
+    assert.equal(room2.findByName("Priya").formPct, 88);
+  });
+
+  test("a team's own guarantee and any number of curses cancel out, leaving the original form", () => {
+    const room = primedThree();
+    const ash = room.findByName("Ashutosh");
+    ash.formPct = 107;
+    room.findByName("Priya").formPct = 90;
+    room.findByName("Rohan").formPct = 102;
+    room.beginCaptainPhase();
+    assert.equal(room.buyBooster("Ashutosh", FORM_SELF_ID).ok, true);
+    assert.equal(room.buyBooster("Priya", FORM_RIVAL_ID, "Ashutosh").ok, true);
+    assert.equal(room.buyBooster("Rohan", FORM_RIVAL_ID, "Ashutosh").ok, true);
+    room.finishCaptains();
+    assert.equal(ash.formPct, 107);
+    const pos = room.tournament.positions.find((p) => p.name === "Ashutosh");
+    assert.equal(pos.formPct, 107);
+  });
+
+  test("several curses on one team without a guarantee count as a single re-roll below 100", () => {
+    const rolls = [];
+    const rng = { random() { rolls.push(1); return 0; } }; // always 85
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"], null, { rng });
+    for (const name of ["Ashutosh", "Priya", "Rohan"]) {
+      const team = room.findByName(name);
+      const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+      for (const p of players) {
+        if ((need[p.role] || 0) > 0 && !room.soldIds.has(p.id)) {
+          team.squad.push({ player: p, priceLakhs: 2 });
+          room.soldIds.add(p.id);
+          need[p.role] -= 1;
+        }
+      }
+      team.purseLakhs = 80;
+      team.captainId = team.squad[0].player.id;
+    }
+    const ash = room.findByName("Ashutosh");
+    ash.formPct = 110;
+    room.beginCaptainPhase();
+    assert.equal(room.buyBooster("Priya", FORM_RIVAL_ID, "Ashutosh").ok, true);
+    assert.equal(room.buyBooster("Rohan", FORM_RIVAL_ID, "Ashutosh").ok, true);
+    const before = rolls.length;
+    room.finishCaptains();
+    assert.equal(ash.formPct, 85);
+    assert.equal(rolls.length, before + 1);
+  });
+
+  test("form boosters are applied when the phase ends, before the simulation, so buy order does not matter", () => {
+    const room = primedThree();
+    const ash = room.findByName("Ashutosh");
+    const priya = room.findByName("Priya");
+    ash.formPct = 94;
+    priya.formPct = 111;
+    room.beginCaptainPhase();
+    assert.equal(room.buyBooster("Priya", FORM_RIVAL_ID, "Ashutosh").ok, true);
+    assert.equal(ash.formPct, 94, "curse must not apply at purchase time");
+    assert.equal(room.buyBooster("Ashutosh", FORM_SELF_ID).ok, true);
+    assert.equal(ash.formPct, 94, "self booster must not apply at purchase time");
+    assert.ok((room.prepFeed || []).some((e) => /bought Net Session Masterclass/.test(e.message)));
+    assert.ok((room.prepFeed || []).some((e) => /bought Nazar Lag Gayi/.test(e.message)));
+    room.finishCaptains();
+    assert.equal(ash.formPct, 94, "self + curse cancel even if the curse was bought first");
+    const pos = room.tournament.positions.find((p) => p.name === "Ashutosh");
+    assert.equal(pos.formPct, 94);
+  });
+
+  test("a 90s form-boost reveal can be skipped after the boosters are applied", () => {
+    const room = primedThree({}).constructor
+      ? primedThree()
+      : primedThree();
+    const long = roomWith(["Ashutosh", "Priya", "Rohan"], { formBoostRevealMs: 30_000, captainMs: 90_000 });
+    for (const name of ["Ashutosh", "Priya", "Rohan"]) {
+      const src = room.findByName(name);
+      const team = long.findByName(name);
+      team.squad = src.squad.map((s) => ({ player: s.player, priceLakhs: s.priceLakhs }));
+      for (const s of team.squad) long.soldIds.add(s.player.id);
+      team.purseLakhs = 80;
+      team.captainId = team.squad[0].player.id;
+    }
+    long.findByName("Ashutosh").formPct = 90;
+    long.beginCaptainPhase();
+    assert.equal(long.buyBooster("Ashutosh", FORM_SELF_ID).ok, true);
+    long.finishCaptains();
+    assert.equal(long.phase, "formBoosts");
+    assert.ok(long.formBoostReveal && long.formBoostReveal.changes.length);
+    assert.ok(long.findByName("Ashutosh").formPct >= 101);
+    const snap = long.getState("ashutosh");
+    assert.equal(snap.phase, "formBoosts");
+    assert.ok(snap.formBoostReveal.changes.some((c) => /Net Session Masterclass/.test(c.message)));
+    assert.equal(long.skipFormBoostReveal("Ashutosh").ok, true);
+    assert.equal(long.phase, "results");
+  });
+
+  test("rollUniformPct stays inside the requested inclusive range", () => {
+    const rng = { i: 0, random() { const v = [0, 0.999, 0.5][this.i++] || 0; return v; } };
+    assert.equal(rollUniformPct(rng, 101, 115), 101);
+    assert.equal(rollUniformPct(rng, 101, 115), 115);
+    const mid = rollUniformPct(rng, 101, 115);
+    assert.ok(mid >= 101 && mid <= 115);
   });
 });
 

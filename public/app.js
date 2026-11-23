@@ -23,6 +23,9 @@ let soldModalTimer = null;
 let soldModalKey = null;
 let lastTeamFillTimer = null;
 let lastTeamFillKey = null;
+let expandedPrepTeam = null;
+let cursePickerBooster = null;
+let seenPrepBoosters = new Set();
 
 function money(points) {
   const n = Number(points) || 0;
@@ -778,7 +781,7 @@ function renderTop() {
   }
   topMeta.hidden = false;
   const you = state.you;
-  const canPause = state.phase === "auction" || state.phase === "captains" || isResultsRevealPending();
+  const canPause = state.phase === "auction" || state.phase === "captains" || state.phase === "formBoosts" || isResultsRevealPending();
   const pauseLabel = state.paused ? "Paused" : "Pause";
   const hostEnd = you && you.isHost
     ? `<button class="btn danger" id="end-game" type="button">End game</button>`
@@ -1697,10 +1700,155 @@ function patchAuction() {
   observeBidSheet();
 }
 
+
+function formatClock(ms) {
+  const s = Math.max(0, Math.ceil((Number(ms) || 0) / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+function updatePrepClock() {
+  const el = document.getElementById("prep-clock");
+  if (!el || !state) return;
+  el.textContent = formatClock(remainingMs(state.captainEndsAt));
+}
+
+function captainPlayerOf(team) {
+  if (!team || !team.captainId) return null;
+  const slot = (team.squad || []).find((s) => s.player && s.player.id === team.captainId);
+  return slot ? slot.player : null;
+}
+
+function cursedByOf(team, franchises) {
+  const name = team && team.name;
+  if (!name) return [];
+  const casters = [];
+  for (const f of franchises || []) {
+    for (const b of f.boosters || []) {
+      if (b && b.targetName === name) casters.push({ team: f, booster: b });
+    }
+  }
+  return casters;
+}
+
+function prepBoosterKey(teamName, booster) {
+  return `${teamName}::${booster && booster.id ? booster.id : ""}`;
+}
+
+function boosterChip(teamName, b) {
+  if (!b) return "";
+  const key = prepBoosterKey(teamName, b);
+  const fresh = !seenPrepBoosters.has(key);
+  seenPrepBoosters.add(key);
+  const target = b.targetName ? ` → ${esc(b.targetName)}` : "";
+  return `<span class="prep-chip ${fresh ? "is-fresh" : ""}">${esc(b.name)}${target}</span>`;
+}
+
+function catalogById() {
+  const map = new Map();
+  for (const b of state && state.boosterCatalog ? state.boosterCatalog : []) map.set(b.id, b);
+  return map;
+}
+
+function prepCard(team) {
+  if (!team) return "";
+  const you = state.you;
+  const franchises = state.franchises || [];
+  const captain = captainPlayerOf(team);
+  const expanded = expandedPrepTeam === team.name;
+  const form = formPctOf(team) != null ? formLabel(team, { prefix: "" }) : "";
+  const curses = cursedByOf(team, franchises);
+  const curseTag = curses.length
+    ? `<p class="prep-curse">Cursed by ${esc(curses.map((c) => c.team.name).join(", "))}</p>`
+    : "";
+  const chips = (team.boosters || []).map((b) => boosterChip(team.name, b)).join("") || `<span class="prep-chip is-empty">No boosters yet</span>`;
+  const mark = teamMark(team.franchise || team, "sm", team.name);
+  const shot = captain && window.IplHeadshot
+    ? IplHeadshot.markup(captain, { id: `prep-cap-${esc(team.name)}` })
+    : mark;
+  const catalog = catalogById();
+  let details = "";
+  if (expanded) {
+    const capBlock = captain
+      ? `<div class="prep-detail-cap"><strong>${esc(captain.name)}</strong> <span class="tag">Captain</span><p class="lede">${esc(captain.role)} · bat ${esc(captain.batting)} · bowl ${esc(captain.bowling)}</p></div>`
+      : `<p class="lede">Captain still choosing...</p>`;
+    const boostBlocks = (team.boosters || []).map((b) => {
+      const full = catalog.get(b.id) || b;
+      const aimed = b.targetName ? `<p class="lede">Aimed at ${esc(b.targetName)}.</p>` : "";
+      return `<div class="prep-detail-boost"><strong>${esc(b.name)}</strong> <span class="tag">${money(b.pricePoints)}</span><p class="lede">${esc(full.blurb || "")}</p>${aimed}</div>`;
+    }).join("") || `<p class="lede">No boosters bought yet.</p>`;
+    details = `<div class="prep-card-details">${capBlock}${boostBlocks}</div>`;
+  }
+  return `
+    <article class="prep-card ${expanded ? "is-open" : ""} ${you && you.name === team.name ? "is-you" : ""}" data-prep-team="${esc(team.name)}" style="--c:${esc((team.franchise && team.franchise.color) || team.color || "")};--ct:${esc((team.franchise && (team.franchise.text || team.franchise.color)) || "")};--c2:${esc((team.franchise && team.franchise.color2) || "")}" role="button" tabindex="0" aria-expanded="${expanded ? "true" : "false"}">
+      <div class="prep-card-main">
+        <div class="prep-card-face">${shot}</div>
+        <div class="prep-card-copy">
+          <h3>${esc(team.name)}</h3>
+          <p class="prep-captain-line">${captain ? esc(captain.name) : "choosing..."}</p>
+          <div class="prep-chips">${chips}</div>
+          ${curseTag}
+        </div>
+        <div class="prep-card-meta">
+          ${form ? `<p class="prep-form">${form}</p>` : ""}
+          <p class="prep-purse">${money(team.purseLakhs)}</p>
+        </div>
+      </div>
+      ${details}
+    </article>`;
+}
+
+function cursePickerView() {
+  if (!cursePickerBooster || !state) return "";
+  const item = (state.boosterCatalog || []).find((b) => b.id === cursePickerBooster);
+  if (!item) return "";
+  const you = state.you;
+  const rivals = (state.franchises || []).filter((f) => you && f.name !== you.name && !f.eliminated);
+  const options = rivals.map((f) => {
+    const form = formPctOf(f) != null ? formLabel(f, { prefix: "" }) : "";
+    return `<button type="button" class="prep-target" data-curse-target="${esc(f.name)}">
+      ${teamMark(f.franchise || f, "sm", f.name)}
+      <span><strong>${esc(f.name)}</strong>${form ? ` ${form}` : ""}</span>
+    </button>`;
+  }).join("") || `<p class="lede">No rivals left to curse.</p>`;
+  return `
+    <div class="sheet-modal prep-curse-modal" id="curse-picker">
+      <div class="sheet-backdrop" data-curse-cancel="1"></div>
+      <div class="sheet-card prep-curse-card">
+        <button type="button" class="sheet-close" data-curse-cancel="1" aria-label="Close">×</button>
+        <div class="sheet-body">
+          <p class="lbl">Pick a rival</p>
+          <h2>${esc(item.name)}</h2>
+          <p class="lede">${esc(item.blurb)} Costs ${money(item.pricePoints)}.</p>
+          <div class="prep-target-list">${options}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function mountPrepHeadshots() {
+  if (!window.IplHeadshot || !state) return;
+  document.querySelectorAll(".prep-card-face .player-headshot").forEach((el) => {
+    const card = el.closest("[data-prep-team]");
+    const name = card && card.getAttribute("data-prep-team");
+    const team = (state.franchises || []).find((f) => f.name === name);
+    const player = captainPlayerOf(team);
+    if (!player) return;
+    IplHeadshot.mount(el, player, { id: el.id || undefined });
+    el.classList.add("prep-cap-shot");
+  });
+}
+
+function tickerView() {
+  const items = (state.prepFeed || []).slice().reverse().slice(0, 8);
+  if (!items.length) return `<div class="prep-ticker" id="prep-ticker"><p class="lede">Buys and captain picks will show up here live.</p></div>`;
+  return `<div class="prep-ticker" id="prep-ticker" aria-live="polite">${items.map((e) => `<p class="prep-ticker-item">${esc(e.message)}</p>`).join("")}</div>`;
+}
+
 function captainView() {
   const you = state.you;
-  const left = Math.ceil(remainingMs(state.captainEndsAt) / 1000);
-  const pending = (state.captainsPending || []).map((p) => esc(p.name || p.short)).join(", ") || "none";
+  const left = formatClock(remainingMs(state.captainEndsAt));
   const catalog = state.boosterCatalog || [];
   const owned = new Set((you?.boosters || []).map((b) => b.id));
   const picks = (you?.squad || [])
@@ -1716,6 +1864,7 @@ function captainView() {
     .map((b) => {
       const have = owned.has(b.id);
       const can = you && !you.eliminated && !have && you.purseLakhs >= b.pricePoints;
+      const needs = b.needsTarget ? "1" : "";
       return `
         <div class="booster ${have ? "owned" : ""}">
           <div>
@@ -1724,25 +1873,48 @@ function captainView() {
             ${have ? `<span class="tag">Bought</span>` : ""}
           </div>
           <p class="lede">${esc(b.blurb)}</p>
-          <button class="btn secondary" data-buy="${esc(b.id)}" ${can ? "" : "disabled"}>${have ? "Owned" : "Buy"}</button>
+          <button class="btn secondary" data-buy="${esc(b.id)}" ${needs ? `data-needs-target="${needs}"` : ""} ${can ? "" : "disabled"}>${have ? "Owned" : b.needsTarget ? "Pick a rival" : "Buy"}</button>
         </div>`;
     })
     .join("");
-  const bought = (you?.boosters || []).map((b) => esc(b.name)).join(", ") || "none yet";
+  const board = (state.franchises || []).map((f) => prepCard(f)).join("");
   return `
-    <section class="prep-layout">
-      <div class="panel">
+    <section class="prep-screen" id="prep-screen">
+      <header class="prep-timer-bar">
+        <p class="lbl">Captain &amp; boosters</p>
+        <div class="prep-clock" id="prep-clock">${left}</div>
+        <p class="lede">Name a captain and spend leftover points. Ends early when nobody can buy another booster.</p>
+      </header>
+      ${tickerView()}
+      <div class="prep-board">${board}</div>
+      <div class="panel prep-you">
         <h2>Choose your captain</h2>
-        <p class="lede">+5% rating. Auto-picks if time runs out. ${left}s left. Waiting on: ${pending}.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
+        <p class="lede">+5% rating. Auto-picks if time runs out.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
         <div class="captain-grid">${picks}</div>
-        <div style="margin-top:18px">${you ? squadSlots(you) : ""}</div>
       </div>
       <div class="panel">
         <h2>Booster shop</h2>
-        <p class="lede">Buy one of each. Purse: <strong>${you ? money(you.purseLakhs) : "—"}</strong>. Owned: ${bought}.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
+        <p class="lede">Buy one of each. Purse: <strong>${you ? money(you.purseLakhs) : "—"}</strong>.</p>
         <div class="booster-grid">${shop || `<p class="lede">No boosters available.</p>`}</div>
         <p class="error">${esc(lastError)}</p>
       </div>
+      ${cursePickerView()}
+    </section>
+  `;
+}
+
+function formBoostRevealView() {
+  const reveal = (state && state.formBoostReveal) || {};
+  const changes = reveal.changes || [];
+  const rows = changes.map((c) => {
+    return `<li class="form-boost-row kind-${esc(c.kind || "")}"><p>${esc(c.message)}</p></li>`;
+  }).join("");
+  return `
+    <section class="panel form-boost-reveal" id="form-boost-reveal">
+      <p class="lbl">Current form swings</p>
+      <h2>Boosters just landed</h2>
+      <ul class="form-boost-list">${rows || `<li class="lede">No form changes this round.</li>`}</ul>
+      <button class="btn" id="skip-form-boost" type="button">Continue</button>
     </section>
   `;
 }
@@ -2439,6 +2611,7 @@ function render() {
   if (state.phase === "lobby") main.innerHTML = lobbyView();
   else if (state.phase === "auction") main.innerHTML = auctionView();
   else if (state.phase === "captains") main.innerHTML = captainView();
+  else if (state.phase === "formBoosts") main.innerHTML = formBoostRevealView();
   else if (state.phase === "simulating" || state.phase === "results") main.innerHTML = resultsView();
   else main.innerHTML = homeView();
   wireCurrent();
@@ -2446,6 +2619,7 @@ function render() {
     mountAuctionRing();
     mountBidHeadshot();
   }
+  if (state.phase === "captains") mountPrepHeadshots();
   if (state && state.phase === "auction" && state.auction) {
     maybeHapticOutbid(state.auction);
     observeBidSheet();
@@ -2572,12 +2746,58 @@ function wireCurrent() {
     document.querySelectorAll("[data-buy]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         lastError = "";
-        const res = await emit("buyBooster", { boosterId: btn.getAttribute("data-buy") });
+        const id = btn.getAttribute("data-buy");
+        if (btn.getAttribute("data-needs-target") && !btn.disabled) {
+          cursePickerBooster = id;
+          render();
+          return;
+        }
+        const res = await emit("buyBooster", { boosterId: id });
         if (!res.ok) {
           lastError = res.error || "Could not buy that booster.";
           render();
         }
       });
+    });
+    document.querySelectorAll("[data-prep-team]").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button, a, input")) return;
+        const name = card.getAttribute("data-prep-team");
+        expandedPrepTeam = expandedPrepTeam === name ? null : name;
+        render();
+      });
+      card.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        const name = card.getAttribute("data-prep-team");
+        expandedPrepTeam = expandedPrepTeam === name ? null : name;
+        render();
+      });
+    });
+    document.querySelectorAll("[data-curse-cancel]").forEach((el) => {
+      el.addEventListener("click", () => {
+        cursePickerBooster = null;
+        render();
+      });
+    });
+    document.querySelectorAll("[data-curse-target]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        lastError = "";
+        const targetName = btn.getAttribute("data-curse-target");
+        const boosterId = cursePickerBooster;
+        const res = await emit("buyBooster", { boosterId, targetName });
+        if (!res.ok) {
+          lastError = res.error || "Could not buy that booster.";
+        } else {
+          cursePickerBooster = null;
+        }
+        render();
+      });
+    });
+  }
+  if (state.phase === "formBoosts") {
+    document.getElementById("skip-form-boost")?.addEventListener("click", async () => {
+      await emit("skipFormBoostReveal");
     });
   }
   bindResultsTeamSheet();
@@ -2607,7 +2827,7 @@ function startTicks() {
       if (isPlayerIntroActive()) {
         updatePlayerIntroUi();
       } else if (state.phase === "captains") {
-        render();
+        updatePrepClock();
       }
     }
     if (state.powerWait && state.powerWait.endsAt) {

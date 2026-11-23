@@ -24,7 +24,7 @@ const {
   MIN_START_BID,
   MAX_START_BID,
 } = require("./rules");
-const { getBooster, canAffordAny, publicCatalog } = require("./boosters");
+const { getBooster, canAffordAny, publicCatalog, packBooster, applyFormBoosters } = require("./boosters");
 const {
   CHARACTERS,
   getCharacter,
@@ -86,7 +86,8 @@ function defaultTimers() {
   return {
     lotStartMs: Number(process.env.LOT_START_MS) || 25000,
     bidMs: Number(process.env.BID_TIMER_MS) || 25000,
-    captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 45000,
+    captainMs: Number(process.env.CAPTAIN_TIMER_MS) || 90000,
+    formBoostRevealMs: envMs("FORM_BOOST_REVEAL_MS", 6000),
     soldRevealMs: envMs("SOLD_REVEAL_MS", 5000),
     powerRevealMs: envMs("POWER_REVEAL_MS", POWER_REVEAL_MS),
     lastTeamFillMs: envMs("LAST_TEAM_FILL_MS", 3000),
@@ -125,6 +126,8 @@ class GameRoom extends EventEmitter {
     this.eliminationLog = [];
     this.timer = null;
     this.captainEndsAt = null;
+    this.formBoostReveal = null;
+    this.prepFeed = [];
     this.tournament = null;
     this.lastEvent = null;
     this.createdAt = Date.now();
@@ -571,7 +574,8 @@ class GameRoom extends EventEmitter {
     if (!team) return { ok: false, error: "You are not in this room." };
     const revealOpen = this.phase === "results" && this.resultsReveal && !this.resultsReveal.skipped
       && this.resultsReveal.revealedCount < this.resultsReveal.total;
-    if (this.phase !== "auction" && this.phase !== "captains" && !revealOpen) {
+    const formBoostOpen = this.phase === "formBoosts" && this.formBoostReveal && this.formBoostReveal.endsAt;
+    if (this.phase !== "auction" && this.phase !== "captains" && !revealOpen && !formBoostOpen) {
       return { ok: false, error: "Nothing to pause right now." };
     }
     if (this.phase === "auction" && this.playerIntro && this.playerIntro.endsAt) {
@@ -592,6 +596,9 @@ class GameRoom extends EventEmitter {
     } else if (this.phase === "captains" && this.captainEndsAt) {
       this.pauseRemainingMs = Math.max(0, this.captainEndsAt - Date.now());
       this.pauseTimerKind = "captain";
+    } else if (this.phase === "formBoosts" && this.formBoostReveal && this.formBoostReveal.endsAt) {
+      this.pauseRemainingMs = Math.max(0, this.formBoostReveal.endsAt - Date.now());
+      this.pauseTimerKind = "formBoosts";
     } else {
       this.pauseRemainingMs = null;
       this.pauseTimerKind = null;
@@ -650,6 +657,10 @@ class GameRoom extends EventEmitter {
       this.captainEndsAt = Date.now() + remaining;
       endsAt = this.captainEndsAt;
       this.armTimer(() => this.finishCaptains(), remaining);
+    } else if (kind === "formBoosts" && this.phase === "formBoosts" && this.formBoostReveal && remaining != null) {
+      this.formBoostReveal.endsAt = Date.now() + remaining;
+      endsAt = this.formBoostReveal.endsAt;
+      this.armTimer(() => this.finishFormBoostReveal(), remaining);
     }
     this.emitDelta({
       type: "resumed",
@@ -1614,6 +1625,8 @@ class GameRoom extends EventEmitter {
     this.auction = null;
     this.lastTeamFill = null;
     this.revealUntil = null;
+    this.formBoostReveal = null;
+    this.prepFeed = [];
     this.revealForms();
     for (const f of this.franchises) {
       if (!Array.isArray(f.boosters)) f.boosters = [];
@@ -1625,7 +1638,7 @@ class GameRoom extends EventEmitter {
     const needingCaptain = this.activeFranchises().filter((f) => !f.captainId && f.squad.length);
     const shopOpen = this.activeFranchises().some((f) => canAffordAny(f));
     if (needingCaptain.length === 0 && !shopOpen) {
-      this.runSimulation();
+      this.finishCaptains();
       return;
     }
     this.captainEndsAt = Date.now() + this.timers.captainMs;
@@ -1641,10 +1654,10 @@ class GameRoom extends EventEmitter {
     this.finishCaptains();
   }
 
-  buyBooster(byName, boosterId) {
+  buyBooster(byName, boosterId, targetName) {
     const gate = this.requireUnpaused();
     if (!gate.ok) return gate;
-    if (this.phase !== "captains") return { ok: false, error: "The booster shop is closed." };
+    if (this.phase !== "captains" || this.formBoostReveal) return { ok: false, error: "The booster shop is closed." };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
     if (team.eliminated) return { ok: false, error: "Your franchise has been eliminated." };
@@ -1657,15 +1670,43 @@ class GameRoom extends EventEmitter {
     if (team.purseLakhs < item.pricePoints) {
       return { ok: false, error: "Not enough points for that booster." };
     }
+    let target = null;
+    if (item.needsTarget) {
+      target = this.findByName(targetName);
+      if (!target) return { ok: false, error: "Pick a rival to curse." };
+      if (target.key === team.key) return { ok: false, error: "You cannot curse your own team." };
+      if (target.eliminated) return { ok: false, error: "That team is already eliminated." };
+    }
     team.purseLakhs -= item.pricePoints;
-    const bought = { id: item.id, name: item.name, pricePoints: item.pricePoints };
+    const bought = packBooster({
+      id: item.id,
+      name: item.name,
+      pricePoints: item.pricePoints,
+      targetName: target ? target.name : null,
+    });
     team.boosters.push(bought);
+    const message = target
+      ? `${team.name} bought ${item.name} → ${target.name}`
+      : `${team.name} bought ${item.name}`;
+    const feed = this.appendPrepFeed({
+      kind: "booster",
+      name: team.name,
+      short: team.name,
+      color: team.franchise && team.franchise.color,
+      message,
+      boosterId: item.id,
+      boosterName: item.name,
+      targetName: target ? target.name : null,
+    });
     this.emitDelta({
       type: "booster",
       name: team.name,
       short: team.name,
+      color: team.franchise && team.franchise.color,
       booster: bought,
       purseLakhs: team.purseLakhs,
+      message,
+      feed,
     });
     this.maybeFinishPrep();
     return { ok: true };
@@ -1680,24 +1721,91 @@ class GameRoom extends EventEmitter {
     if (team.eliminated) return { ok: false, error: "Your franchise has been eliminated." };
     const slot = team.squad.find((s) => s.player.id === playerId);
     if (!slot) return { ok: false, error: "That player is not in your XI." };
+    if (this.formBoostReveal) return { ok: false, error: "Captain selection is not open." };
     team.captainId = playerId;
+    const captainName = slot.player && slot.player.name;
+    const message = captainName ? `${team.name} named ${captainName} captain` : `${team.name} picked a captain`;
+    const feed = this.appendPrepFeed({
+      kind: "captain",
+      name: team.name,
+      short: team.name,
+      color: team.franchise && team.franchise.color,
+      message,
+      captainId: playerId,
+      captainName: captainName || null,
+    });
     this.emitDelta({
       type: "captain",
       name: team.name,
       short: team.name,
+      color: team.franchise && team.franchise.color,
       captainId: playerId,
+      captainName: captainName || null,
+      message,
+      feed,
     });
     this.maybeFinishPrep();
     return { ok: true };
   }
 
+  appendPrepFeed(entry) {
+    const item = { at: Date.now(), ...entry };
+    this.prepFeed = this.prepFeed || [];
+    this.prepFeed.push(item);
+    if (this.prepFeed.length > 40) this.prepFeed = this.prepFeed.slice(-40);
+    return item;
+  }
+
+  packFormBoostReveal() {
+    const r = this.formBoostReveal;
+    if (!r) return null;
+    return {
+      changes: r.changes || [],
+      endsAt: r.endsAt || null,
+      endsAfterMs: r.endsAfterMs || null,
+    };
+  }
+
   finishCaptains() {
-    if (this.phase !== "captains") return;
+    if (this.phase !== "captains" || this.formBoostReveal) return;
     this.clearTimer();
     for (const f of this.activeFranchises()) {
       f.captainId = pickCaptainIfMissing(f);
     }
+    const changes = applyFormBoosters(this.franchises || [], this.rng);
+    const revealMs = Math.max(0, Number(this.timers.formBoostRevealMs) || 0);
+    if (changes.length && revealMs > 0) {
+      this.captainEndsAt = null;
+      this.formBoostReveal = {
+        changes,
+        endsAfterMs: revealMs,
+        endsAt: Date.now() + revealMs,
+      };
+      this.phase = "formBoosts";
+      this.armTimer(() => this.finishFormBoostReveal(), revealMs);
+      this.bump("formBoosts");
+      return;
+    }
     this.runSimulation();
+  }
+
+  finishFormBoostReveal() {
+    if (this.phase !== "formBoosts") return;
+    this.clearTimer();
+    this.formBoostReveal = null;
+    this.runSimulation();
+  }
+
+  skipFormBoostReveal(byName) {
+    const gate = this.requireUnpaused();
+    if (!gate.ok) return gate;
+    if (this.phase !== "formBoosts" || !this.formBoostReveal) {
+      return { ok: true, already: true };
+    }
+    const team = this.findByName(byName);
+    if (!team) return { ok: false, error: "You are not in this room." };
+    this.finishFormBoostReveal();
+    return { ok: true };
   }
 
   runSimulation() {
@@ -1780,7 +1888,7 @@ class GameRoom extends EventEmitter {
       remainingQuota: remainingQuota(f.squad, this.mode),
       complete: isSquadComplete(f.squad, this.mode),
       captainId: f.captainId,
-      boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
+      boosters: (f.boosters || []).map((b) => packBooster(b)),
       eliminated: Boolean(f.eliminated),
       banned: Boolean(f.banned) || (f.eliminated && f.eliminatedReason === "match_fixing"),
       eliminatedReason: f.banned || (f.eliminated && f.eliminatedReason === "match_fixing")
@@ -1858,7 +1966,7 @@ class GameRoom extends EventEmitter {
         franchiseName: f.name,
         captainId: f.captainId,
         purseLakhs: f.purseLakhs,
-        boosters: (f.boosters || []).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })),
+        boosters: (f.boosters || []).map((b) => packBooster(b)),
         moments: (t.moments || []).filter((m) => m.teamName === f.name),
         eliminated: Boolean(f.eliminated),
         title: pos ? pos.title : (f.eliminated ? "Eliminated - insufficient purse" : null),
@@ -1916,6 +2024,9 @@ class GameRoom extends EventEmitter {
     if (this.phase === "captains" && this.captainEndsAt) {
       return { kind: "captain", remainingMs: Math.max(0, this.captainEndsAt - Date.now()) };
     }
+    if (this.phase === "formBoosts" && this.formBoostReveal && this.formBoostReveal.endsAt) {
+      return { kind: "formBoosts", remainingMs: Math.max(0, this.formBoostReveal.endsAt - Date.now()) };
+    }
     return { kind: null, remainingMs: null };
   }
 
@@ -1944,6 +2055,10 @@ class GameRoom extends EventEmitter {
       this.captainEndsAt = Date.now() + remaining;
       endsAt = this.captainEndsAt;
       this.armTimer(() => this.finishCaptains(), remaining);
+    } else if (kind === "formBoosts" && this.phase === "formBoosts" && this.formBoostReveal) {
+      this.formBoostReveal.endsAt = Date.now() + remaining;
+      endsAt = this.formBoostReveal.endsAt;
+      this.armTimer(() => this.finishFormBoostReveal(), remaining);
     }
     return endsAt;
   }
@@ -2642,8 +2757,10 @@ class GameRoom extends EventEmitter {
       lastEvent: this.lastEvent,
       soldLog: this.soldLog,
       captainEndsAt: this.captainEndsAt,
-      boosterCatalog: this.phase === "captains" ? publicCatalog() : [],
-      captainsPending: this.phase === "captains"
+      formBoostReveal: this.phase === "formBoosts" ? this.packFormBoostReveal() : null,
+      prepFeed: this.prepFeed || [],
+      boosterCatalog: this.phase === "captains" && !this.formBoostReveal ? publicCatalog() : [],
+      captainsPending: this.phase === "captains" && !this.formBoostReveal
         ? this.activeFranchises().filter((f) => !f.captainId && f.squad.length).map((f) => ({
             name: f.name,
             short: f.name,

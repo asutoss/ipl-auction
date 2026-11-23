@@ -217,6 +217,9 @@ io.on("connection", (socket) => {
       if (payload.testTimers.resultsRevealStepMs != null && Number.isFinite(Number(payload.testTimers.resultsRevealStepMs))) {
         timers.resultsRevealStepMs = Math.max(0, Number(payload.testTimers.resultsRevealStepMs));
       }
+      if (payload.testTimers.formBoostRevealMs != null && Number.isFinite(Number(payload.testTimers.formBoostRevealMs))) {
+        timers.formBoostRevealMs = Math.max(0, Number(payload.testTimers.formBoostRevealMs));
+      }
     }
     const room = new GameRoom({
       code,
@@ -297,7 +300,14 @@ io.on("connection", (socket) => {
   socket.on("buyBooster", (payload = {}, cb) => {
     const room = getRoom(socket.data.code);
     if (!room) return cb && cb({ ok: false, error: "Join a room first." });
-    const result = room.buyBooster(socket.data.name, payload.boosterId);
+    const result = room.buyBooster(socket.data.name, payload.boosterId, payload.targetName);
+    cb && cb(result);
+  });
+
+  socket.on("skipFormBoostReveal", (_payload, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    const result = room.skipFormBoostReveal(socket.data.name);
     cb && cb(result);
   });
 

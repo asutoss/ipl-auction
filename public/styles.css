@@ -280,6 +280,122 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .booster { background: #0c1324; border: 1px solid #334169; border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
 .booster.owned { border-color: #3d6b4f; }
 .booster .tag { margin-left: 8px; }
+
+.prep-screen { display: grid; gap: 14px; }
+.prep-timer-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--bg, #071018) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+  border-radius: 16px;
+  padding: 12px 16px 14px;
+  text-align: center;
+}
+.prep-clock {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 0.95;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  margin: 2px 0 6px;
+}
+.prep-ticker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 9.5em;
+  overflow: auto;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 80%, #000);
+  border: 1px solid color-mix(in srgb, var(--gold) 18%, transparent);
+}
+.prep-ticker-item { margin: 0; font-size: 13px; font-weight: 650; }
+.prep-board { display: grid; gap: 8px; }
+.prep-card {
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--c, var(--gold)) 45%, transparent);
+  border-radius: 14px;
+  padding: 10px 12px;
+  cursor: pointer;
+  min-width: 0;
+}
+.prep-card.is-you { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 50%, transparent); }
+.prep-card.is-open { border-width: 2px; }
+.prep-card-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  align-items: center;
+}
+.prep-card-face .player-headshot,
+.prep-card-face .prep-cap-shot { --ph-size: 40px; width: 40px; height: 40px; border-radius: 999px; overflow: hidden; }
+.prep-card-face .team-mark-wrap { width: 40px; height: 40px; flex: 0 0 40px; }
+.prep-card-copy { min-width: 0; }
+.prep-card-copy h3 { margin: 0; font-size: 16px; color: var(--ct, var(--text)); }
+.prep-captain-line { margin: 2px 0 6px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prep-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.prep-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--c, var(--gold)) 18%, #0c1324);
+  border: 1px solid color-mix(in srgb, var(--c, var(--gold)) 40%, transparent);
+  white-space: nowrap;
+}
+.prep-chip.is-empty { opacity: 0.6; font-weight: 600; }
+.prep-chip.is-fresh { animation: sold-pop 480ms cubic-bezier(0.18, 1.4, 0.32, 1) both; }
+.prep-curse { margin: 6px 0 0; font-size: 11px; font-weight: 700; color: #ff6b7a; }
+.prep-card-meta { text-align: right; display: grid; gap: 4px; justify-items: end; }
+.prep-form { margin: 0; }
+.prep-form .form-pct { font-size: 13px; }
+.prep-purse { margin: 0; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.prep-card-details { margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--c, var(--gold)) 25%, transparent); display: grid; gap: 8px; }
+.prep-detail-cap, .prep-detail-boost { display: grid; gap: 2px; }
+.prep-target-list { display: grid; gap: 8px; margin-top: 12px; }
+.prep-target {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
+  background: color-mix(in srgb, var(--card) 90%, #000);
+  color: inherit;
+  cursor: pointer;
+}
+.prep-curse-card { max-height: min(84dvh, 640px); }
+.form-boost-reveal { text-align: left; }
+.form-boost-reveal h2 { margin: 4px 0 14px; }
+.form-boost-list { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 10px; }
+.form-boost-row {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 88%, #000);
+  border: 1px solid color-mix(in srgb, var(--gold) 22%, transparent);
+  display: grid;
+  gap: 6px;
+}
+.form-boost-row p { margin: 0; font-weight: 700; }
+.form-boost-row.kind-cancel { border-color: color-mix(in srgb, #f5c518 45%, transparent); }
+.form-boost-row.kind-curse, .form-boost-row.kind-curse-noop { border-color: color-mix(in srgb, #ff6b7a 45%, transparent); }
+.form-boost-row.kind-self, .form-boost-row.kind-self-noop { border-color: color-mix(in srgb, #3dd68c 45%, transparent); }
+@media (max-width: 700px) {
+  .prep-clock { font-size: 48px; }
+  .prep-card { padding: 8px 10px; }
+  .prep-card-face .player-headshot,
+  .prep-card-face .prep-cap-shot { --ph-size: 36px; width: 36px; height: 36px; }
+}
+
 .team-reports { display: grid; gap: 16px; }
 .team-report { background: #0c1324; border: 1px solid #334169; border-radius: 16px; padding: 16px; border-left: 4px solid var(--c, var(--gold)); }
 .team-report header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 10px; }

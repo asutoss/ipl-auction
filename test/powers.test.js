@@ -32,7 +32,7 @@ function roomWith(names, timers, opts = {}) {
     code: "PWR",
     purseLakhs: opts.purseLakhs != null ? opts.purseLakhs : 100,
     mode: opts.mode || "classical",
-    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 45_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, powerRevealMs: 0, ...(timers || {}) },
+    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 90_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, powerRevealMs: 0, formBoostRevealMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
     seed: opts.seed,

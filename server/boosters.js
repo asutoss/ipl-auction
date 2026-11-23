@@ -1,5 +1,8 @@
 /** Funny, modest tournament boosters bought with leftover auction points. */
 
+const FORM_SELF_ID = "net-session";
+const FORM_RIVAL_ID = "nazar";
+
 const BOOSTERS = [
   {
     id: "friendly-umpire",
@@ -49,6 +52,21 @@ const BOOSTERS = [
     pricePoints: 32,
     blurb: "Sabotage: one random rival arrives late and plays below par in every match.",
   },
+  {
+    id: FORM_SELF_ID,
+    name: "Net Session Masterclass",
+    pricePoints: 28,
+    effect: "form-self",
+    blurb: "A week of throwdowns in the nets. Guarantees your Current form finishes above 100%.",
+  },
+  {
+    id: FORM_RIVAL_ID,
+    name: "Nazar Lag Gayi",
+    pricePoints: 34,
+    effect: "form-rival",
+    needsTarget: true,
+    blurb: "A lingering stare from the stands. Pick a rival and force their Current form below 100%.",
+  },
 ];
 
 function getBooster(id) {
@@ -81,15 +99,140 @@ function publicCatalog() {
     name: b.name,
     pricePoints: b.pricePoints,
     blurb: b.blurb,
+    needsTarget: Boolean(b.needsTarget),
+    effect: b.effect || null,
   }));
+}
+
+function packBooster(b) {
+  if (!b) return null;
+  return {
+    id: b.id,
+    name: b.name,
+    pricePoints: b.pricePoints,
+    targetName: b.targetName || null,
+    targetShort: b.targetName || null,
+  };
+}
+
+function rngRandom(rng) {
+  if (typeof rng === "function") return rng;
+  if (rng && typeof rng.random === "function") return rng.random.bind(rng);
+  return Math.random;
+}
+
+function rollUniformPct(rng, lo, hi) {
+  const random = rngRandom(rng);
+  const min = Math.min(lo, hi);
+  const max = Math.max(lo, hi);
+  return min + Math.floor(random() * (max - min + 1));
+}
+
+function applyFormBoosters(teams, rng) {
+  const list = Array.isArray(teams) ? teams : [];
+  const byName = new Map(list.map((t) => [t.name, t]));
+  const original = new Map(list.map((t) => [t.name, t.formPct != null ? t.formPct : null]));
+  const curses = new Map();
+  for (const team of list) {
+    const bought = (team.boosters || []).find((b) => b.id === FORM_RIVAL_ID);
+    if (!bought || !bought.targetName) continue;
+    const target = byName.get(bought.targetName);
+    if (!target || target.eliminated) continue;
+    if (!curses.has(target.name)) curses.set(target.name, []);
+    curses.get(target.name).push(team);
+  }
+  const selfOwners = list.filter((t) => !t.eliminated && hasBooster(t, FORM_SELF_ID));
+  const names = new Set([...selfOwners.map((t) => t.name), ...curses.keys()]);
+  const events = [];
+  const selfName = (getBooster(FORM_SELF_ID) || {}).name || "Net Session Masterclass";
+  const curseName = (getBooster(FORM_RIVAL_ID) || {}).name || "Nazar Lag Gayi";
+
+  function casterLabel(casters) {
+    return casters.map((c) => c.name).join(" & ");
+  }
+
+  for (const name of names) {
+    const team = byName.get(name);
+    if (!team) continue;
+    const from = original.get(name);
+    const hasSelf = hasBooster(team, FORM_SELF_ID);
+    const casters = curses.get(name) || [];
+    if (hasSelf && casters.length) {
+      events.push({
+        kind: "cancel",
+        teamName: name,
+        from,
+        to: from,
+        casters: casters.map((c) => c.name),
+        boosterName: curseName,
+        message: `${curseName} from ${casterLabel(casters)} and ${selfName} on ${name} cancel out — form stays ${from}%`,
+      });
+      continue;
+    }
+    if (hasSelf) {
+      if (from != null && Number(from) > 100) {
+        events.push({
+          kind: "self-noop",
+          teamName: name,
+          from,
+          to: from,
+          boosterName: selfName,
+          message: `${selfName}: ${name} form already ${from}%`,
+        });
+      } else {
+        const to = rollUniformPct(rng, 101, 115);
+        team.formPct = to;
+        events.push({
+          kind: "self",
+          teamName: name,
+          from,
+          to,
+          boosterName: selfName,
+          message: `${selfName}: ${name} form ${from}% -> ${to}%`,
+        });
+      }
+      continue;
+    }
+    if (casters.length) {
+      if (from != null && Number(from) < 100) {
+        events.push({
+          kind: "curse-noop",
+          teamName: name,
+          from,
+          to: from,
+          casters: casters.map((c) => c.name),
+          boosterName: curseName,
+          message: `${curseName} from ${casterLabel(casters)}: ${name} form already ${from}%`,
+        });
+      } else {
+        const to = rollUniformPct(rng, 85, 99);
+        team.formPct = to;
+        events.push({
+          kind: "curse",
+          teamName: name,
+          from,
+          to,
+          casters: casters.map((c) => c.name),
+          boosterName: curseName,
+          message: `${curseName} from ${casterLabel(casters)}: ${name} form ${from}% -> ${to}%`,
+        });
+      }
+    }
+  }
+  return events;
 }
 
 module.exports = {
   BOOSTERS,
+  FORM_SELF_ID,
+  FORM_RIVAL_ID,
   getBooster,
   cheapestPrice,
   hasBooster,
   ownedIds,
   canAffordAny,
   publicCatalog,
+  packBooster,
+  rollUniformPct,
+  applyFormBoosters,
 };

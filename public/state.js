@@ -64,6 +64,15 @@
     if (live) state.you = { ...live, isYou: true };
   }
 
+  function appendPrepFeed(state, entry) {
+    if (!state || !entry) return;
+    state.prepFeed = state.prepFeed || [];
+    const key = `${entry.at || ""}:${entry.message || ""}:${entry.kind || ""}:${entry.name || ""}`;
+    if (state.prepFeed.some((e) => `${e.at || ""}:${e.message || ""}:${e.kind || ""}:${e.name || ""}` === key)) return;
+    state.prepFeed.push(entry);
+    if (state.prepFeed.length > 40) state.prepFeed = state.prepFeed.slice(-40);
+  }
+
   const BID_STEPS = [1, 2, 5];
   const ROLE_ORDER = ["BAT", "WK", "AR", "BOWL"];
 
@@ -263,6 +272,8 @@
         }
         syncYou(state);
         state.captainsPending = (state.captainsPending || []).filter((p) => p.name !== evt.name);
+        if (evt.feed) appendPrepFeed(state, evt.feed);
+        else if (evt.message) appendPrepFeed(state, evt);
         break;
       }
       case "presence": {
@@ -282,6 +293,8 @@
           }
         }
         syncYou(state);
+        if (evt.feed) appendPrepFeed(state, evt.feed);
+        else if (evt.message) appendPrepFeed(state, evt);
         break;
       }
       case "paused": {
