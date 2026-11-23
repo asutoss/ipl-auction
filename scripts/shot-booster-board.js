@@ -162,17 +162,37 @@ async function main() {
     await waitFor(host, () => {
       const text = (document.getElementById("prep-screen") && document.getElementById("prep-screen").innerText) || "";
       const chips = document.querySelectorAll(".prep-chip").length;
-      return chips >= 6 && /Lucky Toss Coin/.test(text) && /Nazar Lag Gayi/.test(text) && /Cursed by Ravi/.test(text) && /choosing/.test(text);
+      return chips >= 6 && /Lucky Toss Coin/.test(text) && /\+3% title chance/.test(text) && /Nazar from Ravi/.test(text) && /choosing/.test(text);
     }, "purchases on board");
     await sleep(1600);
-    await shot(host, "booster-board.png", PHONE, { scroll: "#prep-screen", hideTopbar: true });
+    await shot(host, "booster-board-curse.png", PHONE, { scroll: '[data-prep-team="Baahubali"]', hideTopbar: true });
 
     await waitFor(host, () => {
       const shop = document.getElementById("prep-shop");
+      const names = Array.from(document.querySelectorAll("#prep-shop .booster strong")).map((el) => el.textContent.trim());
+      return Boolean(shop && names[0] === "Team Bus Breakdown" && names[names.length - 1] === "DRS Wizard");
+    }, "shop catalog order");
+    const mitron = room.findByName("Mitron");
+    const savedPurse = mitron.purseLakhs;
+    mitron.purseLakhs = 15;
+    room.bump("captains");
+    await waitFor(host, () => {
+      const shop = document.getElementById("prep-shop");
       const text = shop ? shop.innerText : "";
-      return Boolean(shop && document.querySelectorAll(".impact-tag").length >= 8 && /Win chance about/.test(text) && /big impact/i.test(text));
-    }, "shop impact lines");
-    await shot(host, "booster-shop-impact.png", PHONE, { scroll: "#prep-shop", hideTopbar: true });
+      const names = Array.from(document.querySelectorAll("#prep-shop .booster strong")).map((el) => el.textContent.trim());
+      const firstLocked = document.querySelector("#prep-shop .booster");
+      const noBuyOnFirst = firstLocked && !firstLocked.querySelector("[data-buy]");
+      const ownedLucky = /Lucky Toss Coin/.test(text) && /Owned/.test(text);
+      return Boolean(shop && names[0] === "Team Bus Breakdown" && /Not enough points/.test(text) && noBuyOnFirst && ownedLucky);
+    }, "shop locked reasons");
+    await shot(host, "booster-shop-sorted.png", PHONE, { scroll: "#prep-shop", hideTopbar: true });
+    mitron.purseLakhs = savedPurse;
+    room.bump("captains");
+    await waitFor(host, (purse) => {
+      const shop = document.getElementById("prep-shop");
+      const text = shop ? shop.innerText : "";
+      return Boolean(shop && text.includes("Purse:") && text.includes(String(purse)));
+    }, "purse restored", 15000, savedPurse);
 
     await host.evaluate(() => {
       const card = document.querySelector('[data-prep-team="Mitron"]');
@@ -181,7 +201,7 @@ async function main() {
     await waitFor(host, () => {
       const card = document.querySelector('[data-prep-team="Mitron"].is-open');
       const text = card ? card.innerText : "";
-      return Boolean(card && /Net Session Masterclass/.test(text) && /Guarantees your Current form/.test(text));
+      return Boolean(card && /Net Session Masterclass · \+10% title chance/.test(text) && /Lucky Toss Coin · \+3% title chance/.test(text) && !/Guarantees your Current form/.test(text) && !/Big impact|Medium impact|Small impact/i.test(text));
     }, "mitron card expanded");
     await sleep(300);
     await shot(host, "booster-board-expanded.png", PHONE, { scroll: '[data-prep-team="Mitron"]', hideTopbar: true });

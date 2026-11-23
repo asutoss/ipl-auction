@@ -759,7 +759,16 @@ describe("booster shop", () => {
     for (const b of BOOSTERS) {
       assert.ok(b.pricePoints >= 10 && b.pricePoints <= 30, b.id);
       assert.ok(b.impact && b.impact.line && b.impact.size, b.id);
+      assert.ok(Number(b.impact.score) > 0, b.id);
+      assert.ok(Number.isFinite(Number(b.impact.titleWinPp)), b.id);
       assert.ok(b.name && b.blurb);
+    }
+    const { publicCatalog } = require("../server/boosters");
+    const catalog = publicCatalog();
+    assert.equal(catalog[0].id, "bus-breakdown");
+    assert.equal(catalog[catalog.length - 1].id, "drs-wizard");
+    for (let i = 1; i < catalog.length; i++) {
+      assert.ok(catalog[i - 1].impact.score >= catalog[i].impact.score, `${catalog[i - 1].id} before ${catalog[i].id}`);
     }
     const room = primedRoom();
     room.beginCaptainPhase();

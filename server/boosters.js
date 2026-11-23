@@ -8,56 +8,56 @@ const BOOSTERS = [
     id: "friendly-umpire",
     name: "Friendly Umpire",
     pricePoints: 22,
-    impact: { size: "medium", bars: 2, line: "Win chance about +13%." },
+    impact: { size: "medium", bars: 2, line: "Win chance about +13%.", score: 14.546, titleWinPp: 13 },
     blurb: "Close calls go your way. A small chance to turn a narrow loss into a win.",
   },
   {
     id: "home-curator",
     name: "Home Pitch Curator",
     pricePoints: 25,
-    impact: { size: "big", bars: 3, line: "Win chance about +16%." },
+    impact: { size: "big", bars: 3, line: "Win chance about +16%.", score: 18.154, titleWinPp: 16 },
     blurb: "A surface that suits your attack. Modest bowling boost every match.",
   },
   {
     id: "drs-wizard",
     name: "DRS Wizard",
     pricePoints: 10,
-    impact: { size: "small", bars: 1, line: "Win chance about +2%." },
+    impact: { size: "small", bars: 1, line: "Win chance about +2%.", score: 1.848, titleWinPp: 2 },
     blurb: "A slim chance to overturn a narrow defeat on review.",
   },
   {
     id: "dew-factor",
     name: "Dew Factor",
     pricePoints: 26,
-    impact: { size: "big", bars: 3, line: "Win chance about +17%." },
+    impact: { size: "big", bars: 3, line: "Win chance about +17%.", score: 19.046, titleWinPp: 17 },
     blurb: "Chasing under lights gets a modest batting bump.",
   },
   {
     id: "cheerleaders",
     name: "Cheerleader Squad",
     pricePoints: 21,
-    impact: { size: "medium", bars: 2, line: "Win chance about +12%." },
+    impact: { size: "medium", bars: 2, line: "Win chance about +12%.", score: 13.532, titleWinPp: 12 },
     blurb: "Crowd morale. Your whole team plays a touch stronger.",
   },
   {
     id: "rain-dance",
     name: "Rain Dance",
     pricePoints: 11,
-    impact: { size: "small", bars: 1, line: "Win chance about +3%." },
+    impact: { size: "small", bars: 1, line: "Win chance about +3%.", score: 3.243, titleWinPp: 3 },
     blurb: "A chance to wash a league loss out into a no-result.",
   },
   {
     id: "lucky-toss",
     name: "Lucky Toss Coin",
     pricePoints: 12,
-    impact: { size: "small", bars: 1, line: "Win chance about +3%." },
+    impact: { size: "small", bars: 1, line: "Win chance about +3%.", score: 3.671, titleWinPp: 3 },
     blurb: "You usually win the toss and pick the more favourable option.",
   },
   {
     id: "bus-breakdown",
     name: "Team Bus Breakdown",
     pricePoints: 30,
-    impact: { size: "big", bars: 3, line: "Win chance about +4%. Rival title chance about -16%." },
+    impact: { size: "big", bars: 3, line: "Win chance about +4%. Rival title chance about -16%.", score: 22.966, titleWinPp: 4 },
     blurb: "Sabotage: one random rival arrives late and plays below par in every match.",
   },
   {
@@ -65,7 +65,7 @@ const BOOSTERS = [
     name: "Net Session Masterclass",
     pricePoints: 19,
     effect: "form-self",
-    impact: { size: "medium", bars: 2, line: "Win chance about +10%. Form re-rolled to 101–115% if below 100." },
+    impact: { size: "medium", bars: 2, line: "Win chance about +10%. Form re-rolled to 101–115% if below 100.", score: 10.915, titleWinPp: 10 },
     blurb: "A week of throwdowns in the nets. Guarantees your Current form finishes above 100%.",
   },
   {
@@ -73,7 +73,7 @@ const BOOSTERS = [
     name: "Nazar Lag Gayi",
     pricePoints: 20,
     effect: "form-rival",
-    impact: { size: "medium", bars: 2, line: "Win chance about +2%. Rival form below 100% (title chance about -9%)." },
+    impact: { size: "medium", bars: 2, line: "Win chance about +2%. Rival form below 100% (title chance about -9%).", score: 12.414, titleWinPp: 2 },
     needsTarget: true,
     blurb: "A lingering stare from the stands. Pick a rival and force their Current form below 100%.",
   },
@@ -109,11 +109,21 @@ function packImpact(b) {
     size: b.impact.size || "medium",
     bars: Number(b.impact.bars) || 2,
     line: b.impact.line || "",
+    score: Number(b.impact.score) || 0,
+    titleWinPp: Number.isFinite(Number(b.impact.titleWinPp)) ? Number(b.impact.titleWinPp) : null,
   };
 }
 
+function catalogByImpact(list) {
+  return (list || []).slice().sort((a, b) => {
+    const as = Number(a && a.impact && a.impact.score) || 0;
+    const bs = Number(b && b.impact && b.impact.score) || 0;
+    return bs - as;
+  });
+}
+
 function publicCatalog() {
-  return BOOSTERS.map((b) => ({
+  return catalogByImpact(BOOSTERS.map((b) => ({
     id: b.id,
     name: b.name,
     pricePoints: b.pricePoints,
@@ -121,7 +131,7 @@ function publicCatalog() {
     needsTarget: Boolean(b.needsTarget),
     effect: b.effect || null,
     impact: packImpact(b),
-  }));
+  })));
 }
 
 function packBooster(b) {
@@ -256,6 +266,7 @@ module.exports = {
   publicCatalog,
   packBooster,
   packImpact,
+  catalogByImpact,
   rollUniformPct,
   applyFormBoosters,
 };

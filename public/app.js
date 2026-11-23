@@ -1736,13 +1736,34 @@ function prepBoosterKey(teamName, booster) {
   return `${teamName}::${booster && booster.id ? booster.id : ""}`;
 }
 
+function titleChanceLabel(b) {
+  const impact = impactOf(b);
+  if (!impact || impact.titleWinPp == null || !Number.isFinite(Number(impact.titleWinPp))) return "";
+  const n = Math.round(Number(impact.titleWinPp));
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${n}% title chance`;
+}
+
 function boosterChip(teamName, b) {
   if (!b) return "";
   const key = prepBoosterKey(teamName, b);
   const fresh = !seenPrepBoosters.has(key);
   seenPrepBoosters.add(key);
-  const target = b.targetName ? ` → ${esc(b.targetName)}` : "";
-  return `<span class="prep-chip ${fresh ? "is-fresh" : ""}">${esc(b.name)}${target}</span>`;
+  const full = (catalogById().get(b.id) || b);
+  const chance = titleChanceLabel(full);
+  const label = chance ? `${b.name} · ${chance}` : (b.name || "");
+  return `<span class="prep-chip ${fresh ? "is-fresh" : ""}">${esc(label)}</span>`;
+}
+
+function curseChip(caster, booster, victimName) {
+  if (!caster || !booster) return "";
+  const key = `curse::${caster.name}::${booster.id}::${victimName || ""}`;
+  const fresh = !seenPrepBoosters.has(key);
+  seenPrepBoosters.add(key);
+  let short = booster.name || "Curse";
+  if (booster.id === "nazar") short = "🧿 Nazar";
+  else if (booster.id === "bus-breakdown") short = "🚌 Bus Breakdown";
+  return `<span class="prep-chip prep-chip-curse ${fresh ? "is-fresh" : ""}">${esc(short)} from ${esc(caster.name)}</span>`;
 }
 
 function catalogById() {
@@ -1776,10 +1797,9 @@ function prepCard(team) {
   const expanded = expandedPrepTeam === team.name;
   const form = formPctOf(team) != null ? formLabel(team, { prefix: "" }) : "";
   const curses = cursedByOf(team, franchises);
-  const curseTag = curses.length
-    ? `<p class="prep-curse">Cursed by ${esc(curses.map((c) => c.team.name).join(", "))}</p>`
-    : "";
-  const chips = (team.boosters || []).map((b) => boosterChip(team.name, b)).join("") || `<span class="prep-chip is-empty">No boosters yet</span>`;
+  const ownChips = (team.boosters || []).map((b) => boosterChip(team.name, b));
+  const curseChips = curses.map((c) => curseChip(c.team, c.booster, team.name));
+  const chips = [...ownChips, ...curseChips].join("") || `<span class="prep-chip is-empty">No boosters yet</span>`;
   const mark = teamMark(team.franchise || team, "sm", team.name);
   const shot = captain && window.IplHeadshot
     ? IplHeadshot.markup(captain, { id: `prep-cap-${esc(team.name)}` })
@@ -1790,11 +1810,13 @@ function prepCard(team) {
     const capBlock = captain
       ? `<div class="prep-detail-cap"><strong>${esc(captain.name)}</strong> <span class="tag">Captain</span><p class="lede">${esc(captain.role)} · bat ${esc(captain.batting)} · bowl ${esc(captain.bowling)}</p></div>`
       : `<p class="lede">Captain still choosing...</p>`;
-    const boostBlocks = (team.boosters || []).map((b) => {
+    const boostLines = (team.boosters || []).map((b) => {
       const full = catalog.get(b.id) || b;
-      const aimed = b.targetName ? `<p class="lede">Aimed at ${esc(b.targetName)}.</p>` : "";
-      return `<div class="prep-detail-boost"><strong>${esc(b.name)}</strong> <span class="tag">${money(b.pricePoints)}</span><p class="lede">${esc(full.blurb || "")}</p>${impactMarkup(full)}${aimed}</div>`;
-    }).join("") || `<p class="lede">No boosters bought yet.</p>`;
+      const chance = titleChanceLabel(full);
+      return `<div class="prep-detail-boost"><p class="prep-boost-line">${esc(b.name)}${chance ? ` · ${esc(chance)}` : ""}</p></div>`;
+    });
+    const curseLines = curses.map((c) => `<div class="prep-detail-boost"><p class="prep-boost-line prep-boost-curse">${curseChip(c.team, c.booster, team.name)}</p></div>`);
+    const boostBlocks = [...boostLines, ...curseLines].join("") || `<p class="lede">No boosters bought yet.</p>`;
     details = `<div class="prep-card-details">${capBlock}${boostBlocks}</div>`;
   }
   return `
@@ -1805,7 +1827,6 @@ function prepCard(team) {
           <h3>${esc(team.name)}</h3>
           <p class="prep-captain-line">${captain ? esc(captain.name) : "choosing..."}</p>
           <div class="prep-chips">${chips}</div>
-          ${curseTag}
         </div>
         <div class="prep-card-meta">
           ${form ? `<p class="prep-form">${form}</p>` : ""}
@@ -1877,21 +1898,34 @@ function captainView() {
       </button>`
     )
     .join("");
-  const shop = catalog
+  const shopList = catalog.slice().sort((a, b) => {
+    const as = Number(a && a.impact && a.impact.score) || 0;
+    const bs = Number(b && b.impact && b.impact.score) || 0;
+    return bs - as;
+  });
+  const shop = shopList
     .map((b) => {
       const have = owned.has(b.id);
-      const can = you && !you.eliminated && !have && you.purseLakhs >= b.pricePoints;
+      const can = Boolean(you && !you.eliminated && !have && you.purseLakhs >= b.pricePoints);
       const needs = b.needsTarget ? "1" : "";
+      let reason = "";
+      if (!can) {
+        if (have) reason = "Owned";
+        else if (you && you.eliminated) reason = "Eliminated";
+        else if (you && you.purseLakhs < b.pricePoints) reason = "Not enough points";
+      }
+      const action = can
+        ? `<button class="btn secondary" data-buy="${esc(b.id)}" ${needs ? `data-needs-target="${needs}"` : ""}>${b.needsTarget ? "Pick a rival" : "Buy"}</button>`
+        : (reason ? `<p class="booster-reason">${esc(reason)}</p>` : "");
       return `
-        <div class="booster ${have ? "owned" : ""}">
+        <div class="booster ${have ? "owned" : ""} ${!can && reason ? "is-locked" : ""}">
           <div>
             <strong>${esc(b.name)}</strong>
             <span class="tag">${money(b.pricePoints)}</span>
-            ${have ? `<span class="tag">Bought</span>` : ""}
           </div>
           <p class="lede">${esc(b.blurb)}</p>
           ${impactMarkup(b)}
-          <button class="btn secondary" data-buy="${esc(b.id)}" ${needs ? `data-needs-target="${needs}"` : ""} ${can ? "" : "disabled"}>${have ? "Owned" : b.needsTarget ? "Pick a rival" : "Buy"}</button>
+          ${action}
         </div>`;
     })
     .join("");

@@ -279,7 +279,9 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .booster-grid { display: grid; gap: 10px; }
 .booster { background: #0c1324; border: 1px solid #334169; border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
 .booster.owned { border-color: #3d6b4f; }
+.booster.is-locked { opacity: 0.92; }
 .booster .tag { margin-left: 8px; }
+.booster-reason { margin: 0; font-size: 12px; font-weight: 700; color: var(--muted); }
 
 .prep-screen { display: grid; gap: 14px; }
 .prep-timer-bar {
@@ -347,11 +349,24 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   font-weight: 700;
   background: color-mix(in srgb, var(--c, var(--gold)) 18%, #0c1324);
   border: 1px solid color-mix(in srgb, var(--c, var(--gold)) 40%, transparent);
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.25;
+  max-width: 100%;
 }
 .prep-chip.is-empty { opacity: 0.6; font-weight: 600; }
 .prep-chip.is-fresh { animation: sold-pop 480ms cubic-bezier(0.18, 1.4, 0.32, 1) both; }
+.prep-chip-curse {
+  color: #ff8a94;
+  background: color-mix(in srgb, #ff6b7a 16%, #0c1324);
+  border-color: color-mix(in srgb, #ff6b7a 45%, transparent);
+}
 .prep-curse { margin: 6px 0 0; font-size: 11px; font-weight: 700; color: #ff6b7a; }
+.prep-boost-line { margin: 0; font-size: 13px; font-weight: 700; }
+.prep-boost-curse { color: #ff8a94; }
+@media (max-width: 700px) {
+  .prep-chip { font-size: 10px; }
+  .prep-boost-line { font-size: 12px; }
+}
 .prep-card-meta { text-align: right; display: grid; gap: 4px; justify-items: end; }
 .prep-form { margin: 0; }
 .prep-form .form-pct { font-size: 13px; }
