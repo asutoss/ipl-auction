@@ -2,6 +2,7 @@ const { overallRating } = require("./players");
 const { captainBonus, captainMatchesOf } = require("./captaincy");
 const { ROLES, QUOTA, formatPoints, resolveMode, inningsFormat } = require("./rules");
 const { hasBooster } = require("./boosters");
+const { playInnings, applyResultFlip } = require("./match-sim");
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -254,193 +255,6 @@ function squadStrengthScore(team, mode) {
   return squadStrengthBreakdown(team, mode).score;
 }
 
-function inningsBallsAndWickets(rng, bowling, allOutLikely, format) {
-  const maxBalls = format.balls;
-  const maxWkts = format.maxWickets;
-  const wicketMean = Math.max(1, maxWkts * 0.45 + (bowling - 75) * 0.06);
-  const wicketSd = Math.max(0.5, 1.6 * Math.sqrt(format.overs / 20));
-  const wickets = clamp(Math.round(gauss(rng, wicketMean, wicketSd)), 0, maxWkts);
-  let balls = maxBalls;
-  if (wickets === maxWkts || allOutLikely) {
-    const earlyMean = Math.round(maxBalls * (110 / 120));
-    const earlyMin = Math.round(maxBalls * (72 / 120));
-    balls = clamp(Math.round(gauss(rng, earlyMean, Math.max(4, 10 * format.overs / 20))), earlyMin, maxBalls);
-  }
-  return { balls, wickets };
-}
-
-function playInnings({ rng, batting, bowling, target, format }) {
-  const fmt = format || inningsFormat("classical");
-  const expected = fmt.expectedRuns + (batting - bowling) * fmt.edgeScale;
-  let mean = expected;
-  if (target != null) {
-    const par = Math.round(fmt.expectedRuns * (180 / 155));
-    const pressure = Math.max(0, (target - par) * 0.15);
-    mean = expected - pressure;
-  }
-  const raw = gauss(rng, mean, fmt.sd);
-
-  if (target == null) {
-    const score = Math.round(clamp(raw, fmt.minScore, fmt.maxScore));
-    const collapse = Math.round(fmt.expectedRuns * (130 / 155));
-    const { balls, wickets } = inningsBallsAndWickets(rng, bowling, score < collapse, fmt);
-    return { score, wickets, balls };
-  }
-
-  if (raw >= target) {
-    const margin = raw - target;
-    const earlyCut = Math.round(25 * (fmt.overs / 20));
-    const early = margin > earlyCut;
-    const earlyMean = Math.round(fmt.balls * (100 / 120));
-    const lateMean = Math.round(fmt.balls * (114 / 120));
-    const earlyMin = Math.round(fmt.balls * (70 / 120));
-    const earlyMax = Math.max(earlyMin + 1, fmt.balls - 2);
-    const lateMin = Math.round(fmt.balls * (100 / 120));
-    const balls = early
-      ? clamp(Math.round(gauss(rng, earlyMean, Math.max(3, 10 * fmt.overs / 20))), earlyMin, earlyMax)
-      : clamp(Math.round(gauss(rng, lateMean, Math.max(2, 5 * fmt.overs / 20))), lateMin, fmt.balls);
-    const wicketMean = early ? maxWktsMean(fmt, 0.3) : maxWktsMean(fmt, 0.5);
-    const wickets = clamp(Math.round(gauss(rng, wicketMean, Math.max(0.5, 1.5 * Math.sqrt(fmt.overs / 20)))), 0, Math.max(0, fmt.maxWickets - 1));
-    return { score: target, wickets, balls, chased: true };
-  }
-
-  const score = Math.round(clamp(raw, Math.round(fmt.minScore * 0.85), target - 1));
-  const deficitCut = Math.round(15 * (fmt.overs / 20));
-  const allOut = score < target - deficitCut && rng() < 0.45;
-  const { balls, wickets } = inningsBallsAndWickets(rng, bowling, allOut, fmt);
-  return {
-    score,
-    wickets: allOut ? fmt.maxWickets : Math.min(wickets, Math.max(0, fmt.maxWickets - 1)),
-    balls: allOut ? Math.min(balls, fmt.balls - 1) : fmt.balls,
-    chased: false,
-  };
-}
-
-function maxWktsMean(format, frac) {
-  return Math.max(0, format.maxWickets * frac);
-}
-
-function splitByWeights(total, weights, rng, { minEach = 0 } = {}) {
-  const n = weights.length;
-  if (n === 0) return [];
-  const safe = weights.map((w) => Math.max(0.01, w));
-  const sum = safe.reduce((a, b) => a + b, 0);
-  const raw = safe.map((w) => (total * w) / sum + gauss(rng, 0, Math.max(1, total * 0.03)));
-  for (let i = 0; i < n; i++) raw[i] = Math.max(minEach, raw[i]);
-  const out = raw.map((v) => Math.round(v));
-  let diff = total - out.reduce((a, b) => a + b, 0);
-  let guard = 0;
-  while (diff !== 0 && guard++ < 1000) {
-    const i = Math.floor(rng() * n);
-    if (diff > 0) {
-      out[i] += 1;
-      diff -= 1;
-    } else if (out[i] > minEach) {
-      out[i] -= 1;
-      diff += 1;
-    }
-  }
-  return out;
-}
-
-function allocateBatting(team, inn, rng) {
-  const ordered = battersOf(team)
-    .map((s) => ({ slot: s, rating: playerRatings(s, s.player.id === team.captainId).batting }))
-    .sort((a, b) => b.rating - a.rating);
-  if (!ordered.length) return [];
-  const nOut = clamp(inn.wickets, 0, ordered.length);
-  const nBatted = Math.min(ordered.length, Math.max(nOut + (nOut < ordered.length ? 1 : 0), Math.min(ordered.length, nOut + 2 || 1)));
-  const used = ordered.slice(0, Math.max(1, nBatted));
-  const weights = used.map((u, i) => u.rating * Math.pow(0.84, i));
-  const runs = splitByWeights(inn.score, weights, rng, { minEach: 0 });
-  const minBalls = runs.map((r) => (r === 0 ? 1 : Math.max(1, Math.ceil(r / 8))));
-  let balls = splitByWeights(Math.max(inn.balls, minBalls.reduce((a, b) => a + b, 0)), weights, rng, { minEach: 1 });
-  // If we inflated balls to satisfy strike-rate caps, scale back toward inn.balls while keeping mins.
-  let ballSum = balls.reduce((a, b) => a + b, 0);
-  if (ballSum !== inn.balls) {
-    const target = Math.max(inn.balls, minBalls.reduce((a, b) => a + b, 0));
-    let diff = target - ballSum;
-    let guard = 0;
-    while (diff !== 0 && guard++ < 1000) {
-      const i = Math.floor(rng() * balls.length);
-      if (diff > 0) {
-        balls[i] += 1;
-        diff -= 1;
-      } else if (balls[i] > minBalls[i]) {
-        balls[i] -= 1;
-        diff += 1;
-      }
-    }
-    // Final adjust to exact inn.balls if possible.
-    ballSum = balls.reduce((a, b) => a + b, 0);
-    diff = inn.balls - ballSum;
-    guard = 0;
-    while (diff !== 0 && guard++ < 1000) {
-      const i = Math.floor(rng() * balls.length);
-      if (diff > 0) {
-        balls[i] += 1;
-        diff -= 1;
-      } else if (balls[i] > 1) {
-        balls[i] -= 1;
-        diff += 1;
-      } else break;
-    }
-  }
-  return used.map((u, i) => ({
-    playerId: u.slot.player.id,
-    name: u.slot.player.name,
-    role: u.slot.player.role,
-    runs: runs[i],
-    balls: Math.max(1, balls[i] || 1),
-    out: i < nOut,
-  }));
-}
-
-function allocateBowling(team, inn, rng, format) {
-  const ordered = bowlersOf(team)
-    .map((s) => ({ slot: s, rating: playerRatings(s, s.player.id === team.captainId).bowling }))
-    .sort((a, b) => b.rating - a.rating);
-  if (!ordered.length || inn.balls <= 0) return [];
-  const fmt = format || inningsFormat(team && team.mode);
-  const maxBalls = fmt.maxBallsPerBowler;
-  const prefer = Math.max(1, fmt.expectedBowlers);
-  const nBowlers = ordered.length <= prefer
-    ? ordered.length
-    : clamp(Math.round(gauss(rng, prefer + 2, 0.6)), prefer, Math.min(ordered.length, prefer + 3));
-  const used = ordered.slice(0, Math.max(1, nBowlers));
-  const weights = used.map((u) => u.rating);
-  let balls = splitByWeights(inn.balls, weights, rng, { minEach: 6 });
-  // Cap at the mode's overs-per-bowler and redistribute.
-  let overflow = 0;
-  for (let i = 0; i < balls.length; i++) {
-    if (balls[i] > maxBalls) {
-      overflow += balls[i] - maxBalls;
-      balls[i] = maxBalls;
-    }
-  }
-  let guard = 0;
-  while (overflow > 0 && guard++ < 500) {
-    const i = used.findIndex((_, j) => balls[j] < maxBalls);
-    if (i < 0) break;
-    const add = Math.min(overflow, maxBalls - balls[i]);
-    balls[i] += add;
-    overflow -= add;
-  }
-  const wicketWeights = used.map((u, i) => u.rating * (0.6 + balls[i] / Math.max(1, inn.balls)));
-  const wickets = splitByWeights(inn.wickets, wicketWeights, rng, { minEach: 0 });
-  // Better bowlers concede fewer runs: invert rating slightly.
-  const runWeights = used.map((u, i) => (110 - u.rating) * (balls[i] / Math.max(1, inn.balls)));
-  const conceded = splitByWeights(inn.score, runWeights, rng, { minEach: 0 });
-  return used.map((u, i) => ({
-    playerId: u.slot.player.id,
-    name: u.slot.player.name,
-    role: u.slot.player.role,
-    balls: balls[i],
-    wickets: wickets[i],
-    runsConceded: conceded[i],
-  }));
-}
-
 function isCloseMatch(match, format) {
   if (!match || match.noResult) return false;
   const first = match.firstInnings;
@@ -615,22 +429,33 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     }
   }
 
-  const format = (ctx && ctx.format) || inningsFormat((teamA && teamA.mode) || (ctx && ctx.mode));
-  const inn1 = playInnings({ rng, batting: firstS.batting, bowling: secondS.bowling, target: null, format });
+  const format = (ctx && ctx.format) || inningsFormat((teamA && teamA.mode) || (ctx && ctx.mode) || Math.max((teamA.squad || []).length, (teamB.squad || []).length) || 11);
+  const inn1 = playInnings({
+    rng,
+    battingTeam: first,
+    bowlingTeam: second,
+    batting: firstS.batting,
+    bowling: secondS.bowling,
+    target: null,
+    format,
+  });
   const inn2 = playInnings({
     rng,
+    battingTeam: second,
+    bowlingTeam: first,
     batting: secondS.batting,
     bowling: firstS.bowling,
     target: inn1.score + 1,
     format,
   });
 
-  let chased = inn2.score >= inn1.score + 1;
+  let chased = Boolean(inn2.chased) || inn2.score >= inn1.score + 1;
   let winner = chased ? second : first;
   let loser = chased ? first : second;
 
   const provisionalId = `${label}-${teamA.name}-${teamB.name}`;
-  const close = chased ? format.maxWickets - inn2.wickets <= Math.min(2, format.maxWickets) : inn1.score - inn2.score <= Math.max(3, Math.round(8 * (format.overs / 20)));
+  const closeRuns = Math.max(3, Math.round(8 * (format.overs / 20)));
+  const close = chased ? format.maxWickets - inn2.wickets <= Math.min(2, format.maxWickets) : inn1.score - inn2.score <= closeRuns;
 
   function tryFlip(boosterId, chance, text) {
     if (!hasBooster(loser, boosterId)) return false;
@@ -640,13 +465,14 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     winner = loser;
     loser = prevWinner;
     chased = winner === second;
+    applyResultFlip(inn2, inn1, chased);
+    chased = Boolean(inn2.chased) || (chased && inn2.score >= inn1.score + 1);
     if (chased) {
-      inn2.score = inn1.score + 1;
-      inn2.chased = true;
-      inn2.wickets = Math.min(inn2.wickets, 8);
+      winner = second;
+      loser = first;
     } else {
-      if (inn2.score >= inn1.score) inn2.score = Math.max(80, inn1.score - 4);
-      inn2.chased = false;
+      winner = first;
+      loser = second;
     }
     return true;
   }
@@ -658,7 +484,7 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
       `Friendly Umpire turned the match vs ${winner.name}`
     );
   }
-  const stillClose = chased ? 10 - inn2.wickets <= 2 : inn1.score - inn2.score <= 8;
+  const stillClose = chased ? format.maxWickets - inn2.wickets <= Math.min(2, format.maxWickets) : inn1.score - inn2.score <= closeRuns;
   if (stillClose && winner !== loser) {
     tryFlip(
       "drs-wizard",
@@ -684,6 +510,8 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
       overs: formatOvers(inn.balls),
       battingFirst,
       formPct: team.formPct != null ? team.formPct : null,
+      extras: inn.extras || { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 },
+      deliveries: inn.deliveries || [],
     };
   }
 
@@ -723,10 +551,10 @@ function playMatch(teamA, teamB, rng, label, ctx = {}) {
     formPctB: teamB.formPct != null ? teamB.formPct : null,
   };
 
-  const batting1 = allocateBatting(first, inn1, rng);
-  const batting2 = allocateBatting(second, inn2, rng);
-  const bowling1 = allocateBowling(second, inn1, rng, format);
-  const bowling2 = allocateBowling(first, inn2, rng, format);
+  const batting1 = inn1.batting || [];
+  const batting2 = inn2.batting || [];
+  const bowling1 = inn1.bowling || [];
+  const bowling2 = inn2.bowling || [];
   match.performances = {
     [first.name]: { batting: batting1, bowling: bowling2 },
     [second.name]: { batting: batting2, bowling: bowling1 },
@@ -1090,6 +918,7 @@ module.exports = {
   pickCaptainIfMissing,
   overallForAwards: awards,
   inningsFormat,
+  playInnings,
   rollTeamForm,
   formMultiplier,
   FORM_MIN_PCT,

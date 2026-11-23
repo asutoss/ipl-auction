@@ -3000,7 +3000,7 @@ describe("auto-fill does not change results except through form", () => {
 });
 
 describe("simulated player stats and results payload", () => {
-  test("per-player batting and bowling totals match the innings and tournament team totals within tolerance", () => {
+  test("per-player batting and bowling totals match the innings and tournament team totals", () => {
     const { playMatch, mulberry32 } = require("../server/simulate");
     function makeTeam(name, start) {
       const need = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
@@ -3030,38 +3030,42 @@ describe("simulated player stats and results payload", () => {
     for (const inn of [match.firstInnings, match.secondInnings]) {
       const side = match.performances[inn.name];
       const runSum = (side.batting || []).reduce((s, r) => s + r.runs, 0);
+      const extras = (inn.extras && inn.extras.total) || 0;
       const wktBat = (side.batting || []).filter((r) => r.out).length;
-      assert.ok(Math.abs(runSum - inn.score) <= 2, `${inn.name} runs ${runSum} vs ${inn.score}`);
-      assert.ok(Math.abs(wktBat - inn.wickets) <= 1, `${inn.name} wickets ${wktBat} vs ${inn.wickets}`);
+      assert.equal(runSum + extras, inn.score, `${inn.name} runs ${runSum}+${extras} vs ${inn.score}`);
+      assert.equal(wktBat, inn.wickets, `${inn.name} wickets ${wktBat} vs ${inn.wickets}`);
     }
     const bowlFirst = match.performances[match.secondInnings.name].bowling || [];
     const bowlSecond = match.performances[match.firstInnings.name].bowling || [];
     const w1 = bowlFirst.reduce((s, r) => s + r.wickets, 0);
     const w2 = bowlSecond.reduce((s, r) => s + r.wickets, 0);
-    assert.ok(Math.abs(w1 - match.firstInnings.wickets) <= 1, `bowl wkts ${w1} vs ${match.firstInnings.wickets}`);
-    assert.ok(Math.abs(w2 - match.secondInnings.wickets) <= 1, `bowl wkts ${w2} vs ${match.secondInnings.wickets}`);
+    assert.equal(w1, match.firstInnings.wickets, `bowl wkts ${w1} vs ${match.firstInnings.wickets}`);
+    assert.equal(w2, match.secondInnings.wickets, `bowl wkts ${w2} vs ${match.secondInnings.wickets}`);
 
     const t = simulateTournament([a, b, makeTeam("C", 80)], 2026);
     const matches = [...(t.leagueMatches || []), ...((t.playoffs && t.playoffs.matches) || [])];
     for (const team of [a, b, makeTeam("C", 80)]) {
       const name = team.name === "C" ? "C" : team.name;
       let runsFor = 0;
+      let extrasFor = 0;
       let wicketsTaken = 0;
       for (const m of matches) {
         if (m.noResult) continue;
         if (m.firstInnings.name === name) {
           runsFor += m.firstInnings.score;
+          extrasFor += (m.firstInnings.extras && m.firstInnings.extras.total) || 0;
           wicketsTaken += m.secondInnings.wickets;
         } else if (m.secondInnings.name === name) {
           runsFor += m.secondInnings.score;
+          extrasFor += (m.secondInnings.extras && m.secondInnings.extras.total) || 0;
           wicketsTaken += m.firstInnings.wickets;
         }
       }
       const stats = (t.playerStats && t.playerStats[name]) || [];
       const statRuns = stats.reduce((s, r) => s + (r.runs || 0), 0);
       const statWkts = stats.reduce((s, r) => s + (r.wickets || 0), 0);
-      assert.ok(Math.abs(statRuns - runsFor) <= 3, `${name} tournament runs ${statRuns} vs ${runsFor}`);
-      assert.ok(Math.abs(statWkts - wicketsTaken) <= 3, `${name} tournament wickets ${statWkts} vs ${wicketsTaken}`);
+      assert.equal(statRuns + extrasFor, runsFor, `${name} tournament runs ${statRuns}+${extrasFor} vs ${runsFor}`);
+      assert.equal(statWkts, wicketsTaken, `${name} tournament wickets ${statWkts} vs ${wicketsTaken}`);
     }
   });
 
@@ -3479,5 +3483,169 @@ describe("final match reveal", () => {
     assert.equal(afterRuns, beforeRuns);
     assert.equal(afterMatches, beforeMatches);
     assert.ok(beforeMatches > 0);
+  });
+});
+
+describe("ball-by-ball match consistency", () => {
+  const { inningsFormat, matchFormatForSquadSize, publicMode } = require("../server/rules");
+  const { playMatch, mulberry32 } = require("../server/simulate");
+
+  function fillSide(name, roles, offset, mode, formPct = 100) {
+    const used = new Set();
+    const squad = [];
+    for (const role of roles) {
+      const list = players.filter((p) => p.role === role);
+      let i = offset;
+      while (list.length && used.has(list[i % list.length].id)) i += 1;
+      const p = list[i % list.length];
+      used.add(p.id);
+      squad.push({ player: p, priceLakhs: 2 });
+    }
+    return {
+      name,
+      franchise: { color: "#fc0", text: "#000" },
+      squad,
+      captainId: squad[0].player.id,
+      mode,
+      boosters: [],
+      formPct,
+    };
+  }
+
+  function assertInningsConsistent(inn, batting, bowling, format, label) {
+    assert.ok(inn, label);
+    const batRuns = (batting || []).reduce((s, b) => s + (b.runs || 0), 0);
+    const extras = (inn.extras && inn.extras.total) || 0;
+    const bowlWkts = (bowling || []).reduce((s, b) => s + (b.wickets || 0), 0);
+    const bowlBalls = (bowling || []).reduce((s, b) => s + (b.balls || 0), 0);
+    const legal = (inn.deliveries || []).filter((d) => d.legal !== false).length;
+    assert.equal(batRuns + extras, inn.score, `${label} batter runs + extras`);
+    assert.equal(bowlWkts, inn.wickets, `${label} bowler wickets`);
+    assert.equal(bowlBalls, inn.balls, `${label} bowler balls`);
+    assert.equal(legal, inn.balls, `${label} legal deliveries`);
+    assert.ok(inn.balls <= format.balls, `${label} balls ${inn.balls}`);
+    assert.ok(inn.wickets <= format.maxWickets, `${label} wickets ${inn.wickets}`);
+    assert.ok((bowling || []).length <= format.bowlerCount, `${label} too many bowlers`);
+    for (const b of bowling || []) {
+      assert.ok(b.balls <= format.maxBallsPerBowler, `${label} ${b.name} bowled ${b.balls}`);
+    }
+    let prev = null;
+    let lastOver = -1;
+    for (const d of inn.deliveries || []) {
+      if (d.legal === false) continue;
+      if (d.over !== lastOver) {
+        if (!format.allowConsecutive && prev && d.bowlerId === prev) {
+          assert.fail(`${label} consecutive overs by ${d.bowlerName}`);
+        }
+        prev = d.bowlerId;
+        lastOver = d.over;
+      }
+    }
+    if (inn.balls === format.balls) {
+      assert.equal((bowling || []).length, format.bowlerCount, `${label} attack size`);
+      for (const b of bowling || []) {
+        assert.equal(b.balls, format.maxBallsPerBowler, `${label} ${b.name} quota`);
+      }
+    }
+  }
+
+  function assertMatchConsistent(match, format, label) {
+    if (match.noResult) return;
+    const p1 = match.performances[match.firstInnings.name];
+    const p2 = match.performances[match.secondInnings.name];
+    assertInningsConsistent(match.firstInnings, p1.batting, p2.bowling, format, `${label} 1st`);
+    assertInningsConsistent(match.secondInnings, p2.batting, p1.bowling, format, `${label} 2nd`);
+    if (match.chased) {
+      assert.ok(match.secondInnings.score >= match.firstInnings.score + 1, `${label} chase score`);
+    } else {
+      assert.ok(match.secondInnings.score < match.firstInnings.score + 1, `${label} defend score`);
+    }
+  }
+
+  test("match format is keyed on squad size, not the mode label", () => {
+    const bullet = inningsFormat("bullet");
+    const rapid = inningsFormat("rapid");
+    const classical = inningsFormat("classical");
+    assert.equal(bullet.overs, 2);
+    assert.equal(bullet.bowlerCount, 1);
+    assert.equal(bullet.oversPerBowler, 2);
+    assert.equal(bullet.allowConsecutive, true);
+    assert.equal(bullet.maxWickets, 2);
+    assert.equal(rapid.overs, 10);
+    assert.equal(rapid.bowlerCount, 2);
+    assert.equal(rapid.oversPerBowler, 5);
+    assert.equal(rapid.allowConsecutive, false);
+    assert.equal(rapid.maxWickets, 4);
+    assert.equal(classical.overs, 20);
+    assert.equal(classical.bowlerCount, 5);
+    assert.equal(classical.oversPerBowler, 4);
+    assert.equal(classical.allowConsecutive, false);
+    assert.equal(classical.maxWickets, 10);
+    assert.equal(matchFormatForSquadSize(3).overs, bullet.overs);
+    assert.equal(matchFormatForSquadSize(5).bowlerCount, 2);
+    assert.equal(matchFormatForSquadSize(11).overs, 20);
+    assert.equal(matchFormatForSquadSize(4).overs, 8);
+    assert.equal(matchFormatForSquadSize(4).bowlerCount, 2);
+    assert.equal(matchFormatForSquadSize(2).overs, 2);
+    assert.equal(matchFormatForSquadSize(2).allowConsecutive, true);
+    assert.equal(matchFormatForSquadSize(6).overs, 12);
+    assert.equal(matchFormatForSquadSize(8).overs, 16);
+    assert.equal(publicMode("bullet").overs, 2);
+  });
+
+  const CASES = [
+    ["bullet", 3, ["BAT", "WK", "BOWL"]],
+    ["rapid", 5, ["BAT", "BAT", "WK", "BOWL", "BOWL"]],
+    ["classical", 11, ["BAT", "BAT", "BAT", "BAT", "WK", "AR", "AR", "BOWL", "BOWL", "BOWL", "BOWL"]],
+  ];
+
+  for (const [mode, size, roles] of CASES) {
+    test(`${size}-player (${mode}) league, playoffs and Final stay consistent with the simulated balls`, async () => {
+      const format = inningsFormat(mode);
+      const seeds = [3, 11, 21, 44, 77, 101, 202, 404, 512, 777, 1009, 2026];
+      let matches = 0;
+      for (const seed of seeds) {
+        await new Promise((r) => setImmediate(r));
+        const teams = [0, 3, 6, 9].map((off, i) => fillSide(["Ashutosh", "Priya", "Rohan", "Neha"][i], roles, off + seed, mode));
+        for (const t of teams) assert.equal(t.squad.length, size, t.name);
+        const result = simulateTournament(teams, seed, { mode });
+        const all = [...(result.leagueMatches || []), ...((result.playoffs && result.playoffs.matches) || [])];
+        assert.ok(all.length >= 6, `seed ${seed} fixtures`);
+        for (const m of all) {
+          assertMatchConsistent(m, format, `${mode} seed ${seed} ${m.label} ${m.id}`);
+          matches += 1;
+        }
+        const finale = findFinalMatch(result);
+        assert.ok(finale, `seed ${seed} final`);
+        assert.equal(finale.winnerName, result.champion && result.champion.name, `seed ${seed} champion`);
+        const tl = buildFinalTimeline(finale);
+        assert.equal(tl.winnerName, finale.winnerName);
+        assert.equal(tl.innings[0].deliveries.length, finale.firstInnings.deliveries.length);
+        assert.equal(tl.innings[1].deliveries.length, finale.secondInnings.deliveries.length);
+        assert.deepEqual(
+          tl.innings[0].deliveries.map((d) => [d.runs, d.wicket, d.batterId, d.bowlerId, d.legal]),
+          finale.firstInnings.deliveries.map((d) => [d.runs, d.wicket, d.batterId, d.bowlerId, d.legal !== false])
+        );
+        const end = snapshotAtElapsed(tl, tl.units, 0);
+        assert.equal(end.score, finale.secondInnings.score);
+        assert.equal(end.wickets, finale.secondInnings.wickets);
+        const firstTeam = result.playerStats[finale.firstInnings.name] || [];
+        // Stats include the whole tournament, not just the final; just check they exist.
+        assert.ok(firstTeam.some((row) => row.runs > 0 || row.wickets > 0 || row.ballsBowled > 0));
+      }
+      assert.ok(matches >= seeds.length * 7, `only ${matches} matches checked`);
+    });
+  }
+
+  test("the same seed still yields a deterministic ball-by-ball final", () => {
+    const roles = ["BAT", "WK", "BOWL"];
+    function play(seed) {
+      const teams = [0, 2, 4, 6].map((off, i) => fillSide(["A", "B", "C", "D"][i], roles, off, "bullet"));
+      return simulateTournament(teams, seed, { mode: "bullet" });
+    }
+    const a = play(88);
+    const b = play(88);
+    assert.deepEqual(findFinalMatch(b).firstInnings.deliveries, findFinalMatch(a).firstInnings.deliveries);
+    assert.equal(b.champion.name, a.champion.name);
   });
 });

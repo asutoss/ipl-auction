@@ -62,10 +62,10 @@ const MODES = {
     squadSize: 3,
     purse: 30,
     purseOptions: [20, 25, 30, 40, 50],
-    overs: 6,
+    overs: 2,
     expectedBatters: 2, // 1 BAT + 1 WK
     expectedBowlers: 1,
-    maxOversPerBowler: 6,
+    maxOversPerBowler: 2,
   },
 };
 const DEFAULT_MODE = "classical";
@@ -106,7 +106,7 @@ function publicMode(mode) {
     quota: { ...m.quota },
     purse: m.purse,
     purseOptions: [...m.purseOptions],
-    overs: m.overs,
+    overs: matchShapeForSquadSize(m.squadSize).overs,
     compositionLabel: compositionLabel(m),
     summary: `${m.name} · ${m.squadSize}-player squad`,
   };
@@ -116,25 +116,66 @@ function listModes() {
   return ["classical", "rapid", "bullet"].map((id) => publicMode(id));
 }
 
-function inningsFormat(mode) {
-  const m = resolveMode(mode);
-  const overs = m.overs;
+/**
+ * Match length is keyed on squad size, not the mode label.
+ * Modes in this game only use 3, 5 and 11. Other sizes get a nearby
+ * rule so an incomplete side can still be simulated.
+ *
+ *  3 →  2 overs, 1 bowler × 2 (consecutive overs allowed)
+ *  5 → 10 overs, 2 bowlers × 5 (no consecutive)
+ * 11 → 20 overs, 5 bowlers × 4 (no consecutive)
+ */
+const SQUAD_MATCH_FORMATS = {
+  3: { overs: 2, bowlerCount: 1, oversPerBowler: 2, allowConsecutive: true },
+  5: { overs: 10, bowlerCount: 2, oversPerBowler: 5, allowConsecutive: false },
+  11: { overs: 20, bowlerCount: 5, oversPerBowler: 4, allowConsecutive: false },
+};
+
+function matchShapeForSquadSize(size) {
+  const n = Math.max(1, Math.round(Number(size) || 0) || 11);
+  if (SQUAD_MATCH_FORMATS[n]) return { squadSize: n, ...SQUAD_MATCH_FORMATS[n] };
+  if (n <= 2) return { squadSize: n, overs: 2, bowlerCount: 1, oversPerBowler: 2, allowConsecutive: true };
+  if (n === 4) return { squadSize: n, overs: 8, bowlerCount: 2, oversPerBowler: 4, allowConsecutive: false };
+  if (n <= 7) return { squadSize: n, overs: 12, bowlerCount: 3, oversPerBowler: 4, allowConsecutive: false };
+  if (n <= 10) return { squadSize: n, overs: 16, bowlerCount: 4, oversPerBowler: 4, allowConsecutive: false };
+  return { squadSize: n, overs: 20, bowlerCount: 5, oversPerBowler: 4, allowConsecutive: false };
+}
+
+function buildInningsFormat(shape, mode) {
+  const overs = shape.overs;
   const scale = overs / 20;
+  const m = mode || null;
   return {
-    id: m.id,
+    id: m && m.id || null,
+    squadSize: shape.squadSize,
     overs,
     balls: overs * 6,
-    maxWickets: Math.max(1, m.squadSize - 1),
-    maxOversPerBowler: m.maxOversPerBowler,
-    maxBallsPerBowler: m.maxOversPerBowler * 6,
-    expectedBatters: m.expectedBatters,
-    expectedBowlers: m.expectedBowlers,
+    maxWickets: Math.max(1, shape.squadSize - 1),
+    bowlerCount: shape.bowlerCount,
+    oversPerBowler: shape.oversPerBowler,
+    maxOversPerBowler: shape.oversPerBowler,
+    maxBallsPerBowler: shape.oversPerBowler * 6,
+    allowConsecutive: Boolean(shape.allowConsecutive),
+    expectedBatters: m && m.expectedBatters || Math.max(1, shape.squadSize - shape.bowlerCount + Math.min(1, shape.bowlerCount)),
+    expectedBowlers: m && m.expectedBowlers || shape.bowlerCount,
     expectedRuns: Math.round(155 * scale),
     sd: Math.max(6, Math.round(16 * Math.sqrt(scale))),
     edgeScale: 0.85 * scale,
     minScore: Math.round(95 * scale),
     maxScore: Math.round(265 * scale),
   };
+}
+
+function matchFormatForSquadSize(size) {
+  return buildInningsFormat(matchShapeForSquadSize(size), null);
+}
+
+function inningsFormat(mode) {
+  if (typeof mode === "number" && Number.isFinite(mode)) {
+    return matchFormatForSquadSize(mode);
+  }
+  const m = resolveMode(mode);
+  return buildInningsFormat(matchShapeForSquadSize(m.squadSize), m);
 }
 
 const { IDENTITIES } = require("../public/identities");
@@ -415,6 +456,8 @@ module.exports = {
   listModes,
   compositionLabel,
   inningsFormat,
+  matchFormatForSquadSize,
+  SQUAD_MATCH_FORMATS,
   FRANCHISES,
   roleCounts,
   overseasCount,

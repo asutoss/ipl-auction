@@ -212,7 +212,42 @@ function runsPlanForBatters(batters) {
   return plan;
 }
 
+function normalizeDelivery(d, i) {
+  const legal = d.legal !== false;
+  return {
+    i: d.i != null ? d.i : i,
+    over: d.over,
+    ball: d.ball,
+    overs: d.overs,
+    runs: d.runs || 0,
+    batterRuns: d.batterRuns != null ? d.batterRuns : (legal && !d.extraType ? d.runs || 0 : 0),
+    wicket: Boolean(d.wicket),
+    legal,
+    extraType: d.extraType || null,
+    extras: d.extras || 0,
+    batterId: d.batterId,
+    batterName: d.batterName,
+    bowlerId: d.bowlerId,
+    bowlerName: d.bowlerName,
+    highlight: d.highlight || (d.wicket ? "W" : !legal ? (d.extraType === "nb" ? "Nb" : "Wd") : d.runs >= 6 ? "6" : d.runs === 4 ? "4" : null),
+  };
+}
+
 function buildInningsTimeline(inn, batting, bowling) {
+  if (inn && Array.isArray(inn.deliveries) && inn.deliveries.length) {
+    const deliveries = inn.deliveries.map((d, i) => normalizeDelivery(d, i));
+    return {
+      teamName: inn.name || inn.teamName,
+      score: Number(inn.score) || 0,
+      wickets: Number(inn.wickets) || 0,
+      balls: Number(inn.balls) || deliveries.filter((d) => d.legal !== false).length,
+      overs: inn.overs || formatOvers(Number(inn.balls) || 0),
+      extras: inn.extras || { total: 0 },
+      batting: batting || inn.batting || [],
+      bowling: bowling || inn.bowling || [],
+      deliveries,
+    };
+  }
   const totalBalls = Math.max(0, Number(inn && inn.balls) || 0);
   const score = Math.max(0, Number(inn && inn.score) || 0);
   const wickets = Math.max(0, Number(inn && inn.wickets) || 0);
@@ -405,7 +440,9 @@ function tickerForOver(deliveries, upto) {
   for (let i = 0; i <= upto; i += 1) {
     const d = deliveries[i];
     if (!d || d.over !== overNo) continue;
-    marks.push(d.wicket ? "W" : String(d.runs));
+      if (d.wicket) marks.push("W");
+      else if (d.legal === false) marks.push(d.extraType === "nb" ? "Nb" : "Wd");
+      else marks.push(String(d.runs >= 6 ? 6 : d.runs));
   }
   return marks;
 }
@@ -432,14 +469,14 @@ function runningCard(list, kind, deliveries, upto, currentId, alsoId) {
     if (kind === "bat") {
       const r = byId.get(d.batterId);
       if (!r) continue;
-      r.runs += d.runs;
-      r.balls += 1;
+      r.runs += d.batterRuns != null ? d.batterRuns : (d.legal === false || d.extraType ? 0 : d.runs);
+      if (d.legal !== false) r.balls += 1;
       if (d.wicket) r.out = true;
     } else {
       const r = byId.get(d.bowlerId);
       if (!r) continue;
       r.runsConceded += d.runs;
-      r.ballsBowled += 1;
+      if (d.legal !== false) r.ballsBowled += 1;
       if (d.wicket) r.wickets += 1;
     }
   }
@@ -493,6 +530,7 @@ function snapshotAtUnit(timeline, unit) {
   const shown = ballIdx >= 0 ? ballIdx : -1;
   let runs = 0;
   let wkts = 0;
+  let legalCount = 0;
   const batRuns = new Map();
   const batBalls = new Map();
   const bowlRuns = new Map();
@@ -504,10 +542,13 @@ function snapshotAtUnit(timeline, unit) {
     if (!d) continue;
     runs += d.runs;
     if (d.wicket) wkts += 1;
-    batRuns.set(d.batterId, (batRuns.get(d.batterId) || 0) + d.runs);
-    batBalls.set(d.batterId, (batBalls.get(d.batterId) || 0) + 1);
+    const legal = d.legal !== false;
+    if (legal) legalCount += 1;
+    const batAdd = d.batterRuns != null ? d.batterRuns : (legal && !d.extraType ? d.runs : 0);
+    batRuns.set(d.batterId, (batRuns.get(d.batterId) || 0) + batAdd);
+    if (legal) batBalls.set(d.batterId, (batBalls.get(d.batterId) || 0) + 1);
     bowlRuns.set(d.bowlerId, (bowlRuns.get(d.bowlerId) || 0) + d.runs);
-    bowlBalls.set(d.bowlerId, (bowlBalls.get(d.bowlerId) || 0) + 1);
+    if (legal) bowlBalls.set(d.bowlerId, (bowlBalls.get(d.bowlerId) || 0) + 1);
     if (d.wicket) bowlWkts.set(d.bowlerId, (bowlWkts.get(d.bowlerId) || 0) + 1);
     bowlSet.add(d.bowlerId);
   }
@@ -566,7 +607,7 @@ function snapshotAtUnit(timeline, unit) {
     }
     : null;
 
-  const legalBalls = shown + 1;
+  const legalBalls = shown >= 0 ? legalCount : 0;
   const crr = legalBalls > 0 ? (runs / legalBalls) * 6 : 0;
   const target = innIdx === 1 ? (timeline.target != null ? timeline.target : inn1.score + 1) : null;
   const need = target != null ? target - runs : null;

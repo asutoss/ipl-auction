@@ -748,7 +748,7 @@ function formLabel(src, { prefix = "Current form " } = {}) {
 const MODE_FALLBACKS = {
   classical: { id: "classical", name: "Classical", squadSize: 11, purse: 100, overs: 20, quota: { BAT: 4, WK: 1, AR: 2, BOWL: 4 }, compositionLabel: "4 BAT · 1 WK · 2 AR · 4 BOWL", purseOptions: [50, 75, 100, 120, 150], summary: "Classical · 11-player squad", blurb: "Full IPL-style auction" },
   rapid: { id: "rapid", name: "Rapid", squadSize: 5, purse: 50, overs: 10, quota: { BAT: 2, WK: 1, AR: 0, BOWL: 2 }, compositionLabel: "2 BAT · 1 WK · 2 BOWL", purseOptions: [30, 40, 50, 65, 80], summary: "Rapid · 5-player squad", blurb: "Five-player sprint" },
-  bullet: { id: "bullet", name: "Bullet", squadSize: 3, purse: 30, overs: 6, quota: { BAT: 1, WK: 1, AR: 0, BOWL: 1 }, compositionLabel: "1 BAT · 1 WK · 1 BOWL", purseOptions: [20, 25, 30, 40, 50], summary: "Bullet · 3-player squad", blurb: "Three-player dash" },
+  bullet: { id: "bullet", name: "Bullet", squadSize: 3, purse: 30, overs: 2, quota: { BAT: 1, WK: 1, AR: 0, BOWL: 1 }, compositionLabel: "1 BAT · 1 WK · 1 BOWL", purseOptions: [20, 25, 30, 40, 50], summary: "Bullet · 3-player squad", blurb: "Three-player dash" },
 };
 
 function modeInfo() {
@@ -2116,11 +2116,13 @@ function bowlLine(row) {
   return `${overs}–${runs}–${wkts}`;
 }
 
-function inningsScorecardHtml(title, batting, bowling) {
-  const bat = (batting || []).map((b) => `<tr class="${b.current ? "is-current" : ""}">
+function inningsScorecardHtml(title, batting, bowling, extrasTotal) {
+  const batRows = (batting || []).map((b) => `<tr class="${b.current ? "is-current" : ""}">
       <td>${esc(b.name || "")}${b.current ? " *" : ""}</td>
       <td>${esc(batLine(b))}</td>
     </tr>`).join("");
+  const extras = Math.max(0, Number(extrasTotal) || 0);
+  const extraRow = extras > 0 ? `<tr><td>Extras</td><td>${extras}</td></tr>` : "";
   const bowl = (bowling || []).map((b) => `<tr class="${b.current ? "is-current" : ""}">
       <td>${esc(b.name || "")}${b.current ? " *" : ""}</td>
       <td>${esc(bowlLine(b))}</td>
@@ -2128,7 +2130,7 @@ function inningsScorecardHtml(title, batting, bowling) {
   return `<section class="final-card-block">
     <h4>${esc(title)}</h4>
     <div class="final-tables">
-      <table><thead><tr><th>Batting</th><th>R (B)</th></tr></thead><tbody>${bat || `<tr><td colspan="2">Yet to bat</td></tr>`}</tbody></table>
+      <table><thead><tr><th>Batting</th><th>R (B)</th></tr></thead><tbody>${batRows || `<tr><td colspan="2">Yet to bat</td></tr>`}${extraRow}</tbody></table>
       <table><thead><tr><th>Bowling</th><th>O–R–W</th></tr></thead><tbody>${bowl || `<tr><td colspan="2">—</td></tr>`}</tbody></table>
     </div>
   </section>`;
@@ -2136,7 +2138,7 @@ function inningsScorecardHtml(title, batting, bowling) {
 
 function tickerHtml(marks, last) {
   const items = (marks || []).map((m, i) => {
-    const cls = m === "W" ? "is-w" : (m === "6" || m === "4") ? "is-bound" : "";
+    const cls = m === "W" ? "is-w" : (m === "6" || m === "4") ? "is-bound" : (m === "Wd" || m === "Nb") ? "is-extra" : "";
     const fresh = last && i === marks.length - 1 ? " is-last" : "";
     return `<span class="final-tick ${cls}${fresh}">${esc(m === "0" ? "·" : m)}</span>`;
   }).join("");
@@ -2206,8 +2208,9 @@ function finalLiveBodyHtml() {
     const useOfficial = phase !== "live" || snap.inningsIndex === 1;
     completed.push(inningsScorecardHtml(
       `${o.teamName} ${o.score}/${o.wickets} (${o.overs} ov)`,
-      useOfficial ? o.batting : o.batting,
-      useOfficial ? o.bowling : o.bowling
+      o.batting,
+      o.bowling,
+      (o.extras && o.extras.total) || Math.max(0, (o.score || 0) - (o.batting || []).reduce((s, b) => s + (b.runs || 0), 0))
     ));
   }
   if (phase === "live" || phase === "over" || phase === "break") {
@@ -2219,8 +2222,11 @@ function finalLiveBodyHtml() {
     if (phase !== "over" && snap.nonStriker && Array.isArray(bat) && !bat.some((b) => b.playerId === snap.nonStriker.playerId)) {
       bat = bat.concat([{ playerId: snap.nonStriker.playerId, name: snap.nonStriker.name, runs: snap.nonStriker.runs || 0, balls: snap.nonStriker.balls || 0, out: false }]);
     }
-    if (phase !== "break") completed.push(inningsScorecardHtml(title, bat, bowl));
-    else completed.push(inningsScorecardHtml(`${snap.firstInnings.teamName} ${snap.firstInnings.score}/${snap.firstInnings.wickets} (${snap.firstInnings.overs} ov)`, (fin.innings[0] || {}).batting, (fin.innings[0] || {}).bowling));
+    const liveExtras = Math.max(0, (snap.score || 0) - (bat || []).reduce((s, b) => s + (Number(b.runs) || 0), 0));
+    const first = fin.innings[0] || {};
+    const firstExtras = (first.extras && first.extras.total) || Math.max(0, ((snap.firstInnings && snap.firstInnings.score) || 0) - (first.batting || []).reduce((s, b) => s + (b.runs || 0), 0));
+    if (phase !== "break") completed.push(inningsScorecardHtml(title, bat, bowl, liveExtras));
+    else completed.push(inningsScorecardHtml(`${snap.firstInnings.teamName} ${snap.firstInnings.score}/${snap.firstInnings.wickets} (${snap.firstInnings.overs} ov)`, first.batting, first.bowling, firstExtras));
   }
 
   const open = finalScorecardOpen ? " is-open" : "";
