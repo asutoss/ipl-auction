@@ -63,6 +63,134 @@
     return team.characterId || team.identityId || team.short || team.name;
   }
 
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function slotsNeeded(team) {
+    if (!team || team.complete) return 0;
+    if (team.pending != null && Number.isFinite(Number(team.pending))) {
+      return Math.max(0, Number(team.pending));
+    }
+    const q = team.remainingQuota;
+    if (q && typeof q === "object") {
+      return Object.values(q).reduce((sum, v) => sum + Math.max(0, Number(v) || 0), 0);
+    }
+    return null;
+  }
+
+  function reserveAfterBid(team, opts) {
+    const role = opts && opts.nomineeRole;
+    const q = team && team.remainingQuota;
+    if (q && typeof q === "object") {
+      let n = 0;
+      for (const [k, v] of Object.entries(q)) {
+        const left = Math.max(0, Number(v) || 0);
+        n += role && k === role ? Math.max(0, left - 1) : left;
+      }
+      return n;
+    }
+    const need = slotsNeeded(team);
+    if (need == null) return 0;
+    return Math.max(0, need - (role ? 1 : 0));
+  }
+
+  function seatBubble(team, opts) {
+    opts = opts || {};
+    const purseN = Number(team && team.purseLakhs);
+    const purse = Number.isFinite(purseN) ? Math.max(0, Math.round(purseN)) : null;
+    const purseLabel = purse == null ? "—" : String(purse);
+    const banned = Boolean(team && team.banned);
+    const eliminated = Boolean(team && team.eliminated);
+    const muted = banned || eliminated;
+    const need = slotsNeeded(team);
+    const complete = !muted && (Boolean(team && team.complete) || need === 0);
+    let needLabel;
+    if (banned) needLabel = "Banned";
+    else if (eliminated) needLabel = "Out";
+    else if (complete) needLabel = "Full";
+    else if (need == null) needLabel = "";
+    else needLabel = need === 1 ? "1 left" : `${need} left`;
+    let tone = "ok";
+    if (muted) tone = "muted";
+    else if (!complete) {
+      const minBid = Number(opts.minBidLakhs != null ? opts.minBidLakhs : team && team.minBidLakhs);
+      if (Number.isFinite(minBid) && purse != null && purse < minBid) tone = "danger";
+      else if (Number.isFinite(minBid) && purse != null && purse - minBid < reserveAfterBid(team, opts)) tone = "warn";
+    }
+    const text = needLabel ? `${purseLabel} · ${needLabel}` : purseLabel;
+    return { purse, purseLabel, need, needLabel, complete, muted, banned, eliminated, tone, text };
+  }
+
+  function bubbleHtml(view) {
+    const coin = `<svg class="ring-coin" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#f5c518" stroke="#8a6a10" stroke-width="1.2"/><circle cx="8" cy="8" r="4.5" fill="none" stroke="#fff4b0" stroke-width="1"/><path d="M8 4.4v7.2" stroke="#8a6a10" stroke-width="1.15" stroke-linecap="round"/></svg>`;
+    const need = view.complete
+      ? `<span class="ring-bubble-tick" title="Squad complete">✓</span>`
+      : (view.needLabel ? `<span class="ring-bubble-need">${esc(view.needLabel)}</span>` : "");
+    const cls = [
+      "ring-bubble",
+      `is-${view.tone}`,
+      view.complete ? "is-full" : "",
+      view.muted ? "is-muted" : "",
+    ].filter(Boolean).join(" ");
+    return `<span class="${cls}" title="${esc(view.text)}">${coin}<span class="ring-bubble-pts">${esc(view.purseLabel)}</span>${need ? `<span class="ring-bubble-dot" aria-hidden="true">·</span>${need}` : ""}</span>`;
+  }
+
+  function seatsFromState(state) {
+    const a = state && state.auction;
+    const youName = state && state.you && state.you.name;
+    const franchises = (state && state.franchises) || [];
+    const snap = (a && a.lotSnapshot) || [];
+    const still = (a && a.stillIn) || [];
+    const stillMap = new Map(still.map((t) => [t.name, t]));
+    const source = snap.length ? snap : (franchises.length ? franchises : still);
+    const minBid = a && a.minBidLakhs;
+    const nomineeRole = a && a.nominee && a.nominee.role;
+    return source.map((row) => {
+      const name = row.name;
+      const live = franchises.find((f) => f.name === name) || {};
+      const inLot = stillMap.get(name) || {};
+      const remainingQuota = live.remainingQuota || row.remainingQuota || null;
+      let pending = null;
+      if (live.complete || row.complete) pending = 0;
+      else if (remainingQuota) pending = Object.values(remainingQuota).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0);
+      else if (row.pending != null) pending = row.pending;
+      else if (live.pending != null) pending = live.pending;
+      const banned = Boolean(live.banned || row.banned);
+      const eliminated = Boolean(live.eliminated || row.eliminated);
+      const squadSize = (live.squad && live.squad.length) || row.squadSize || 0;
+      const complete = Boolean(live.complete || row.complete) || (pending === 0 && squadSize > 0 && !banned && !eliminated);
+      const colorSrc = live.franchise || live || row;
+      return {
+        name,
+        short: row.short || live.short || name,
+        color: row.color || colorSrc.color,
+        color2: row.color2 || colorSrc.color2,
+        text: row.text || colorSrc.text,
+        characterId: row.characterId || row.identityId || (live.franchise && (live.franchise.id || live.franchise.characterId)) || live.characterId || live.identityId,
+        identityId: row.identityId || row.characterId || live.identityId || live.characterId,
+        purseLakhs: live.purseLakhs != null ? live.purseLakhs : (inLot.purseLakhs != null ? inLot.purseLakhs : row.purseLakhs),
+        pending,
+        remainingQuota,
+        complete,
+        banned,
+        eliminated,
+        isLeader: Boolean(inLot.isLeader) || (a && a.currentBidderName === name),
+        isYou: Boolean(youName && youName === name) || Boolean(inLot.isYou) || Boolean(row.isYou),
+        stillIn: stillMap.has(name),
+        minBidLakhs: minBid,
+        nomineeRole,
+        formPct: live.formPct != null ? live.formPct : row.formPct,
+      };
+    });
+  }
+
+
   function prefersReducedMotion() {
     try {
       return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -415,6 +543,13 @@
     return { color, color2, html: `<div class="ring-logo-bob"><div class="ring-logo-face">${face}</div></div>` };
   }
 
+  function placeMeta(mid) {
+    const m = ((Number(mid) % 360) + 360) % 360;
+    if (m >= 50 && m < 130) return { side: "right", x: "-2px", y: "40px" };
+    if (m >= 230 && m < 310) return { side: "left", x: "2px", y: "40px" };
+    return { side: "radial", out: null };
+  }
+
   function syncPin(svg, item) {
     if (!item || item.leaving) {
       if (item && item.pin) item.pin.classList.add("is-leaving");
@@ -441,9 +576,32 @@
     }
     pin.style.left = `${((x / 400) * 100).toFixed(3)}%`;
     pin.style.top = `${((y / 400) * 100).toFixed(3)}%`;
+    pin.style.setProperty("--mid", `${mid}deg`);
+    const place = placeMeta(mid);
+    pin.classList.toggle("is-side", Boolean(place.side && place.side !== "radial"));
+    pin.classList.toggle("is-side-right", place.side === "right");
+    pin.classList.toggle("is-side-left", place.side === "left");
+    if (place.side && place.side !== "radial") {
+      pin.style.setProperty("--meta-x", place.x);
+      pin.style.setProperty("--meta-y", place.y);
+    } else {
+      pin.style.removeProperty("--meta-x");
+      pin.style.removeProperty("--meta-y");
+    }
     const on = Boolean(team.isLeader);
     pin.classList.toggle("is-leader", on);
+    pin.classList.toggle("is-muted", Boolean(team.banned || team.eliminated));
+    pin.classList.toggle("is-out", Boolean(!team.stillIn && !team.banned && !team.eliminated && team.stillIn != null));
+    pin.classList.toggle("is-you", Boolean(team.isYou));
     pin.classList.remove("is-leaving");
+    let meta = pin.querySelector(".ring-seat-meta");
+    if (!meta) {
+      meta = document.createElement("div");
+      meta.className = "ring-seat-meta";
+      pin.appendChild(meta);
+    }
+    const view = seatBubble(team, { minBidLakhs: team.minBidLakhs, nomineeRole: team.nomineeRole });
+    meta.innerHTML = `<span class="ring-seat-name">${esc(team.name || team.short || "")}</span>${bubbleHtml(view)}`;
     pin.style.setProperty("--lift-x", (item.lift && item.lift.style.getPropertyValue("--lift-x")) || "0");
     pin.style.setProperty("--lift-y", (item.lift && item.lift.style.getPropertyValue("--lift-y")) || "0");
     pin.style.setProperty("--bob-x", (item.root && item.root.style.getPropertyValue("--bob-x")) || "0");
@@ -563,6 +721,12 @@
     const ring = ensure(svg);
     syncScale(svg);
     const spec = segmentTarget(stillIn || []);
+    const layer = ensureLogoLayer(svg);
+    if (layer) layer.dataset.count = String(spec.length);
+    const host = svg.parentElement;
+    if (host) host.dataset.count = String(spec.length);
+    const wrap = host && host.closest && host.closest(".ring-wrap");
+    if (wrap) wrap.dataset.count = String(spec.length);
     if (!ring.items.length) {
       for (const s of spec) {
         const item = makeItem(svg, s.team, s.a0, s.a1);
@@ -622,5 +786,5 @@
     return { x: sp.x, y: sp.y, angle: mid };
   }
 
-  return { mount, update, setTimer, anchorFor };
+  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml };
 });

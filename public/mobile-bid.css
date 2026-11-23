@@ -198,10 +198,10 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
 @media (max-width: 700px) {
   html { -webkit-text-size-adjust: 100%; }
   html.is-auction {
-    --bid-sheet: 280px;
+    --bid-sheet: 230px;
   }
   html.is-auction #app {
-    padding: 8px 12px calc(var(--bid-sheet, 280px) + 10px);
+    padding: 8px 12px calc(var(--bid-sheet, 230px) + 10px);
     padding-left: max(12px, env(safe-area-inset-left, 0px));
     padding-right: max(12px, env(safe-area-inset-right, 0px));
     overflow-x: hidden;
@@ -273,7 +273,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
     text-overflow: ellipsis;
   }
   html.is-auction .ring-wrap {
-    width: min(220px, 64vw, calc(100dvh - var(--bid-sheet, 280px) - 280px));
+    width: min(260px, 72vw, calc(100dvh - var(--bid-sheet, 240px) - 250px));
   }
   html.is-auction .auction-stage {
     display: flex;
@@ -282,27 +282,16 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
     gap: 6px;
     min-height: 0;
   }
-  html.is-auction .bid-box .team-strip {
-    max-width: 100%;
-    gap: 6px;
-    margin: 0 0 8px;
-    padding: 0 0 6px;
-    -webkit-overflow-scrolling: touch;
-    flex: none;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  html.is-auction .bid-box .team-chip {
-    padding: 3px 6px 3px 3px;
-    border-radius: 10px;
-  }
-  html.is-auction .bid-box .team-chip .team-mark-wrap { width: 28px; height: 28px; }
+  html.is-auction .hub .hub-bid,
   html.is-auction .hub .hub-timer,
   html.is-auction .hub .hub-leader { display: none; }
-  .team-chip {
-    padding: 4px 7px 4px 4px;
-  }
-  .team-chip .team-mark-wrap { width: 32px; height: 32px; }
-  .team-chip .chip-name { max-width: 56px; font-size: 11px; }
+  html.is-auction .hub-inner { gap: 4px; }
+  html.is-auction .hub .hub-name { font-size: clamp(16px, 5.4vw, 22px); }
+  .ring-seat-name { font-size: 10px; max-width: 68px; }
+  .ring-bubble { font-size: 10px; padding: 2px 5px 2px 3px; max-width: 86px; }
+  .ring-logo-bob { width: 48px; height: 48px; }
+  .ring-logo-pin.is-leader .ring-logo-bob { width: 54px; height: 54px; }
+  .ring-seat-meta { --meta-out: -40px; }
 
   .bid-box {
     padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
@@ -340,7 +329,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
   .bid-box .error { margin-top: 6px; }
 
   html.is-auction .toast {
-    bottom: calc(var(--bid-sheet, 280px) + 12px);
+    bottom: calc(var(--bid-sheet, 230px) + 12px);
     left: 50%;
     max-width: calc(100vw - 24px);
   }
@@ -349,7 +338,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
   .emote-dock.is-fixed,
   html.is-auction .emote-dock,
   html.is-auction .emote-dock.is-fixed {
-    bottom: calc(var(--bid-sheet, 280px) + 10px) !important;
+    bottom: calc(var(--bid-sheet, 230px) + 10px) !important;
     right: 12px;
   }
 }
@@ -412,8 +401,11 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
   html.is-auction .hub .hub-rates,
   html.is-auction .hub .tag.os { display: none; }
   html.is-auction .ring-wrap {
-    width: min(200px, 62vw, calc(100dvh - var(--bid-sheet, 280px) - 200px));
+    width: min(200px, 58vw, calc(100dvh - var(--bid-sheet, 230px) - 200px));
   }
+  .ring-seat-meta { --meta-out: -36px; }
+  .ring-bubble { font-size: 9px; max-width: 80px; }
+
 }
 
 /* Landscape phones: keep bid + current bid usable, shrink the ring */
@@ -449,4 +441,27 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
 @media (max-width: 380px) {
   html.is-auction .brand h1 { font-size: 16px; }
   html.is-auction .top-actions .btn { padding: 8px 10px; font-size: 13px; }
+}
+
+@media (max-width: 700px) {
+  .ring-logo-layer[data-count="5"] .ring-logo-bob,
+  .ring-logo-layer[data-count="6"] .ring-logo-bob { width: 42px; height: 42px; }
+  .ring-logo-layer[data-count="5"] .ring-logo-pin.is-leader .ring-logo-bob,
+  .ring-logo-layer[data-count="6"] .ring-logo-pin.is-leader .ring-logo-bob { width: 48px; height: 48px; }
+  .ring-logo-layer[data-count="5"] .ring-seat-name,
+  .ring-logo-layer[data-count="6"] .ring-seat-name { font-size: 9px; max-width: 56px; }
+  .ring-logo-layer[data-count="5"] .ring-bubble,
+  .ring-logo-layer[data-count="6"] .ring-bubble { font-size: 9px; padding: 1px 5px 1px 3px; }
+  .ring-logo-layer[data-count="5"] .ring-seat-meta,
+  .ring-logo-layer[data-count="6"] .ring-seat-meta { --meta-out: -34px; }
+}
+
+@media (max-width: 370px) {
+  html.is-auction .emote-dock,
+  html.is-auction .emote-dock.is-fixed,
+  .ring-wrap .emote-dock {
+    right: auto !important;
+    left: 12px;
+    top: auto;
+  }
 }

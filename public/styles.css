@@ -477,6 +477,115 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   color: #fff;
 }
 
+.ring-seat-meta {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transform: translate(-50%, -50%) rotate(var(--mid, 0deg)) translateY(var(--meta-out, -44px)) rotate(calc(-1 * var(--mid, 0deg)));
+  pointer-events: none;
+  z-index: 4;
+  text-align: center;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.65));
+}
+.ring-logo-pin.is-side .ring-seat-meta {
+  transform: translate(-50%, -50%) translate(var(--meta-x, 0px), var(--meta-y, 40px));
+}
+.ring-seat-name {
+  display: block;
+  max-width: 76px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ring-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 92px;
+  padding: 2px 6px 2px 4px;
+  border-radius: 999px;
+  background: rgba(8, 16, 14, 0.92);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #f4f7f2;
+  font-family: var(--score, var(--display));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ring-coin { width: 11px; height: 11px; flex: none; display: block; }
+.ring-bubble-pts { font-weight: 800; }
+.ring-bubble-dot { opacity: 0.7; font-weight: 800; }
+.ring-bubble-need { font-weight: 700; font-size: 10px; letter-spacing: 0.02em; }
+.ring-bubble-tick {
+  font-size: 11px;
+  font-weight: 800;
+  color: #8ff3c4;
+}
+.ring-bubble.is-danger {
+  background: rgba(90, 16, 22, 0.95);
+  border-color: #ff7a4a;
+  color: #ffd4c8;
+}
+.ring-bubble.is-warn {
+  background: rgba(70, 44, 8, 0.95);
+  border-color: #f5c518;
+  color: #ffe08a;
+}
+.ring-bubble.is-muted,
+.ring-logo-pin.is-muted .ring-bubble {
+  background: rgba(20, 24, 28, 0.8);
+  border-color: rgba(255,255,255,0.12);
+  color: #9aa3a0;
+}
+.ring-logo-pin.is-muted,
+.ring-logo-pin.is-out {
+  opacity: 0.48;
+  filter: grayscale(0.35);
+}
+.ring-logo-pin.is-muted .ring-seat-name,
+.ring-logo-pin.is-out .ring-seat-name { color: #c5ccc8; }
+.ring-logo-layer[data-count="7"] .ring-logo-bob,
+.ring-logo-layer[data-count="8"] .ring-logo-bob,
+.ring-logo-layer[data-count="9"] .ring-logo-bob,
+.ring-logo-layer[data-count="10"] .ring-logo-bob { width: 44px; height: 44px; }
+.ring-logo-layer[data-count="7"] .ring-logo-pin.is-leader .ring-logo-bob,
+.ring-logo-layer[data-count="8"] .ring-logo-pin.is-leader .ring-logo-bob,
+.ring-logo-layer[data-count="9"] .ring-logo-pin.is-leader .ring-logo-bob,
+.ring-logo-layer[data-count="10"] .ring-logo-pin.is-leader .ring-logo-bob { width: 50px; height: 50px; }
+.ring-logo-layer[data-count="7"] .ring-seat-meta,
+.ring-logo-layer[data-count="8"] .ring-seat-meta,
+.ring-logo-layer[data-count="9"] .ring-seat-meta,
+.ring-logo-layer[data-count="10"] .ring-seat-meta { --meta-out: -36px; }
+.ring-logo-layer[data-count="7"] .ring-seat-name,
+.ring-logo-layer[data-count="8"] .ring-seat-name,
+.ring-logo-layer[data-count="9"] .ring-seat-name,
+.ring-logo-layer[data-count="10"] .ring-seat-name { max-width: 58px; font-size: 9px; }
+.ring-logo-layer[data-count="7"] .ring-bubble,
+.ring-logo-layer[data-count="8"] .ring-bubble,
+.ring-logo-layer[data-count="9"] .ring-bubble,
+.ring-logo-layer[data-count="10"] .ring-bubble { font-size: 9px; padding: 1px 5px 1px 3px; max-width: 78px; gap: 2px; }
+.ring-logo-layer[data-count="7"] .ring-coin,
+.ring-logo-layer[data-count="8"] .ring-coin,
+.ring-logo-layer[data-count="9"] .ring-coin,
+.ring-logo-layer[data-count="10"] .ring-coin { width: 9px; height: 9px; }
+.ring-logo-layer[data-count="7"] .ring-bubble-need,
+.ring-logo-layer[data-count="8"] .ring-bubble-need,
+.ring-logo-layer[data-count="9"] .ring-bubble-need,
+.ring-logo-layer[data-count="10"] .ring-bubble-need { font-size: 8px; }
+
+
 @keyframes ring-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); }

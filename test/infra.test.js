@@ -622,3 +622,84 @@ describe("ended room records", () => {
     assert.equal(mgr.isCodeTaken("KEEP01"), false);
   });
 });
+
+describe("ring seat bubbles", () => {
+  const { seatBubble, seatsFromState } = require("../public/ring");
+
+  test("combines purse and slots left in one bubble", () => {
+    const b = seatBubble({ name: "Mitron", purseLakhs: 42, pending: 3 }, { minBidLakhs: 6 });
+    assert.equal(b.purseLabel, "42");
+    assert.equal(b.needLabel, "3 left");
+    assert.equal(b.tone, "ok");
+    assert.equal(b.complete, false);
+    assert.equal(b.text, "42 · 3 left");
+  });
+
+  test("uses a tick/Full mark when the squad is complete", () => {
+    const b = seatBubble({ name: "Dolly", purseLakhs: 42, complete: true, pending: 0 }, { minBidLakhs: 6 });
+    assert.equal(b.complete, true);
+    assert.equal(b.needLabel, "Full");
+    assert.equal(b.tone, "ok");
+    assert.equal(b.text, "42 · Full");
+  });
+
+  test("goes red when the team cannot afford the next bid", () => {
+    const b = seatBubble({ purseLakhs: 4, pending: 5 }, { minBidLakhs: 6 });
+    assert.equal(b.tone, "danger");
+  });
+
+  test("goes amber when a bid would break the squad reserve", () => {
+    const b = seatBubble(
+      { purseLakhs: 8, pending: 5, remainingQuota: { BAT: 2, WK: 1, AR: 1, BOWL: 1 } },
+      { minBidLakhs: 6, nomineeRole: "BAT" }
+    );
+    assert.equal(b.tone, "warn");
+  });
+
+  test("mutes banned and eliminated teams", () => {
+    const banned = seatBubble({ purseLakhs: 40, pending: 3, banned: true }, { minBidLakhs: 6 });
+    assert.equal(banned.tone, "muted");
+    assert.equal(banned.muted, true);
+    assert.equal(banned.needLabel, "Banned");
+    const out = seatBubble({ purseLakhs: 40, pending: 3, eliminated: true }, { minBidLakhs: 6 });
+    assert.equal(out.muted, true);
+    assert.equal(out.needLabel, "Out");
+    assert.equal(out.tone, "muted");
+  });
+
+  test("seatsFromState uses live purse and slots after a power patch", () => {
+    const state = {
+      you: { name: "Mitron" },
+      franchises: [
+        { name: "Mitron", purseLakhs: 70, remainingQuota: { BAT: 3, WK: 1, AR: 2, BOWL: 4 }, complete: false, banned: false },
+        { name: "Dolly", purseLakhs: 55, remainingQuota: { BAT: 0, WK: 0, AR: 0, BOWL: 0 }, complete: true },
+      ],
+      auction: {
+        minBidLakhs: 6,
+        nominee: { role: "BAT" },
+        currentBidderName: "Mitron",
+        stillIn: [{ name: "Mitron", isLeader: true, purseLakhs: 100 }],
+        lotSnapshot: [
+          { name: "Mitron", purseLakhs: 100, pending: 11, complete: false, color: "#fc0", characterId: "narendra-modi" },
+          { name: "Dolly", purseLakhs: 100, pending: 11, complete: false, color: "#0af", characterId: "dolly-chaiwala" },
+        ],
+      },
+    };
+    const seats = seatsFromState(state);
+    assert.equal(seats.length, 2);
+    const mitron = seats.find((s) => s.name === "Mitron");
+    const dolly = seats.find((s) => s.name === "Dolly");
+    assert.equal(mitron.purseLakhs, 70);
+    assert.equal(mitron.pending, 10);
+    assert.equal(mitron.isLeader, true);
+    assert.equal(mitron.stillIn, true);
+    assert.equal(dolly.purseLakhs, 55);
+    assert.equal(dolly.complete, true);
+    assert.equal(dolly.stillIn, false);
+    const mb = seatBubble(mitron, { minBidLakhs: mitron.minBidLakhs, nomineeRole: mitron.nomineeRole });
+    assert.equal(mb.text, "70 · 10 left");
+    const db = seatBubble(dolly, { minBidLakhs: dolly.minBidLakhs });
+    assert.equal(db.complete, true);
+    assert.equal(db.text, "55 · Full");
+  });
+});

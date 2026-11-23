@@ -1522,7 +1522,7 @@ function auctionView() {
             <div class="ring-stage">
               <div class="ring-ground-shadow" aria-hidden="true"></div>
               <div class="ring-tilt">
-                <svg id="auction-ring" role="img" aria-label="Teams still bidding"></svg>
+                <svg id="auction-ring" role="img" aria-label="Teams in the auction"></svg>
               </div>
             </div>
             <div class="auction-stumps" aria-hidden="true">
@@ -1532,22 +1532,15 @@ function auctionView() {
             <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
               <div class="hub-inner">
                 <p class="hub-name ${p.vfxHidden ? "is-vfx" : ""}" id="hub-name">${esc(p.name)}</p>
-                <p class="hub-bid" id="hub-bid">
-                  <span class="hub-bid-num" id="hub-bid-num">${bidParts(a.currentBidLakhs).n}</span>
-                  <span class="hub-bid-unit" id="hub-bid-unit">${bidParts(a.currentBidLakhs).unit}</span>
-                </p>
-                <div class="hub-leader" id="hub-leader">${leaderLine(a)}</div>
                 <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
                   ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
                   <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>`}
                 </div>
-                <p class="hub-timer ${secs <= 3 && !isTimerFrozen() && a.endsAt ? "low" : ""} ${isTimerFrozen() || isPlayerIntroActive() || !a.endsAt ? "paused" : ""}" id="timer">${isPlayerIntroActive() || !a.endsAt ? "Soon" : (isTimerFrozen() ? "Paused" : secs + "s")}</p>
               </div>
             </div>
           </div>
         </div>
         <div class="bid-box" id="bid-box">
-          <div class="team-strip" id="team-strip">${teamStripHtml(a)}</div>
           <div id="power-btn-wrap">${powerButtonHtml()}</div>
           <div class="bid-cta">
             ${a.youReason ? `<p class="why" id="bid-why">${esc(a.youReason)}</p>` : `<p class="why" id="bid-why" hidden></p>`}
@@ -1570,7 +1563,7 @@ function mountAuctionRing() {
   const svg = document.getElementById("auction-ring");
   if (!svg || !state || !state.auction || !window.IplRing) return;
   IplRing.mount(svg);
-  IplRing.update(svg, state.auction.stillIn || []);
+  IplRing.update(svg, IplRing.seatsFromState ? IplRing.seatsFromState(state) : state.auction.stillIn || []);
   updateAuctionTimer();
   lastNomineeId = state.auction.nominee && state.auction.nominee.id;
   lastBidShown = state.auction.currentBidLakhs;
@@ -1642,7 +1635,7 @@ function patchAuction() {
   const a = state && state.auction;
   if (!a) return;
   const svg = document.getElementById("auction-ring");
-  if (svg && window.IplRing) IplRing.update(svg, a.stillIn || []);
+  if (svg && window.IplRing) IplRing.update(svg, IplRing.seatsFromState ? IplRing.seatsFromState(state) : (a.stillIn || []));
   const leader = document.getElementById("hub-leader");
   if (leader) leader.innerHTML = leaderLine(a);
   const hub = document.getElementById("auction-hub");
@@ -1667,8 +1660,6 @@ function patchAuction() {
   }
   const err = document.querySelector(".bid-box .error");
   if (err) err.textContent = lastError || "";
-  const strip = document.getElementById("team-strip");
-  if (strip) strip.innerHTML = teamStripHtml(a);
   const powerWrap = document.getElementById("power-btn-wrap");
   if (powerWrap) powerWrap.innerHTML = powerButtonHtml();
   syncPowerConfirm();
