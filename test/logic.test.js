@@ -32,6 +32,7 @@ function roomWith(names, timers, opts = {}) {
     meta,
     seed: opts.seed,
     rng: opts.rng,
+    characterOrder: opts.characterOrder,
   });
   names.forEach((n, i) => room.addPlayer(n, `sock-${i}`));
   room.forcedStartBid = 2; // keep existing tests stable; start-bid range is tested separately
@@ -1254,6 +1255,41 @@ describe("team characters", () => {
     const clash = room.selectCharacter("Ashutosh", free.id);
     assert.equal(clash.ok, false);
     assert.match(clash.error, /already taken/i);
+  });
+
+  test("a room shuffles its co-owner list once and every client sees that same order", () => {
+    const { CHARACTERS } = require("../public/characters");
+    const allIds = CHARACTERS.map((c) => c.id);
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const fromAsh = room.getState("Ashutosh").characters.map((c) => c.id);
+    const fromPriya = room.getState("Priya").characters.map((c) => c.id);
+    const identities = room.getState("Ashutosh").identities.map((c) => c.id);
+    assert.equal(fromAsh.length, allIds.length);
+    assert.deepEqual([...fromAsh].sort(), [...allIds].sort());
+    assert.deepEqual(fromAsh, fromPriya);
+    assert.deepEqual(fromAsh, identities);
+    assert.deepEqual(fromAsh, room.characterOrder);
+    // Rejoin does not reshuffle.
+    room.disconnect(room.findByName("Ashutosh").socketId);
+    const rejoin = room.addPlayer("Ashutosh", "sock-rejoin");
+    assert.equal(rejoin.ok, true);
+    assert.equal(rejoin.rejoined, true);
+    assert.deepEqual(room.getState("Ashutosh").characters.map((c) => c.id), fromAsh);
+  });
+
+  test("an injected co-owner order is kept, and different rooms get different orders in practice", () => {
+    const { CHARACTERS } = require("../public/characters");
+    const allIds = CHARACTERS.map((c) => c.id);
+    const forced = [...allIds].reverse();
+    const room = roomWith(["Ashutosh"], {}, { characterOrder: forced });
+    assert.deepEqual(room.getState("Ashutosh").characters.map((c) => c.id), forced);
+
+    const orders = new Set();
+    for (let i = 0; i < 16; i++) {
+      const r = roomWith(["Ashutosh"], {}, { seed: i });
+      orders.add(r.getState("Ashutosh").characters.map((c) => c.id).join(","));
+    }
+    assert.ok(orders.size >= 8, `expected varied room orders, got ${orders.size}`);
   });
 });
 

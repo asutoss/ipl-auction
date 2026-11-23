@@ -102,7 +102,7 @@ function defaultTimers() {
 }
 
 class GameRoom extends EventEmitter {
-  constructor({ code, purseLakhs, timers, allPlayers, meta, mode, rng, seed }) {
+  constructor({ code, purseLakhs, timers, allPlayers, meta, mode, rng, seed, characterOrder }) {
     super();
     this.code = code;
     this.mode = resolveMode(mode);
@@ -114,6 +114,9 @@ class GameRoom extends EventEmitter {
     this.allPlayers = allPlayers;
     this.meta = meta || {};
     this.rng = resolveRng(rng !== undefined ? rng : seed);
+    // Shuffled once at create time, independently of the auction RNG, so
+    // every client in this room sees the same co-owner order.
+    this.characterOrder = this.normalizeCharacterOrder(characterOrder);
     this.phase = "lobby";
     this.franchises = []; // owner order
     this.hostKey = null;
@@ -178,6 +181,28 @@ class GameRoom extends EventEmitter {
 
   takenIdentityIds(exceptKey) {
     return this.takenCharacterIds(exceptKey);
+  }
+
+  normalizeCharacterOrder(order) {
+    const ids = CHARACTERS.map((c) => c.id);
+    const known = new Set(ids);
+    const seen = new Set();
+    const out = [];
+    for (const id of order || []) {
+      if (known.has(id) && !seen.has(id)) {
+        out.push(id);
+        seen.add(id);
+      }
+    }
+    if (out.length === 0) return shuffle(ids);
+    for (const id of ids) {
+      if (!seen.has(id)) out.push(id);
+    }
+    return out;
+  }
+
+  packCharacterCatalog() {
+    return this.characterOrder.map((id) => publicCharacter(id)).filter(Boolean);
   }
 
   assignCharacter(team, id) {
@@ -2795,8 +2820,8 @@ class GameRoom extends EventEmitter {
       playerIntro: this.phase === "auction" ? this.packPlayerIntro() : null,
       playerIntroUntil: this.phase === "auction" && this.playerIntro && this.playerIntro.endsAt ? this.playerIntro.endsAt : null,
       resultsReveal: this.phase === "results" ? this.packResultsReveal() : null,
-      characters: CHARACTERS.map((t) => publicCharacter(t.id)),
-      identities: CHARACTERS.map((t) => publicCharacter(t.id)),
+      characters: this.packCharacterCatalog(),
+      identities: this.packCharacterCatalog(),
       ratingsNote: this.meta.ratingsNote || null,
       hostName: this.host ? this.host.name : null,
       you: you ? this.decorateYou(this.publicFranchise(you, forKey), you) : null,

@@ -900,7 +900,7 @@ function lobbyView() {
   const isHost = state.you && state.you.isHost;
   const ready = state.franchises.length >= state.minPlayers;
   const api = characterApi();
-  const catalog = (api && (api.CHARACTERS || api.IDENTITIES)) || state.characters || state.identities || [];
+  const catalog = state.characters || state.identities || (api && (api.CHARACTERS || api.IDENTITIES)) || [];
   const mine = characterIdOf(state.you && state.you.franchise);
   const ownerById = new Map();
   for (const f of state.franchises || []) {
