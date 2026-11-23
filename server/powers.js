@@ -735,6 +735,7 @@ definePower({
     const wiped = shuffled.slice(0, wipeN);
     const wipeIds = new Set(wiped.map((s) => s.player.id));
     target.squad = (target.squad || []).filter((s) => !wipeIds.has(s.player.id));
+    if (target.captainId && wipeIds.has(target.captainId)) target.captainId = null;
     const names = [];
     for (const slot of wiped) {
       names.push(slot.player.name);

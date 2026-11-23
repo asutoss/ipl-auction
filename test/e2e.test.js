@@ -421,3 +421,107 @@ describe("emote broadcast over sockets", () => {
     if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
   });
 });
+
+const { loadPlayers } = require("../server/players");
+const { players: allPlayers } = loadPlayers();
+
+describe("e2e: Kim wipe updates every client's squad", () => {
+  let ctx;
+  const sockets = [];
+
+  test("victim, Kim, a spectator, and a rejoiner all drop the wiped player", async () => {
+    ctx = await start(0);
+    const url = `http://127.0.0.1:${ctx.port}`;
+    const kim = await connect(url, "Kim");
+    const victim = await connect(url, "Victim");
+    const spectator = await connect(url, "Spectator");
+    sockets.push(kim, victim, spectator);
+
+    const created = await ack(kim, "createRoom", {
+      name: "Kim",
+      testTimers: {
+        lotStartMs: 60_000,
+        bidMs: 60_000,
+        captainMs: 60_000,
+        soldRevealMs: 0,
+        lastTeamFillMs: 0,
+        playerIntroMs: 0,
+        resultsRevealStepMs: 0,
+        powerRevealMs: 0,
+      },
+    });
+    assert.equal(created.ok, true, created.error);
+    const code = created.code;
+    assert.equal((await ack(victim, "joinRoom", { code, name: "Victim" })).ok, true);
+    assert.equal((await ack(spectator, "joinRoom", { code, name: "Spectator" })).ok, true);
+    assert.equal((await ack(kim, "selectCharacter", { characterId: "kim-jong-un", identityId: "kim-jong-un" })).ok, true);
+    assert.equal((await ack(victim, "selectCharacter", { characterId: "ravi-kishan", identityId: "ravi-kishan" })).ok, true);
+    assert.equal((await ack(spectator, "selectCharacter", { characterId: "narendra-modi", identityId: "narendra-modi" })).ok, true);
+    assert.equal((await ack(kim, "startAuction")).ok, true);
+    await waitState(kim, (s) => s.phase === "auction" && s.auction && s.auction.nominee);
+    await waitState(victim, (s) => s.phase === "auction" && s.you);
+
+    const room = ctx.manager.get(code);
+    assert.ok(room);
+    const used = new Set();
+    const take = (role) => {
+      const p = allPlayers.find((x) => x.role === role && !used.has(x.id));
+      used.add(p.id);
+      return p;
+    };
+    const given = [take("BAT"), take("WK"), take("AR")];
+    const team = room.findByName("Victim");
+    for (const p of given) {
+      team.squad.push({ player: p, priceLakhs: 8 });
+      team.spentLakhs = (Number(team.spentLakhs) || 0) + 8;
+      room.soldIds.add(p.id);
+      room.soldLog.push({ player: p, priceLakhs: 8, buyerName: "Victim" });
+    }
+    team.spentLakhs = 24;
+    room.rng.int = () => 0;
+    room.bump("auction");
+    await waitState(victim, (s) => (s.you?.squad || []).length === 3);
+
+    assert.equal((await ack(kim, "usePower")).ok, true);
+    await waitState(kim, (s) => Boolean(s.powerWait && s.powerWait.options && s.powerWait.options.length));
+    const target = kim.state.powerWait.options.find((o) => o.name === "Victim");
+    assert.ok(target && target.key);
+    const picked = await ack(kim, "pickPowerTarget", { targetKey: target.key });
+    assert.equal(picked.ok, true, picked.error);
+
+    const dropped = (state) => {
+      const team = state.you?.name === "Victim" ? state.you : (state.franchises || []).find((f) => f.name === "Victim");
+      return (team && team.squad) || [];
+    };
+    await waitState(victim, (s) => dropped(s).length === 2);
+    await waitState(kim, (s) => dropped(s).length === 2);
+    await waitState(spectator, (s) => dropped(s).length === 2);
+
+    const serverIds = room.findByName("Victim").squad.map((s) => s.player.id);
+    const wiped = given.map((p) => p.id).filter((id) => !serverIds.includes(id));
+    assert.equal(wiped.length, 1);
+    for (const s of [kim, victim, spectator]) {
+      const ids = dropped(s.state).map((row) => row.player.id);
+      assert.deepEqual(ids, serverIds, `${s.playerName} still shows a wiped player`);
+      assert.ok(!ids.includes(wiped[0]));
+    }
+    assert.ok(room.queue.some((p) => p.id === wiped[0]));
+
+    victim.disconnect();
+    const again = await connect(url, "Victim");
+    sockets.push(again);
+    const rejoined = await ack(again, "joinRoom", { code, name: "Victim" });
+    assert.equal(rejoined.ok, true, rejoined.error);
+    const fresh = await waitState(again, (s) => s.you?.name === "Victim" && Array.isArray(s.you.squad));
+    assert.deepEqual(fresh.you.squad.map((s) => s.player.id), serverIds);
+    assert.ok(!fresh.you.squad.some((s) => s.player.id === wiped[0]));
+  });
+
+  after(async () => {
+    for (const s of sockets) {
+      try { s.close(); } catch {}
+    }
+    if (ctx?.io) ctx.io.close();
+    if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
+  });
+});

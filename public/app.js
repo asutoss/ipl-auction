@@ -994,6 +994,32 @@ function yourPower() {
   return pack && pack.name ? pack : null;
 }
 
+function shortenPowerReason(reason) {
+  const api = window.IplPowerReasons;
+  if (api && typeof api.shortenPowerReason === "function") return api.shortenPowerReason(reason);
+  return reason || null;
+}
+
+function powerDisabledReason() {
+  const you = state && state.you;
+  if (!you || !state || state.phase !== "auction") return null;
+  const power = yourPower();
+  const used = Boolean(you.powerUsed) || (you.powerUsesLeft != null && you.powerUsesLeft <= 0) || (power && power.used);
+  if (used) return "Used already";
+  if (typeof isPlayerIntroActive === "function" && isPlayerIntroActive()) return "Not during intro";
+  if (typeof isSoldRevealActive === "function" && isSoldRevealActive()) return "Lot sold";
+  if (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()) return "Squad being filled";
+  if (state.paused) return "Paused";
+  if (state.powerReveal) return "A power is on screen";
+  if (state.powerWait) return "A power is waiting";
+  if (you.banned) return "Banned";
+  if (you.eliminated) return "Eliminated";
+  if (isStaleLobbyPowerGate(you)) return null;
+  if (you.canUsePowerHint) return you.canUsePowerHint;
+  if (you.canUsePowerReason) return shortenPowerReason(you.canUsePowerReason);
+  return null;
+}
+
 function powerButtonHtml() {
   const you = state && state.you;
   const power = yourPower();
@@ -1002,12 +1028,16 @@ function powerButtonHtml() {
   const busy = Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()) || (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()) || (typeof isPlayerIntroActive === "function" && isPlayerIntroActive()));
   const blocked = powerUseBlocked(you, used);
   const disabled = used || busy || blocked;
-  const title = you.canUsePowerReason || power.description || power.name;
+  const why = disabled ? powerDisabledReason() : null;
+  const title = why || you.canUsePowerReason || power.description || power.name;
   const label = used ? `${power.name} used` : power.name;
-  return `<button type="button" class="power-btn ${used ? "is-used" : ""}" id="use-power" ${disabled ? "disabled" : ""} title="${esc(title)}" aria-label="${esc(used ? label : `Use power: ${power.name}. ${title}`)}">
+  const whyHtml = why
+    ? `<p class="power-why" id="power-why">${esc(why)}</p>`
+    : `<p class="power-why" id="power-why" hidden></p>`;
+  return `<button type="button" class="power-btn ${used ? "is-used" : ""}" id="use-power" ${disabled ? "disabled" : ""} title="${esc(title)}" aria-describedby="${why ? "power-why" : ""}" aria-label="${esc(used ? label : `Use power: ${power.name}. ${title}`)}">
     ${teamMark(you.franchise, "sm", you.name)}
     <span class="power-btn-copy"><small>Power${used ? " used" : " · once"}</small><strong>${esc(power.name)}</strong></span>
-  </button>`;
+  </button>${whyHtml}`;
 }
 
 function canShowPowerConfirm() {

@@ -1175,6 +1175,15 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .power-btn:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-1px); }
 .power-btn:disabled { cursor: default; opacity: 0.72; }
 .power-btn.is-used { opacity: 0.62; }
+.power-why {
+  margin: -8px 0 12px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
+.power-why[hidden] { display: none; }
 .power-btn .team-mark-wrap, .power-btn .team-mark { width: 36px; height: 36px; }
 .power-btn-copy { display: grid; gap: 1px; min-width: 0; }
 .power-btn-copy small {

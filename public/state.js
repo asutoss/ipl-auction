@@ -117,6 +117,40 @@
     };
   }
 
+  function applyTeamPatches(state, evt) {
+    if (!state || !evt) return;
+    const quotas = state.quotas || DEFAULT_QUOTA;
+    const squadSize = state.squadSize || 11;
+    if (Array.isArray(evt.teams)) {
+      for (const patch of evt.teams) {
+        if (!patch || !patch.name) continue;
+        const team = findTeam(state, patch.name);
+        if (!team) continue;
+        if (patch.purseLakhs != null) team.purseLakhs = patch.purseLakhs;
+        if (Array.isArray(patch.squad)) team.squad = patch.squad;
+        if (Object.prototype.hasOwnProperty.call(patch, "captainId")) team.captainId = patch.captainId;
+        if (Object.prototype.hasOwnProperty.call(patch, "formPct")) team.formPct = patch.formPct;
+        if (patch.eliminated != null) team.eliminated = Boolean(patch.eliminated);
+        if (patch.banned != null) team.banned = Boolean(patch.banned);
+        recomputeTeam(team, quotas, squadSize);
+        if (patch.roleCounts) team.roleCounts = patch.roleCounts;
+        if (patch.remainingQuota) team.remainingQuota = patch.remainingQuota;
+        if (patch.complete != null) team.complete = Boolean(patch.complete);
+        if (patch.overseasCount != null) team.overseasCount = patch.overseasCount;
+      }
+    }
+    if (evt.lotSnapshot && state.auction) {
+      state.auction.lotSnapshot = evt.lotSnapshot;
+    }
+    if (Array.isArray(evt.wipedPlayerIds) && evt.wipedPlayerIds.length && Array.isArray(state.soldLog)) {
+      const ids = new Set(evt.wipedPlayerIds);
+      for (const entry of state.soldLog) {
+        if (entry && entry.player && ids.has(entry.player.id)) entry.wiped = true;
+      }
+    }
+    syncYou(state);
+  }
+
   function applyDelta(state, evt) {
     if (!state || !evt) return state;
     const quotas = state.quotas || DEFAULT_QUOTA;
@@ -323,6 +357,7 @@
       }
       case "powerApplied": {
         state.powerReveal = null;
+        applyTeamPatches(state, evt);
         const appliedTeam = findTeam(state, evt.name) || findTeam(state, evt.teamId);
         if (appliedTeam) {
           if (evt.purseLakhs != null) appliedTeam.purseLakhs = evt.purseLakhs;
@@ -379,6 +414,7 @@
       case "chaiEnded": {
         state.powerWait = null;
         state.chaiBreak = false;
+        applyTeamPatches(state, evt);
         if (evt.type === "chaiEnded") {
           state.paused = false;
           state.pausedBy = null;
@@ -484,6 +520,7 @@
     if (evt.youPower && state.you) {
       state.you.canUsePower = Boolean(evt.youPower.canUsePower);
       state.you.canUsePowerReason = evt.youPower.canUsePowerReason || null;
+      state.you.canUsePowerHint = evt.youPower.canUsePowerHint || null;
       if (evt.youPower.powerUsesLeft != null) state.you.powerUsesLeft = evt.youPower.powerUsesLeft;
       if (evt.youPower.powerUsed != null) state.you.powerUsed = Boolean(evt.youPower.powerUsed);
     }

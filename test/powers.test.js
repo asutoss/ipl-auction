@@ -5,6 +5,7 @@ const { GameRoom } = require("../server/game");
 const { CHARACTERS, characterLines, publicCharacter } = require("../public/characters");
 const { POWERS, applyPower, listValidCopyPowers } = require("../server/powers");
 const { applyDelta } = require("../public/state");
+const { shortenPowerReason } = require("../public/power-reasons");
 
 const { meta, players } = loadPlayers();
 
@@ -645,6 +646,72 @@ describe("Kim — Big Red Button", () => {
     assert.equal(no.ok, false);
     assert.match(no.error, /at least two/i);
   });
+
+// This fragment is appended into powers.test.js then deleted.
+
+  test("client-visible state drops wiped players for the victim, Kim, a spectator, and a rejoin", () => {
+    const room = roomWith(["A", "B", "C"], { powerRevealMs: 0 });
+    setChar(room, "A", IDS.kim);
+    setChar(room, "B", IDS.ravi);
+    setChar(room, "C", IDS.modi);
+    start(room);
+    const used = new Set();
+    const p1 = firstOfRole("BAT", used); used.add(p1.id);
+    const p2 = firstOfRole("WK", used); used.add(p2.id);
+    const p3 = firstOfRole("AR", used); used.add(p3.id);
+    givePlayer(room, "B", p1, 8);
+    givePlayer(room, "B", p2, 8);
+    givePlayer(room, "B", p3, 8);
+    room.findByName("B").spentLakhs = 24;
+    room.rng.int = () => 0;
+
+    const clientA = JSON.parse(JSON.stringify(room.getState("A")));
+    const clientB = JSON.parse(JSON.stringify(room.getState("B")));
+    const clientC = JSON.parse(JSON.stringify(room.getState("C")));
+    assert.equal(clientB.you.squad.length, 3);
+    assert.equal(clientA.franchises.find((f) => f.name === "B").squad.length, 3);
+
+    const events = [];
+    room.on("delta", (evt) => events.push(JSON.parse(JSON.stringify(evt))));
+    assert.equal(room.usePower("A").ok, true);
+    const res = room.pickPowerTarget("A", { targetKey: room.findByName("B").key });
+    assert.equal(res.ok, true, res.error);
+    assert.equal(room.findByName("B").squad.length, 2);
+
+    const ended = events.find((e) => e.type === "powerWaitEnded");
+    assert.ok(ended, "expected a powerWaitEnded delta");
+    assert.ok(Array.isArray(ended.teams) && ended.teams.length === 3, "delta must carry every team's squad");
+    const patchB = ended.teams.find((f) => f.name === "B");
+    assert.equal(patchB.squad.length, 2);
+    assert.ok(Array.isArray(ended.wipedPlayerIds) && ended.wipedPlayerIds.length >= 1);
+
+    applyDelta(clientA, room.personalizeDelta(ended, "A"));
+    applyDelta(clientB, room.personalizeDelta(ended, "B"));
+    applyDelta(clientC, room.personalizeDelta(ended, "C"));
+
+    const idsOf = (state, name) => {
+      const team = name === state.you?.name ? state.you : (state.franchises || []).find((f) => f.name === name);
+      return (team && team.squad ? team.squad : []).map((s) => s.player.id);
+    };
+    const serverIds = room.findByName("B").squad.map((s) => s.player.id);
+    const wipedIds = [p1, p2, p3].map((p) => p.id).filter((id) => !serverIds.includes(id));
+    assert.equal(wipedIds.length, 1);
+    for (const [label, st] of [["Kim", clientA], ["victim", clientB], ["spectator", clientC]]) {
+      const ids = idsOf(st, "B");
+      assert.deepEqual(ids, serverIds, `${label} client still shows a wiped player`);
+      assert.equal(ids.length, 2, `${label} squad length`);
+      assert.ok(!ids.includes(wipedIds[0]), `${label} still has ${wipedIds[0]}`);
+    }
+    const rejoin = room.getState("B");
+    assert.deepEqual(rejoin.you.squad.map((s) => s.player.id), serverIds);
+    assert.ok(room.queue.some((p) => p.id === wipedIds[0]));
+    const snap = clientB.auction && clientB.auction.lotSnapshot && clientB.auction.lotSnapshot.find((r) => r.name === "B");
+    assert.ok(snap);
+    assert.equal(snap.squadSize, 2);
+    const need = Object.values(clientB.you.remainingQuota || {}).reduce((s, v) => s + v, 0);
+    assert.ok(need >= 1, "victim should need slots again");
+    assert.equal(clientB.you.complete, false);
+  });
 });
 
 describe("global power rules", () => {
@@ -729,5 +796,53 @@ describe("global power rules", () => {
     assert.equal(room.bid("B", room.auction.currentBidLakhs + 1).ok, false);
     assert.equal(room.pause("B").ok, false);
     assert.equal(room.usePower("B").ok, false);
+  });
+});
+
+describe("disabled power reasons", () => {
+  test("shortenPowerReason maps server errors to short lines", () => {
+    const cases = [
+      ["You have already used your power.", "Used already"],
+      ["A power has already been used on this lot.", "One power per lot, already used"],
+      ["Wait for the player to be introduced.", "Not during intro"],
+      ["Game is paused by Priya.", "Paused"],
+      ["Wait until the next player is on the block.", "Lot sold"],
+      ["You cannot afford 12 points.", "Can't afford"],
+      ["Banned teams cannot use a power.", "Banned"],
+      ["Your squad is already complete.", "Squad full"],
+      ["The next lot's power slot is already taken.", "Wait for the next lot"],
+      ["Powers can only be used during the auction.", "Only during auction"],
+      ["No team has at least two players to wipe.", "No valid target"],
+      ["There is no rival to tax.", "No valid target"],
+      ["Hidden lot (VFX)", "Hidden lot (VFX)"],
+    ];
+    for (const [raw, short] of cases) {
+      assert.equal(shortenPowerReason(raw), short, raw);
+    }
+  });
+
+  test("getState and deltas expose a short canUsePowerHint", () => {
+    const room = roomWith(["A", "B"], { powerRevealMs: 0 });
+    setChar(room, "A", IDS.modi);
+    setChar(room, "B", IDS.ravi);
+    const lobby = room.getState("A");
+    assert.equal(lobby.you.canUsePower, false);
+    assert.equal(lobby.you.canUsePowerHint, "Only during auction");
+    start(room);
+    assert.equal(room.usePower("A").ok, true);
+    const other = room.getState("B");
+    assert.equal(other.you.canUsePower, false);
+    assert.equal(other.you.canUsePowerHint, "One power per lot, already used");
+    const events = [];
+    room.on("delta", (evt) => events.push(evt));
+    const lead = room.auction.currentBidderKey === "a" ? "B" : "A";
+    if (lead === "B") {
+      const bid = room.bid("B", room.auction.currentBidLakhs + 1);
+      assert.equal(bid.ok, true, bid.error);
+      const last = events[events.length - 1];
+      const personalized = room.personalizeDelta(last, "B");
+      assert.equal(personalized.youPower.canUsePower, false);
+      assert.equal(personalized.youPower.canUsePowerHint, "One power per lot, already used");
+    }
   });
 });

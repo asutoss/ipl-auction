@@ -1,6 +1,7 @@
 const { EventEmitter } = require("events");
 const { overallRating } = require("./players");
 const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthScore } = require("./simulate");
+const { shortenPowerReason } = require("../public/power-reasons");
 const {
   ROLES,
   MIN_PLAYERS,
@@ -303,6 +304,35 @@ class GameRoom extends EventEmitter {
       powerUsed: Boolean(f.powerUsedCount) || (f.powerUsesLeft != null && f.powerUsesLeft <= 0),
       formPct: f.formPct != null ? f.formPct : null,
     }));
+  }
+
+  packTeamDelta(f) {
+    if (!f) return null;
+    return {
+      name: f.name,
+      purseLakhs: f.purseLakhs,
+      squad: (f.squad || []).map((s) => ({
+        player: s.player,
+        priceLakhs: s.priceLakhs,
+        isCaptain: f.captainId === (s.player && s.player.id),
+      })),
+      roleCounts: roleCounts(f.squad),
+      overseasCount: overseasCount(f.squad),
+      remainingQuota: remainingQuota(f.squad, this.mode),
+      complete: isSquadComplete(f.squad, this.mode),
+      captainId: f.captainId || null,
+      formPct: f.formPct != null ? f.formPct : null,
+      eliminated: Boolean(f.eliminated),
+      banned: Boolean(f.banned) || (f.eliminated && f.eliminatedReason === "match_fixing"),
+    };
+  }
+
+  packPowerAftermath() {
+    return {
+      teams: this.franchises.map((f) => this.packTeamDelta(f)),
+      lotSnapshot: this.auction ? this.packLotSnapshot() : null,
+      wipedPlayerIds: (this.soldLog || []).filter((e) => e.wiped && e.player).map((e) => e.player.id),
+    };
   }
 
   packAuctionPublic() {
@@ -2070,6 +2100,7 @@ class GameRoom extends EventEmitter {
       copy.youPower = {
         canUsePower: Boolean(packed.canUsePower),
         canUsePowerReason: packed.canUsePowerReason || null,
+        canUsePowerHint: packed.canUsePowerHint || (packed.canUsePower ? null : shortenPowerReason(packed.canUsePowerReason)),
         powerUsed: Boolean(packed.powerUsed),
         powerUsesLeft: packed.powerUsesLeft,
       };
@@ -2150,6 +2181,7 @@ class GameRoom extends EventEmitter {
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
       captainEndsAt: this.captainEndsAt,
       toast: this.powerToast,
+      ...this.packPowerAftermath(),
     });
     this.maybeResolveAfterPower();
     return { ok: true };
@@ -2410,6 +2442,7 @@ class GameRoom extends EventEmitter {
       auctionEndsAt: this.auction ? this.auction.endsAt : null,
       soldRevealUntil: this.phase === "auction" && this.revealUntil ? this.revealUntil : null,
       captainEndsAt: this.captainEndsAt,
+      ...this.packPowerAftermath(),
     };
     this.lastEvent = packed;
     this.emitDelta(packed);
@@ -2474,6 +2507,7 @@ class GameRoom extends EventEmitter {
     const gate = this.canTeamUsePower(you);
     pack.canUsePower = Boolean(gate.ok);
     pack.canUsePowerReason = gate.ok ? null : gate.error;
+    pack.canUsePowerHint = gate.ok ? null : shortenPowerReason(gate.error);
     if (you.samayPreview) pack.samayPreview = you.samayPreview;
     if (this.powerWait && this.powerWait.kind === "chai" && this.powerWait.actorKey === you.key) {
       pack.chaiTable = this.packChaiTable();
