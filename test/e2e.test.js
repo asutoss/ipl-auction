@@ -760,8 +760,14 @@ describe("healthz and the wake loader", () => {
     assert.match(page.body, /ipl-game-origin/);
     assert.match(page.body, /IplWakeLoader/);
 
-    const meme = await httpGet("/loader/memes/wifi-19th.svg", { port });
-    assert.equal(meme.status, 200);
-    assert.match(meme.body, /svg/i);
+    const js = await httpGet("/loader/ipl-loader.js", { port });
+    assert.equal(js.status, 200);
+    assert.match(js.body, /Did you know\?/);
+    assert.match(js.body, /FACTS/);
+    assert.doesNotMatch(js.body, /memes\/wifi-19th/);
+
+    const css = await httpGet("/loader/ipl-loader.css", { port });
+    assert.equal(css.status, 200);
+    assert.match(css.body, /ipl-wake-fact/);
   });
 });

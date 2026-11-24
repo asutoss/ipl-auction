@@ -101,6 +101,6 @@ test/                 Logic tests + Socket.IO e2e
 
 The live game runs on Render's free web service, which sleeps after 15 minutes of idle traffic and takes about a minute to spin back up. Render shows its own loading page during that spin-up; that page cannot be customised.
 
-A self-contained always-on loader lives in `loader/`. It rotates original cricket-fan cartoons, pings `/healthz` on the game server (which also wakes it), and redirects to the auction once the server answers, keeping `?room=` or `/r/CODE` so a WhatsApp invite still lands in the right room. The same carousel is shown in the app itself while the first socket connection is still coming up.
+A self-contained always-on loader lives in `loader/`. It shows one randomly picked IPL auction fact for the whole wait, pings `/healthz` on the game server (which also wakes it), and redirects to the auction once the server answers, keeping `?room=` or `/r/CODE` so a WhatsApp invite still lands in the right room. The same fact card is shown in the app itself while the first socket connection is still coming up.
 
 Host the `loader/` folder as a **Render static site** (free, served from a CDN, does not sleep) in the same workspace as the game. Do not create that service until you are ready — exact click-through steps are in `loader/README.md`. After it has a URL, you can point invite links at it (or later set a public loader origin) so friends skip Render's spin-up screen.

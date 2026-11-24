@@ -3,14 +3,14 @@
 A self-contained static page for the IPL Auction Night game. It is meant to
 live on a host that stays on (Render static sites do not sleep). While the
 free web service at https://ipl-auction-45i3.onrender.com is spinning up,
-this page shows rotating cricket-fan cartoons, pings `/healthz`, and jumps
+this page shows one randomly picked IPL auction fact, pings `/healthz`, and jumps
 into the game once the server answers. Room invites are preserved:
 
 - `https://<loader>/?room=ABC123`
 - `https://<loader>/r/ABC123` (needs the rewrite in `_redirects`)
 
-The cartoons are original drawings. They do not use photographs or likenesses
-of real players.
+The fact is chosen at random when the page loads and stays put until the
+game is ready. Status lines under the progress animation still cycle.
 
 ## Recommended hosting (not created yet)
 
@@ -41,7 +41,7 @@ clicks through.
    Render’s own spin-up page.
 
 Until this static site exists, visitors who open the game URL directly will
-still see Render’s default wake-up page. The in-app meme carousel still
+still see Render’s default wake-up page. The in-app fact card still
 covers the slower first socket connection once the game HTML has loaded.
 
 ## Local preview

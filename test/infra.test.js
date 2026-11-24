@@ -851,18 +851,60 @@ describe("wake loader helpers", () => {
     assert.equal(loader.gameHref(origin, "/"), origin + "/");
   });
 
-  test("ships eight original cartoon memes and rotating lines", () => {
-    assert.equal(loader.MEMES.length, 8);
-    const srcs = new Set(loader.MEMES.map((m) => m.src));
-    assert.equal(srcs.size, 8);
-    const fs = require("fs");
-    const path = require("path");
-    for (const m of loader.MEMES) {
-      const file = path.join(__dirname, "..", "loader", m.src);
-      assert.equal(fs.existsSync(file), true, m.src);
-      const svg = fs.readFileSync(file, "utf8");
-      assert.match(svg, /<svg/i);
+  test("ships 15-25 verified IPL auction facts and keeps one on screen", () => {
+    assert.ok(loader.FACTS.length >= 15 && loader.FACTS.length <= 25, loader.FACTS.length);
+    assert.equal(loader.FACT_LABEL, "Did you know?");
+    const texts = new Set();
+    for (const fact of loader.FACTS) {
+      assert.equal(typeof fact.text, "string");
+      assert.ok(fact.text.length >= 40, fact.text);
+      assert.ok(fact.text.length <= 420, fact.text.length);
+      const sentences = fact.text.replace(/…/g, ".").split(/(?<=[.?!])\s+/).filter((s) => s.trim());
+      assert.ok(sentences.length >= 1 && sentences.length <= 2, fact.text);
+      texts.add(fact.text);
     }
+    assert.equal(texts.size, loader.FACTS.length);
+    assert.equal(loader.pickFact(loader.FACTS, () => 0).index, 0);
+    assert.equal(loader.pickFact(loader.FACTS, () => 0.999).index, loader.FACTS.length - 1);
+    assert.equal(loader.pickFactIndex(loader.FACTS.length, () => 0.5), Math.floor(0.5 * loader.FACTS.length));
+
+    const html = loader.markup({ factIndex: 0, factLabel: loader.FACT_LABEL });
+    assert.match(html, /Did you know\?/);
+    assert.match(html, /id="ipl-wake-fact"/);
+    assert.match(html, /Rishabh Pant/);
+    assert.doesNotMatch(html, /ipl-wake-img|memes\//);
+    assert.ok(!loader.MEMES);
+
+    const first = loader.FACTS[0].text;
+    const second = loader.FACTS[1].text;
+    let inner = "";
+    const root = {
+      hidden: true,
+      dataset: {},
+      classList: { add() {}, remove() {} },
+      querySelector(sel) {
+        if (sel === "#ipl-wake-fact") return { textContent: this._fact };
+        if (sel === "#ipl-wake-line") return { textContent: this._line };
+        return null;
+      },
+      set innerHTML(value) {
+        inner = value;
+        const m = value.match(/id="ipl-wake-fact">([^<]*)</);
+        this._fact = m ? m[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"') : "";
+      },
+      get innerHTML() { return inner; },
+    };
+    const inst = loader.create({ root, paused: true, factIndex: 0, showDelayMs: 0, autoShow: true });
+    assert.equal(inst.factIndex, 0);
+    assert.match(root.innerHTML, /Rishabh Pant/);
+    inst.step();
+    inst.step();
+    assert.equal(inst.factIndex, 0);
+    assert.equal(root.dataset.fact, "0");
+    inst.setIndex(1);
+    assert.equal(inst.factIndex, 1);
+    assert.equal(root.dataset.fact, "1");
+    assert.ok(first !== second);
     assert.ok(loader.LINES.length >= 6);
     assert.equal(loader.ROTATE_MS, 4000);
   });
