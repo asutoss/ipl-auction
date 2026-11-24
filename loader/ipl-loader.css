@@ -1,3 +1,16 @@
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  background: var(--bg);
+}
+
 :root {
   --bg: #070b16;
   --card: #141c30;
@@ -8,14 +21,19 @@
   --muted: #9aa6c3;
   --font: "DM Sans", system-ui, sans-serif;
   --display: "Teko", "DM Sans", sans-serif;
+  --wake-pad: 18px;
 }
+
 .ipl-wake-root {
   position: fixed;
   inset: 0;
   z-index: 200;
   display: grid;
   place-items: start center;
-  overflow: auto;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
     radial-gradient(1200px 500px at 10% -10%, rgba(245, 197, 24, 0.12), transparent 50%),
     radial-gradient(900px 400px at 100% 0%, rgba(37, 99, 235, 0.16), transparent 45%),
@@ -25,15 +43,23 @@
 }
 .ipl-wake-root[hidden] { display: none !important; }
 .ipl-wake {
-  width: min(420px, 100%);
-  padding: 24px 18px 40px;
+  width: 100%;
+  max-width: min(420px, 100%);
+  padding: 24px var(--wake-pad) 40px;
   margin: 0 auto;
+  min-width: 0;
 }
 .ipl-wake-brand {
   display: flex;
   gap: 12px;
   align-items: center;
   margin: 8px 0 18px;
+  min-width: 0;
+  max-width: 100%;
+}
+.ipl-wake-brand > div {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .ipl-wake-ball { width: 40px; height: 40px; flex: 0 0 40px; filter: drop-shadow(0 0 8px rgba(245, 197, 24, 0.45)); }
 .ipl-wake-kicker {
@@ -46,12 +72,17 @@
 .ipl-wake-brand h1 {
   margin: 0;
   font-family: var(--display);
-  font-size: 34px;
-  line-height: 0.9;
+  font-size: clamp(26px, 9vw, 34px);
+  line-height: 0.95;
   letter-spacing: 0.02em;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 .ipl-wake-card {
   margin: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%), var(--card);
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -59,6 +90,8 @@
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
 }
 .ipl-wake-frame {
+  width: 100%;
+  max-width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: 16px;
   overflow: hidden;
@@ -66,23 +99,29 @@
 }
 .ipl-wake-frame img {
   width: 100%;
+  max-width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 .ipl-wake-card figcaption {
-  margin: 12px 6px 2px;
+  margin: 12px 0 2px;
+  padding: 0 4px;
   font-size: 16px;
   font-weight: 700;
   line-height: 1.35;
   text-align: center;
   color: var(--text);
   min-height: 2.7em;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 .ipl-wake-progress {
   position: relative;
   height: 36px;
-  margin: 18px 8px 8px;
+  width: 100%;
+  max-width: 100%;
+  margin: 18px 0 8px;
   border-bottom: 2px solid rgba(245, 197, 24, 0.25);
 }
 .ipl-wake-stumps {
@@ -130,19 +169,27 @@
   50% { left: calc(100% - 16px); transform: rotate(360deg); }
   100% { left: 0; transform: rotate(720deg); }
 }
-.ipl-wake-line {
-  margin: 8px 8px 0;
+.ipl-wake-line,
+.ipl-wake-note {
+  margin: 8px 0 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
   text-align: center;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+.ipl-wake-line {
   color: var(--gold-2);
   font-weight: 700;
   font-size: 16px;
   min-height: 2.4em;
 }
 .ipl-wake-note {
-  margin: 4px 12px 0;
-  text-align: center;
+  margin-top: 4px;
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.4;
 }
 @media (prefers-reduced-motion: reduce) {
   .ipl-wake-ball-run { animation: none; left: 40%; }

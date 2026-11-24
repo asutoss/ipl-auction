@@ -53,6 +53,35 @@ async function main() {
     await page.setViewport({ ...VIEW, deviceScaleFactor: 2 });
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded", timeout: 20000 });
     await page.waitForFunction(() => Boolean(window.IplWakeLoader && document.querySelector("#ipl-wake-img")), { timeout: 10000 });
+
+    async function overflowAt(width) {
+      await page.setViewport({ width, height: 800, deviceScaleFactor: 2 });
+      await sleep(80);
+      return page.evaluate((w) => {
+        const root = document.querySelector(".ipl-wake-root") || document.documentElement;
+        const doc = document.documentElement;
+        const body = document.body;
+        const card = document.querySelector(".ipl-wake-card");
+        const note = document.querySelector(".ipl-wake-note");
+        const meas = (el) => {
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { left: Math.round(r.left * 10) / 10, right: Math.round(r.right * 10) / 10, width: Math.round(r.width * 10) / 10 };
+        };
+        return {
+          width: w,
+          docScroll: doc.scrollWidth,
+          docClient: doc.clientWidth,
+          bodyScroll: body.scrollWidth,
+          rootScroll: root.scrollWidth,
+          rootClient: root.clientWidth,
+          card: meas(card),
+          note: meas(note),
+          overflow: Math.max(doc.scrollWidth, body.scrollWidth, root.scrollWidth) > w + 1,
+        };
+      }, width);
+    }
+
     // Pause rotation and pin three distinctive memes.
     const indexes = [0, 2, 6];
     const names = ["loader-meme-wifi.png", "loader-meme-dinner.png", "loader-meme-napping.png"];
@@ -83,6 +112,15 @@ async function main() {
       await page.screenshot({ path: file, fullPage: false, timeout: 20000 });
       console.log("wrote", file);
     }
+
+    for (const w of [320, 360, 412]) {
+      const info = await overflowAt(w);
+      console.log("overflow-check", JSON.stringify(info));
+      if (info.overflow || (info.card && info.card.right > w + 1) || (info.note && info.note.right > w + 1) || (info.card && info.card.left < -1)) {
+        throw new Error("horizontal overflow at " + w + "px: " + JSON.stringify(info));
+      }
+    }
+    await page.setViewport({ ...VIEW, deviceScaleFactor: 2 });
   } finally {
     await browser.close();
     await new Promise((r) => server.close(r));
