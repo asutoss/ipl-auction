@@ -871,7 +871,7 @@ describe("wake loader helpers", () => {
     const html = loader.markup({ factIndex: 0, factLabel: loader.FACT_LABEL });
     assert.match(html, /Did you know\?/);
     assert.match(html, /id="ipl-wake-fact"/);
-    assert.match(html, /Rishabh Pant/);
+    assert.match(html, /Shashank Singh/);
     assert.doesNotMatch(html, /ipl-wake-img|memes\//);
     assert.ok(!loader.MEMES);
 
@@ -896,7 +896,7 @@ describe("wake loader helpers", () => {
     };
     const inst = loader.create({ root, paused: true, factIndex: 0, showDelayMs: 0, autoShow: true });
     assert.equal(inst.factIndex, 0);
-    assert.match(root.innerHTML, /Rishabh Pant/);
+    assert.match(root.innerHTML, /Shashank Singh/);
     inst.step();
     inst.step();
     assert.equal(inst.factIndex, 0);

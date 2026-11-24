@@ -146,8 +146,8 @@ async function main() {
     }
 
     const shots = [
-      { index: 0, name: "loader-fact-pant.png" },
-      { index: 7, name: "loader-fact-suryavanshi.png" },
+      { index: 0, name: "loader-fact-shashank.png" },
+      { index: 3, name: "loader-fact-gayle.png" },
     ];
     for (const shot of shots) {
       await pinFact(shot.index);
