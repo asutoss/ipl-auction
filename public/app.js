@@ -3375,7 +3375,24 @@ async function bootFromUrlOrSession() {
   }
 }
 
+
+const bootLoaderRoot = document.getElementById("ipl-boot-loader");
+let bootLoader = null;
+function hideBootLoader() {
+  if (bootLoader) bootLoader.hide();
+}
+if (bootLoaderRoot && window.IplWakeLoader && !(socket && socket.connected)) {
+  bootLoader = IplWakeLoader.create({
+    root: bootLoaderRoot,
+    mode: "overlay",
+    assetBase: "/loader/",
+    kicker: "Connecting",
+    note: "Finding a seat in the auction tent…",
+    showDelayMs: 120,
+  });
+}
 socket.on("connect", async () => {
+  hideBootLoader();
   await bootFromUrlOrSession();
 });
 

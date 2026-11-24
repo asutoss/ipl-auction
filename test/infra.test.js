@@ -837,3 +837,33 @@ describe("auction ring size", () => {
     assert.equal(again, size);
   });
 });
+
+describe("wake loader helpers", () => {
+  const loader = require("../loader/ipl-loader");
+
+  test("keeps the room code when redirecting to the game", () => {
+    const origin = "https://ipl-auction-45i3.onrender.com";
+    assert.equal(loader.parseRoom("https://wake.example/r/k7mq2p"), "K7MQ2P");
+    assert.equal(loader.parseRoom("/?room=k7mq2p"), "K7MQ2P");
+    assert.equal(loader.parseRoom({ pathname: "/", search: "?code=k7mq2p" }), "K7MQ2P");
+    assert.equal(loader.gameHref(origin, "/?room=k7mq2p"), origin + "/r/K7MQ2P");
+    assert.equal(loader.gameHref(origin + "/", "/r/K7MQ2P?x=1"), origin + "/r/K7MQ2P");
+    assert.equal(loader.gameHref(origin, "/"), origin + "/");
+  });
+
+  test("ships eight original cartoon memes and rotating lines", () => {
+    assert.equal(loader.MEMES.length, 8);
+    const srcs = new Set(loader.MEMES.map((m) => m.src));
+    assert.equal(srcs.size, 8);
+    const fs = require("fs");
+    const path = require("path");
+    for (const m of loader.MEMES) {
+      const file = path.join(__dirname, "..", "loader", m.src);
+      assert.equal(fs.existsSync(file), true, m.src);
+      const svg = fs.readFileSync(file, "utf8");
+      assert.match(svg, /<svg/i);
+    }
+    assert.ok(loader.LINES.length >= 6);
+    assert.equal(loader.ROTATE_MS, 4000);
+  });
+});

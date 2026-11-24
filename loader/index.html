@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>IPL Auction Night — waking up</title>
+    <meta name="description" content="The auction tent is waking up. Hang on for a minute if the server was napping." />
+    <meta name="ipl-game-origin" content="https://ipl-auction-45i3.onrender.com" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="IPL Auction Night" />
+    <meta property="og:title" content="IPL Auction Night" />
+    <meta property="og:description" content="Join a live IPL-style auction with friends. We’re waking the server — you’ll hop in automatically." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="IPL Auction Night" />
+    <meta name="twitter:description" content="The auction tent is waking up. Hang on a minute." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./ipl-loader.css" />
+  </head>
+  <body>
+    <div id="ipl-boot-loader"></div>
+    <noscript>
+      <p style="color:#f4f7ff;font-family:sans-serif;padding:24px;text-align:center;">
+        The auction is at <a href="https://ipl-auction-45i3.onrender.com" style="color:#f5c518">ipl-auction-45i3.onrender.com</a>.
+        Open that link if this page cannot check the server for you.
+      </p>
+    </noscript>
+    <script src="./ipl-loader.js"></script>
+    <script>
+      IplWakeLoader.create({
+        root: document.getElementById("ipl-boot-loader"),
+        mode: "redirect",
+        assetBase: "./",
+        kicker: "Waking the auction",
+        note: "This can take about a minute if the server was napping. You’ll jump in automatically.",
+        showDelayMs: 0,
+      });
+    </script>
+  </body>
+</html>

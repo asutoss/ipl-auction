@@ -720,3 +720,48 @@ describe("e2e: room links, join via URL, and ended rooms", () => {
     if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
   });
 });
+
+describe("healthz and the wake loader", () => {
+  let ctx;
+  let port;
+  after(async () => {
+    if (ctx?.io) ctx.io.close();
+    if (ctx?.server) await new Promise((resolve) => ctx.server.close(() => resolve()));
+  });
+
+  test("GET /healthz is cheap, allows CORS, and the loader files are served", async () => {
+    ctx = await start(0);
+    port = ctx.port;
+    const health = await httpGet("/healthz", { port, headers: { origin: "https://example.com" } });
+    assert.equal(health.status, 200);
+    assert.equal(health.headers["access-control-allow-origin"], "*");
+    assert.equal(health.headers["cache-control"], "no-store");
+    assert.deepEqual(JSON.parse(health.body), { ok: true });
+
+    const preflight = await new Promise((resolve, reject) => {
+      const req = http.request({
+        hostname: "127.0.0.1",
+        port,
+        path: "/healthz",
+        method: "OPTIONS",
+        headers: { origin: "https://example.com", "access-control-request-method": "GET" },
+      }, (res) => {
+        res.resume();
+        res.on("end", () => resolve({ status: res.statusCode, headers: res.headers }));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers["access-control-allow-origin"], "*");
+
+    const page = await httpGet("/loader/index.html", { port });
+    assert.equal(page.status, 200);
+    assert.match(page.body, /ipl-game-origin/);
+    assert.match(page.body, /IplWakeLoader/);
+
+    const meme = await httpGet("/loader/memes/wifi-19th.svg", { port });
+    assert.equal(meme.status, 200);
+    assert.match(meme.body, /svg/i);
+  });
+});

@@ -16,7 +16,24 @@ const app = express();
 const publicDir = path.join(__dirname, "..", "public");
 const { normalizeRoomCode } = require("../public/room-link");
 app.use("/logos", express.static(path.join(publicDir, "logos"), { maxAge: "7d", etag: true }));
+app.use("/loader", express.static(path.join(__dirname, "..", "loader"), { index: false, maxAge: "1h", etag: true }));
 app.use(express.static(publicDir, { index: false }));
+
+function allowHealthCors(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Cache-Control", "no-store");
+}
+
+app.options("/healthz", (_req, res) => {
+  allowHealthCors(res);
+  res.status(204).end();
+});
+app.get("/healthz", (_req, res) => {
+  allowHealthCors(res);
+  res.type("json").send('{"ok":true}');
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
