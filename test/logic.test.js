@@ -3784,9 +3784,29 @@ describe("share results card", () => {
   test("formats current form and reserves room for the champion and standings", () => {
     assert.match(share.formText({ formPct: 104 }), /Current form 104%/);
     const sized = share.layout({
-      positions: [{ name: "Ashutosh" }, { name: "Priya" }, { name: "Rohan" }],
+      positions: [
+        { name: "Ashutosh", position: 1, title: "Champion" },
+        { name: "Priya", position: 2 },
+        { name: "Rohan", position: 3 },
+      ],
       champion: { name: "Ashutosh" },
     });
     assert.ok(sized.height >= 900);
+    assert.deepEqual(sized.listed.map((p) => p.position), [2, 3]);
+  });
+
+  test("omits the champion from the standings list and keeps the remaining positions", () => {
+    const listed = share.listPositions({
+      champion: { name: "Ashutosh", position: 1 },
+      positions: [
+        { name: "Ashutosh", position: 1, title: "Champion" },
+        { name: "Priya", position: 2 },
+        { name: "Rohan", position: 3 },
+        { name: "Neha", position: 4 },
+      ],
+    });
+    assert.deepEqual(listed.map((p) => p.name), ["Priya", "Rohan", "Neha"]);
+    assert.deepEqual(listed.map((p) => p.position), [2, 3, 4]);
+    assert.equal(listed.some((p) => p.position === 1), false);
   });
 });

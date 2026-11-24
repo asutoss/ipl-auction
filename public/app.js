@@ -1,22 +1,29 @@
 
 function shareResultsPayload() {
   const t = (state && state.tournament) || {};
-  const positions = (t.positions || []).map((pos) => ({
-    position: pos.position,
-    name: pos.name || pos.short,
-    squadScore: pos.squadScore,
-    formPct: formPctOf(pos),
-    characterId: characterIdOf(pos),
-    identityId: characterIdOf(pos),
-  }));
   const champPos = championPosition();
+  const champTeam = champPos ? resultsTeamByNameSafe(champPos.name) || champPos : null;
+  const fin = (resultsRevealInfo() && resultsRevealInfo().final) || {};
+  const positions = (t.positions || [])
+    .filter((pos) => pos && pos.position !== 1 && (pos.finish || pos.title) !== "Champion" && (!champPos || pos.name !== champPos.name))
+    .map((pos) => ({
+      position: pos.position,
+      name: pos.name || pos.short,
+      squadScore: pos.squadScore,
+      formPct: formPctOf(pos),
+      characterId: characterIdOf(pos),
+      identityId: characterIdOf(pos),
+    }));
   const champion = champPos
     ? {
         name: champPos.name || champPos.short,
-        squadScore: champPos.squadScore,
-        formPct: formPctOf(champPos),
-        characterId: characterIdOf(champPos),
-        identityId: characterIdOf(champPos),
+        squadScore: champTeam && champTeam.squadScore != null ? champTeam.squadScore : champPos.squadScore,
+        formPct: formPctOf(champTeam) != null ? formPctOf(champTeam) : formPctOf(champPos),
+        characterId: characterIdOf(champTeam || champPos),
+        identityId: characterIdOf(champTeam || champPos),
+        captainName: teamCaptainName(champTeam),
+        resultText: fin.resultText || "",
+        potm: fin.potm || null,
       }
     : null;
   const mode = state && state.mode;
