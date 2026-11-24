@@ -2105,6 +2105,59 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .result-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .results-hint { text-align: center; margin: 4px 0 12px; }
 
+.final-scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+.final-score-col {
+  background: color-mix(in srgb, var(--gold) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+  border-radius: 14px;
+  padding: 10px 12px 12px;
+  text-align: center;
+}
+.final-score-col.is-live {
+  border-color: color-mix(in srgb, var(--gold) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 25%, transparent);
+}
+.final-score-name {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.final-score-total {
+  margin: 0;
+  line-height: 1.1;
+}
+.final-score-total strong {
+  font-size: 28px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.final-score-total span {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.final-scoreboard.is-done .final-score-col {
+  border-color: color-mix(in srgb, var(--gold) 50%, transparent);
+}
+.results-share-actions {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 4px;
+}
+#share-results { min-width: 180px; }
+@media (max-width: 700px) {
+  .final-score-total strong { font-size: 22px; }
+}
+
 /* Results team sheet */
 .sheet-modal {
   position: fixed;

@@ -28,7 +28,7 @@ function roomWith(names, timers, opts = {}) {
     code: "TEST",
     purseLakhs: purse,
     mode,
-    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 90_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, formBoostRevealMs: 0, finalMatchMs: 0, ...(timers || {}) },
+    timers: { lotStartMs: 15_000, bidMs: 15_000, captainMs: 90_000, soldRevealMs: 0, lastTeamFillMs: 0, playerIntroMs: 0, resultsRevealStepMs: 0, formBoostRevealMs: 0, finalMatchMs: 0, autofillRevealMs: 0, ...(timers || {}) },
     allPlayers: players,
     meta,
     seed: opts.seed,
@@ -893,8 +893,8 @@ describe("nomination order and timers", () => {
     assert.ok(bidLeft > 24000 && bidLeft <= 25100, `bid reset ${bidLeft}`);
   });
 
-  test("default timers are 25s for lots and bids, 90s for captains, 3s for the player intro, 2.8s for results steps, 60s for the final, and 5s for the sold and power reveals", () => {
-    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS", "PLAYER_INTRO_MS", "RESULTS_REVEAL_STEP_MS", "FINAL_MATCH_MS"];
+  test("default timers are 25s for lots and bids, 90s for captains, 3s for the player intro, 2.8s for results steps, 45s for the final, 2s for auto-fill sold cards, and 5s for the sold and power reveals", () => {
+    const keys = ["BID_TIMER_MS", "LOT_START_MS", "SOLD_REVEAL_MS", "CAPTAIN_TIMER_MS", "POWER_REVEAL_MS", "PLAYER_INTRO_MS", "RESULTS_REVEAL_STEP_MS", "FINAL_MATCH_MS", "AUTOFILL_REVEAL_MS"];
     const prev = {};
     for (const k of keys) {
       prev[k] = process.env[k];
@@ -910,7 +910,8 @@ describe("nomination order and timers", () => {
       assert.equal(room.timers.powerRevealMs, 5000);
       assert.equal(room.timers.playerIntroMs, 3000);
       assert.equal(room.timers.resultsRevealStepMs, 2800);
-      assert.equal(room.timers.finalMatchMs, 60000);
+      assert.equal(room.timers.finalMatchMs, 45000);
+      assert.equal(room.timers.autofillRevealMs, 2000);
     } finally {
       for (const k of keys) {
         if (prev[k] == null) delete process.env[k];
@@ -2284,8 +2285,8 @@ describe("match-fixing ban rule", () => {
 });
 
 describe("last-team fill reveal", () => {
-  test("reveals remaining players and prices for about 3 seconds before moving on", async () => {
-    const room = roomWith(["Ashutosh", "Priya"], { lastTeamFillMs: 50, soldRevealMs: 0 });
+  test("assigns remaining players one at a time with a sold card, then moves on", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { autofillRevealMs: 40, soldRevealMs: 0 });
     giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
     giveSquad(room, "Ashutosh", { BAT: 3, WK: 0, AR: 2, BOWL: 4 });
     const bat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
@@ -2296,37 +2297,113 @@ describe("last-team fill reveal", () => {
     room.on("delta", (e) => events.push(e));
     room.nominateNext();
     assert.equal(room.phase, "auction");
-    assert.ok(room.lastTeamFill);
-    assert.equal(room.lastTeamFill.buyerName, "Ashutosh");
-    assert.equal(room.lastTeamFill.entries.length, 2);
-    const ids = room.lastTeamFill.entries.map((e) => e.player.id);
-    assert.ok(ids.includes(bat.id) && ids.includes(wk.id));
-    room.lastTeamFill.entries.forEach((e) => {
-      assert.equal(e.priceLakhs, 2);
-    });
+    const firstSold = events.filter((e) => e.type === "sold");
+    assert.equal(firstSold.length, 1);
+    assert.equal(firstSold[0].auto, true);
+    assert.equal(firstSold[0].buyerName, "Ashutosh");
+    assert.equal(firstSold[0].player.id, bat.id);
     const a = room.findByName("Ashutosh");
     assert.ok(a.squad.some((s) => s.player.id === bat.id));
-    assert.ok(a.squad.some((s) => s.player.id === wk.id));
-    assert.equal(isSquadComplete(a.squad), true);
-    assert.ok(events.some((e) => e.type === "lastTeamFill" && e.entries.length === 2));
+    assert.equal(a.squad.some((s) => s.player.id === wk.id), false);
     const snap = room.getState("Priya");
-    assert.ok(snap.lastTeamFill && snap.lastTeamFill.entries.length === 2);
-    await new Promise((r) => setTimeout(r, 90));
-    assert.equal(room.lastTeamFill, null);
+    assert.equal(snap.lastEvent.type, "sold");
+    assert.equal(snap.lastEvent.player.id, bat.id);
+    assert.ok(snap.soldRevealUntil > Date.now());
+    await new Promise((r) => setTimeout(r, 50));
+    const sold = events.filter((e) => e.type === "sold");
+    assert.equal(sold.length, 2);
+    assert.equal(sold[1].player.id, wk.id);
+    assert.ok(a.squad.some((s) => s.player.id === wk.id));
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(room.autoFillFollowup, null);
     assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
   });
 
-  test("Continue skips the last-team fill wait", () => {
-    const room = roomWith(["Ashutosh", "Priya"], { lastTeamFillMs: 4000, soldRevealMs: 0 });
+  test("Continue skips the current auto-fill sold card and shows the next", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { autofillRevealMs: 4000, soldRevealMs: 0 });
     giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
     giveSquad(room, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
     const bat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
     room.queue = [bat];
     room.phase = "auction";
     room.nominateNext();
-    assert.ok(room.lastTeamFill);
+    assert.equal(room.lastEvent && room.lastEvent.type, "sold");
+    assert.equal(room.lastEvent.player.id, bat.id);
     assert.equal(room.continueReveal("Ashutosh").ok, true);
-    assert.equal(room.lastTeamFill, null);
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+  });
+});
+
+describe("auto-fill sold sequence", () => {
+  test("end-of-auction auto-fill shows each player on the sold card, and 0ms finishes immediately", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { autofillRevealMs: 0, soldRevealMs: 0 });
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    const wk = players.find((p) => p.role === "WK" && !room.soldIds.has(p.id));
+    room.allPlayers = [...room.franchises.flatMap((f) => f.squad.map((s) => s.player)), wk];
+    room.queue = [];
+    room.unsold = [wk];
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.closeAuctionForEmptyPool();
+    assert.ok(events.some((e) => e.type === "poolExhausted" && e.added >= 1));
+    assert.ok(events.some((e) => e.type === "sold" && e.auto && e.player.id === wk.id));
+    assert.ok(room.findByName("Ashutosh").squad.some((s) => s.player.id === wk.id));
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+    assert.equal(isSquadComplete(room.findByName("Ashutosh").squad), true);
+  });
+
+  test("auto-fill reveal is one player at a time and a refresh resumes the current sold card", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { autofillRevealMs: 50, soldRevealMs: 0, captainMs: 10 });
+    giveSquad(room, "Ashutosh", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 3, WK: 1, AR: 2, BOWL: 4 });
+    const bats = players.filter((p) => p.role === "BAT" && !room.soldIds.has(p.id)).slice(0, 2);
+    assert.equal(bats.length, 2);
+    room.allPlayers = [...room.franchises.flatMap((f) => f.squad.map((s) => s.player)), ...bats];
+    room.queue = [];
+    room.unsold = bats.slice();
+    room.phase = "auction";
+    const events = [];
+    room.on("delta", (e) => events.push(e));
+    room.closeAuctionForEmptyPool();
+    const sold = events.filter((e) => e.type === "sold");
+    assert.equal(sold.length, 1, "only the first auto-fill sale is visible");
+    const firstId = sold[0].player.id;
+    const mid = room.getState("Priya");
+    assert.equal(mid.phase, "auction");
+    assert.equal(mid.lastEvent.type, "sold");
+    assert.equal(mid.lastEvent.auto, true);
+    assert.equal(mid.lastEvent.player.id, firstId);
+    assert.ok(mid.soldRevealUntil > Date.now(), "refresh keeps the sold card deadline");
+    const firstTeam = room.franchises.find((f) => f.squad.some((s) => s.player.id === firstId));
+    assert.ok(firstTeam);
+    const other = bats.find((p) => p.id !== firstId);
+    assert.equal(room.findByName(firstTeam.name === "Ashutosh" ? "Priya" : "Ashutosh").squad.some((s) => s.player.id === other.id), false);
+    await new Promise((r) => setTimeout(r, 60));
+    const sold2 = events.filter((e) => e.type === "sold");
+    assert.equal(sold2.length, 2);
+    await new Promise((r) => setTimeout(r, 60));
+    assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+    assert.equal(isSquadComplete(room.findByName("Ashutosh").squad), true);
+    assert.equal(isSquadComplete(room.findByName("Priya").squad), true);
+  });
+
+  test("results and captains wait until the last auto-filled sold card has been shown", async () => {
+    const room = roomWith(["Ashutosh", "Priya"], { autofillRevealMs: 80, soldRevealMs: 0, captainMs: 10 });
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 0, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    const wk = players.find((p) => p.role === "WK" && !room.soldIds.has(p.id));
+    room.allPlayers = [...room.franchises.flatMap((f) => f.squad.map((s) => s.player)), wk];
+    room.queue = [];
+    room.unsold = [];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.equal(room.phase, "auction");
+    assert.equal(room.lastEvent.type, "sold");
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(room.phase, "auction");
+    await new Promise((r) => setTimeout(r, 80));
     assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
   });
 });
@@ -3465,6 +3542,57 @@ describe("final match reveal", () => {
     assert.ok(after >= frozen, `did not resume ${frozen} -> ${after}`);
   });
 
+
+  test("the live final is paced at 45s by default, never more than 60s, and ends when that clock runs out", async () => {
+    const { GameRoom } = require("../server/game");
+    const def = new GameRoom({ code: "AB12", hostName: "Ashutosh" });
+    assert.equal(def.timers.finalMatchMs, 45000);
+    assert.equal(def.finalMatchDelayMs(), 45000);
+    const capped = roomWith(["Ashutosh", "Priya"], { finalMatchMs: 90_000, resultsRevealStepMs: 0, captainMs: 10 });
+    fill(capped, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    capped.phase = "captains";
+    capped.finishCaptains();
+    assert.equal(capped.finalMatchDelayMs(), 60000);
+    assert.equal(capped.resultsReveal.finalDurationMs, 60000);
+
+    const room = roomWith(["Ashutosh", "Priya"], { resultsRevealStepMs: 0, finalMatchMs: 250, captainMs: 10 });
+    fill(room, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.phase = "captains";
+    room.finishCaptains();
+    assert.equal(room.resultsReveal.stage, "final");
+    assert.equal(room.resultsReveal.finalDurationMs, 250);
+    const start = room.resultsReveal.finalStartedAt;
+    assert.ok(room.resultsReveal.nextAt - start <= 250 + 20);
+    await new Promise((r) => setTimeout(r, 320));
+    assert.equal(room.resultsReveal.stage, "done");
+    const elapsed = Date.now() - start;
+    assert.ok(elapsed < 450, `final ran ${elapsed}ms, longer than the 250ms cap`);
+  });
+
+  test("a mid-chase snapshot keeps the first-innings total, the target, and the required runs", () => {
+    const room = roomWith(["Ashutosh", "Priya"], { resultsRevealStepMs: 0, finalMatchMs: 10_000, captainMs: 10 });
+    fill(room, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.phase = "captains";
+    room.finishCaptains();
+    const packed = room.packResultsReveal();
+    const timeline = packed.final;
+    const units = timeline.units;
+    const inn1Balls = (timeline.innings[0].deliveries || []).length;
+    const inn2Balls = (timeline.innings[1].deliveries || []).length;
+    const midUnit = 1 + inn1Balls + 1 + Math.max(1, Math.floor(inn2Balls / 2));
+    const snap = snapshotAtElapsed(timeline, (midUnit / units) * packed.final.durationMs, packed.final.durationMs);
+    assert.equal(snap.phase, "live");
+    assert.equal(snap.inningsIndex, 1);
+    assert.ok(snap.firstInnings && snap.firstInnings.score != null);
+    assert.ok(snap.target != null);
+    assert.ok(snap.need != null);
+    assert.equal(snap.firstInnings.complete, true);
+    const end = snapshotAtElapsed(timeline, packed.final.durationMs, packed.final.durationMs);
+    assert.equal(end.phase, "over");
+    assert.ok(end.firstInnings && end.firstInnings.score != null);
+    assert.ok(end.score != null);
+  });
+
   test("team-sheet stats already include the final and do not change when it is shown", () => {
     const room = roomWith(["Ashutosh", "Priya", "Rohan", "Neha"], { captainMs: 10, resultsRevealStepMs: 5000, finalMatchMs: 5000 });
     fill(room, { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
@@ -3647,5 +3775,18 @@ describe("ball-by-ball match consistency", () => {
     const b = play(88);
     assert.deepEqual(findFinalMatch(b).firstInnings.deliveries, findFinalMatch(a).firstInnings.deliveries);
     assert.equal(b.champion.name, a.champion.name);
+  });
+});
+
+describe("share results card", () => {
+  const share = require("../public/share-results");
+
+  test("formats current form and reserves room for the champion and standings", () => {
+    assert.match(share.formText({ formPct: 104 }), /Current form 104%/);
+    const sized = share.layout({
+      positions: [{ name: "Ashutosh" }, { name: "Priya" }, { name: "Rohan" }],
+      champion: { name: "Ashutosh" },
+    });
+    assert.ok(sized.height >= 900);
   });
 });

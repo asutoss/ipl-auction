@@ -7,6 +7,7 @@ process.env.CAPTAIN_TIMER_MS = process.env.CAPTAIN_TIMER_MS || "250";
 process.env.PLAYER_INTRO_MS = process.env.PLAYER_INTRO_MS || "0";
 process.env.RESULTS_REVEAL_STEP_MS = process.env.RESULTS_REVEAL_STEP_MS || "0";
 process.env.FINAL_MATCH_MS = process.env.FINAL_MATCH_MS || "0";
+process.env.AUTOFILL_REVEAL_MS = process.env.AUTOFILL_REVEAL_MS || "0";
 if (process.env.CREATE_LIMIT == null) process.env.CREATE_LIMIT = "0";
 
 const { io: ioc } = require("socket.io-client");

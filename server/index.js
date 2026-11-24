@@ -223,6 +223,9 @@ io.on("connection", (socket) => {
       if (payload.testTimers.finalMatchMs != null && Number.isFinite(Number(payload.testTimers.finalMatchMs))) {
         timers.finalMatchMs = Math.max(0, Number(payload.testTimers.finalMatchMs));
       }
+      if (payload.testTimers.autofillRevealMs != null && Number.isFinite(Number(payload.testTimers.autofillRevealMs))) {
+        timers.autofillRevealMs = Math.max(0, Number(payload.testTimers.autofillRevealMs));
+      }
     }
     const room = new GameRoom({
       code,

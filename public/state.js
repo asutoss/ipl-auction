@@ -510,7 +510,7 @@
           if (row) row.formPct = evt.formPct;
         }
         syncYou(state);
-        state.lastEvent = evt;
+        if (!evt.keepLastEvent) state.lastEvent = evt;
         break;
       }
       case "banned": {

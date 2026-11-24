@@ -96,9 +96,10 @@ function defaultTimers() {
     soldRevealMs: envMs("SOLD_REVEAL_MS", 5000),
     powerRevealMs: envMs("POWER_REVEAL_MS", POWER_REVEAL_MS),
     lastTeamFillMs: envMs("LAST_TEAM_FILL_MS", 3000),
+    autofillRevealMs: envMs("AUTOFILL_REVEAL_MS", 2000),
     playerIntroMs: envMs("PLAYER_INTRO_MS", 3000),
     resultsRevealStepMs: envMs("RESULTS_REVEAL_STEP_MS", 2800),
-    finalMatchMs: envMs("FINAL_MATCH_MS", 60000),
+    finalMatchMs: envMs("FINAL_MATCH_MS", 45000),
   };
 }
 
@@ -159,6 +160,9 @@ class GameRoom extends EventEmitter {
     this.chaiBreak = null;
     this.chaiDisconnectTimer = null;
     this.lastTeamFill = null;
+    this.autoFillQueue = [];
+    this.autoFillFollowup = null;
+    this.pendingAutoFillIds = new Set();
     this.playerIntro = null;
     this.resultsReveal = null;
   }
@@ -892,15 +896,21 @@ class GameRoom extends EventEmitter {
   }
 
   closeAuctionForEmptyPool() {
-    const before = this.franchises.reduce((n, team) => n + ((team.squad || []).length), 0);
-    this.autoFill();
-    const added = this.franchises.reduce((n, team) => n + ((team.squad || []).length), 0) - before;
+    const { entries, leftover } = this.planAutoFill();
+    this.unsold = leftover;
+    this.queue = [];
+    const added = entries.length;
     const message = added > 0
       ? "No more players are left in the pool. Remaining gaps were filled at the starting bid where possible."
       : "No more players are left in the pool. The auction will close with the squads as they are.";
     this.lastEvent = { type: "poolExhausted", added, message };
     this.emitDelta({ type: "poolExhausted", added, message });
-    this.beginCaptainPhase();
+    if (!added) {
+      this.revealForms();
+      this.beginCaptainPhase();
+      return;
+    }
+    this.startAutoFillReveal(entries, "captains");
   }
 
   refillQueue() {
@@ -1136,11 +1146,11 @@ class GameRoom extends EventEmitter {
 
   tryLastTeamFill() {
     if (this.ended || this.phase !== "auction") return false;
-    if (this.lastTeamFill) return true;
+    if (this.hasAutoFillPending() || this.lastTeamFill) return true;
     if (this.incompleteTeams().length !== 1) return false;
-    const { team, entries } = this.assignRemainingToLastTeam();
+    const { team, entries } = this.planLastTeamFill();
     if (!team || !entries.length) return false;
-    this.beginLastTeamFill(team, entries);
+    this.startAutoFillReveal(entries, "nominate");
     return true;
   }
 
@@ -1150,6 +1160,7 @@ class GameRoom extends EventEmitter {
     banBrokeIncompleteTeams(this);
     this.revealForms();
     if (this.lastTeamFill) return;
+    if (this.hasAutoFillPending()) return;
     if (this.allTeamsFull() || this.activeFranchises().length === 0) {
       this.beginCaptainPhase();
       return;
@@ -1266,6 +1277,12 @@ class GameRoom extends EventEmitter {
 
   finalMatchDelayMs() {
     const n = Number(this.timers && this.timers.finalMatchMs);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.min(60_000, n);
+  }
+
+  autofillRevealDelayMs() {
+    const n = Number(this.timers && this.timers.autofillRevealMs);
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
@@ -1490,6 +1507,10 @@ class GameRoom extends EventEmitter {
     if (this.auction || !this.revealUntil) return;
     this.clearTimer();
     this.revealUntil = null;
+    if (this.hasAutoFillPending()) {
+      this.advanceAutoFillReveal();
+      return;
+    }
     this.nominateNext();
   }
 
@@ -1498,6 +1519,12 @@ class GameRoom extends EventEmitter {
     if (!gate.ok) return gate;
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
+    if (this.phase === "auction" && this.hasAutoFillPending() && !this.auction) {
+      this.clearTimer();
+      this.revealUntil = null;
+      this.advanceAutoFillReveal();
+      return { ok: true };
+    }
     if (this.phase === "auction" && this.lastTeamFill && !this.auction) {
       this.finishLastTeamFill();
       return { ok: true };
@@ -1512,7 +1539,7 @@ class GameRoom extends EventEmitter {
     return { ok: true };
   }
 
-  maybeRevealForm(team) {
+  maybeRevealForm(team, opts = {}) {
     if (!team) return false;
     if (team.formPct != null) return false;
     if (!isSquadComplete(team.squad, this.mode)) return false;
@@ -1533,7 +1560,8 @@ class GameRoom extends EventEmitter {
       characterId: characterIdOf(team.franchise),
       message,
     };
-    this.lastEvent = evt;
+    if (opts && opts.keepLastEvent) evt.keepLastEvent = true;
+    else this.lastEvent = evt;
     this.emitDelta(evt);
     return true;
   }
@@ -1771,9 +1799,10 @@ class GameRoom extends EventEmitter {
     return { ok: true };
   }
 
-  autoFill() {
+  planAutoFill() {
     const leftover = [];
     const seen = new Set(this.soldIds);
+    for (const id of this.pendingAutoFillIds || []) seen.add(id);
     for (const p of [...this.unsold, ...this.queue, ...this.allPlayers]) {
       if (!p || seen.has(p.id) || this.isRetired(p.id)) continue;
       seen.add(p.id);
@@ -1781,38 +1810,174 @@ class GameRoom extends EventEmitter {
     }
     leftover.sort((a, b) => overallRating(b) - overallRating(a));
     const fillPrice = MIN_START_BID;
-
+    const shadows = new Map();
+    for (const team of this.activeFranchises()) {
+      shadows.set(team.key, { squad: (team.squad || []).slice(), purseLakhs: team.purseLakhs });
+    }
+    const entries = [];
     let progress = true;
     while (progress) {
       progress = false;
-      const needy = this.activeFranchises().filter((f) => !isSquadComplete(f.squad, this.mode));
+      const needy = this.activeFranchises().filter((f) => {
+        const sh = shadows.get(f.key);
+        return sh && !isSquadComplete(sh.squad, this.mode);
+      });
       if (needy.length === 0) break;
       for (const team of needy) {
-        const left = remainingQuota(team.squad, this.mode);
-        const pick = leftover.find((p) => (left[p.role] || 0) > 0 && team.purseLakhs >= fillPrice);
+        const sh = shadows.get(team.key);
+        const left = remainingQuota(sh.squad, this.mode);
+        const pick = leftover.find((p) => (left[p.role] || 0) > 0 && sh.purseLakhs >= fillPrice);
         if (!pick) continue;
-        const added = addToSquad(team, pick, fillPrice, this.mode);
-        if (!added.ok) continue;
-        const paid = debit(this, team, fillPrice);
-        team.spentLakhs = (Number(team.spentLakhs) || 0) + paid;
-        this.soldIds.add(pick.id);
-        this.soldLog.push({
+        if (!canAddToSquad(sh.squad, pick, this.mode).ok) continue;
+        sh.squad = sh.squad.concat([{ player: pick, priceLakhs: fillPrice }]);
+        sh.purseLakhs -= fillPrice;
+        leftover.splice(leftover.indexOf(pick), 1);
+        entries.push({
           player: pick,
           priceLakhs: fillPrice,
           buyerName: team.name,
-          short: team.name,
-          color: team.franchise.color,
+          teamKey: team.key,
           auto: true,
         });
-        leftover.splice(leftover.indexOf(pick), 1);
         progress = true;
-        if (isSquadComplete(team.squad, this.mode)) this.maybeRevealForm(team);
       }
     }
+    return { entries, leftover };
+  }
+
+  planLastTeamFill() {
+    const team = this.incompleteTeams()[0];
+    if (!team) return { team: null, entries: [] };
+    const entries = [];
+    const shadowSquad = (team.squad || []).slice();
+    let shadowPurse = Number(team.purseLakhs) || 0;
+    const kept = [];
+    while (this.queue.length || this.refillQueue()) {
+      if (isSquadComplete(shadowSquad, this.mode)) break;
+      if (!this.queue.length) break;
+      const player = this.queue.shift();
+      if (!player || this.soldIds.has(player.id) || this.unaffordableIds.has(player.id) || this.isRetired(player.id)) continue;
+      if (this.pendingAutoFillIds && this.pendingAutoFillIds.has(player.id)) continue;
+      if (!this.neededRoles().has(player.role) && !remainingQuota(shadowSquad, this.mode)[player.role]) {
+        kept.push(player);
+        continue;
+      }
+      const startBid = this.rollStartBid();
+      if (!canAddToSquad(shadowSquad, player, this.mode).ok || shadowPurse < startBid) {
+        if (shadowPurse < startBid) this.unaffordableIds.add(player.id);
+        kept.push(player);
+        continue;
+      }
+      entries.push({
+        player,
+        priceLakhs: startBid,
+        buyerName: team.name,
+        teamKey: team.key,
+        auto: true,
+        lastTeamFill: true,
+      });
+      shadowSquad.push({ player, priceLakhs: startBid });
+      shadowPurse -= startBid;
+    }
+    this.queue = kept.concat(this.queue);
+    return { team, entries };
+  }
+
+  hasAutoFillPending() {
+    return Boolean((this.autoFillQueue && this.autoFillQueue.length) || this.autoFillFollowup);
+  }
+
+  applyAutoFillEntry(entry) {
+    const team = this.findByName(entry.buyerName) || this.findByKey(entry.teamKey);
+    if (!team || !entry.player) return false;
+    const price = Number(entry.priceLakhs) || MIN_START_BID;
+    const added = addToSquad(team, entry.player, price, this.mode);
+    if (!added.ok) return false;
+    const paid = debit(this, team, price);
+    team.spentLakhs = (Number(team.spentLakhs) || 0) + paid;
+    this.soldIds.add(entry.player.id);
+    if (this.pendingAutoFillIds) this.pendingAutoFillIds.delete(entry.player.id);
+    this.soldLog.push({
+      player: entry.player,
+      priceLakhs: price,
+      buyerName: team.name,
+      short: team.name,
+      color: team.franchise && team.franchise.color,
+      auto: true,
+      lastTeamFill: Boolean(entry.lastTeamFill),
+    });
+    this.maybeRevealForm(team, { keepLastEvent: true });
+    return true;
+  }
+
+  startAutoFillReveal(entries, followup) {
+    this.auction = null;
+    this.lastTeamFill = null;
+    this.autoFillQueue = (entries || []).slice();
+    this.autoFillFollowup = followup || "captains";
+    this.pendingAutoFillIds = this.pendingAutoFillIds || new Set();
+    for (const e of this.autoFillQueue) {
+      if (e.player && e.player.id) this.pendingAutoFillIds.add(e.player.id);
+    }
+    if (!this.autoFillQueue.length) {
+      this.finishAutoFillReveal();
+      return;
+    }
+    this.advanceAutoFillReveal();
+  }
+
+  advanceAutoFillReveal() {
+    if (this.paused || this.ended) return;
+    if (this.phase !== "auction") return;
+    const next = this.autoFillQueue && this.autoFillQueue.shift();
+    if (!next) {
+      this.finishAutoFillReveal();
+      return;
+    }
+    const team = this.findByName(next.buyerName) || this.findByKey(next.teamKey);
+    if (!team || !this.applyAutoFillEntry(next)) {
+      this.advanceAutoFillReveal();
+      return;
+    }
+    const ms = this.autofillRevealDelayMs();
+    const packed = this.soldPack(team, next.player, next.priceLakhs);
+    packed.auto = true;
+    packed.lastTeamFill = Boolean(next.lastTeamFill);
+    packed.autoFillRemaining = this.autoFillQueue.length;
+    packed.revealMs = ms;
+    packed.revealUntil = ms > 0 ? Date.now() + ms : null;
+    this.lastEvent = packed;
+    this.revealUntil = packed.revealUntil;
+    this.auction = null;
+    this.emitDelta(packed);
+    if (ms <= 0) {
+      this.revealUntil = null;
+      this.advanceAutoFillReveal();
+      return;
+    }
+    this.clearTimer();
+    this.armTimer(() => this.finishReveal(), ms);
+  }
+
+  finishAutoFillReveal() {
+    const followup = this.autoFillFollowup;
+    this.autoFillQueue = [];
+    this.autoFillFollowup = null;
+    this.pendingAutoFillIds = new Set();
+    this.revealUntil = null;
+    this.revealForms();
+    if (followup === "nominate") this.nominateNext();
+    else this.beginCaptainPhase();
+  }
+
+  autoFill() {
+    const { entries, leftover } = this.planAutoFill();
+    for (const entry of entries) this.applyAutoFillEntry(entry);
     this.queue = [];
     this.unsold = leftover;
     this.revealForms();
     this.lastEvent = { type: "autofill", message: "Remaining gaps were filled at base price where possible." };
+    return entries;
   }
 
   beginCaptainPhase() {
@@ -1820,6 +1985,9 @@ class GameRoom extends EventEmitter {
     this.phase = "captains";
     this.auction = null;
     this.lastTeamFill = null;
+    this.autoFillQueue = [];
+    this.autoFillFollowup = null;
+    this.pendingAutoFillIds = new Set();
     this.revealUntil = null;
     this.formBoostReveal = null;
     this.prepFeed = [];

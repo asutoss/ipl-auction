@@ -1,3 +1,52 @@
+
+function shareResultsPayload() {
+  const t = (state && state.tournament) || {};
+  const positions = (t.positions || []).map((pos) => ({
+    position: pos.position,
+    name: pos.name || pos.short,
+    squadScore: pos.squadScore,
+    formPct: formPctOf(pos),
+    characterId: characterIdOf(pos),
+    identityId: characterIdOf(pos),
+  }));
+  const champPos = championPosition();
+  const champion = champPos
+    ? {
+        name: champPos.name || champPos.short,
+        squadScore: champPos.squadScore,
+        formPct: formPctOf(champPos),
+        characterId: characterIdOf(champPos),
+        identityId: characterIdOf(champPos),
+      }
+    : null;
+  const mode = state && state.mode;
+  return {
+    positions,
+    champion,
+    modeName: mode && (mode.summary || mode.name) || "",
+    roomCode: state && state.code || "",
+    siteUrl: (typeof location !== "undefined" && location.origin) || "",
+  };
+}
+
+async function shareResults() {
+  if (!window.IplShareResults) {
+    toast("Sharing is not available right now.");
+    return;
+  }
+  const btn = document.getElementById("share-results");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await IplShareResults.share(shareResultsPayload());
+    if (res && res.method === "download") toast("Results image downloaded.");
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    toast((err && err.message) || "Could not share the results.");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 /* IPL Auction Night client */
 const socket = io({ transports: ["websocket", "polling"] });
 
@@ -235,7 +284,14 @@ function updateSoldRevealUi() {
     if (state && state.paused) count.textContent = "Paused";
     else {
       const secs = Math.ceil(left / 1000);
-      count.textContent = secs > 0 ? `Next lot in ${secs}s` : "Starting next lot…";
+      const auto = state.lastEvent && state.lastEvent.auto;
+      const more = Number(state.lastEvent && state.lastEvent.autoFillRemaining) || 0;
+      if (auto) {
+        if (secs > 0) count.textContent = more > 0 ? `Next player in ${secs}s` : `Wrapping up in ${secs}s`;
+        else count.textContent = more > 0 ? "Next player…" : "Wrapping up…";
+      } else {
+        count.textContent = secs > 0 ? `Next lot in ${secs}s` : "Starting next lot…";
+      }
     }
   }
   const btn = document.getElementById("sold-continue");
@@ -2154,6 +2210,54 @@ function finalSnapshot() {
   return lib.snapshotAtElapsed(fin, elapsed, fin.durationMs);
 }
 
+function finalScoreLine(score, wickets, overs, fallback) {
+  if (score == null) return fallback || "to bat";
+  return `<strong>${score}/${wickets}</strong><span>${esc(String(overs || "0.0"))} ov</span>`;
+}
+
+function finalScoreboardHtml(snap, fin) {
+  if (!snap || snap.phase === "toss") return "";
+  const first = snap.firstInnings || {};
+  const firstName = first.teamName || fin.firstName || "";
+  const chaseName = snap.inningsIndex === 1 || snap.phase === "over"
+    ? (snap.battingTeam || fin.secondName || "")
+    : (fin.secondName || snap.bowlingTeam || "");
+  const chasing = snap.inningsIndex === 1 || snap.phase === "over";
+  const firstTotal = first.score != null
+    ? finalScoreLine(first.score, first.wickets, first.overs)
+    : "—";
+  let secondTotal = "to bat";
+  if (chasing) secondTotal = finalScoreLine(snap.score, snap.wickets, snap.overs);
+  else if (snap.phase === "break") {
+    const target = fin.target != null ? fin.target : (first.score != null ? first.score + 1 : "—");
+    secondTotal = `to bat · chase ${esc(String(target))}`;
+  }
+  const rates = [];
+  if (snap.phase === "live") {
+    rates.push(`CRR ${snap.crr.toFixed(2)}`);
+    if (snap.target != null) {
+      rates.push(`Target ${snap.target}`);
+      if (snap.need != null && snap.need > 0) {
+        const ballsLeft = Math.max(0, ((fin.innings && fin.innings[1] && fin.innings[1].balls) || 0) - snap.balls);
+        rates.push(`Need ${snap.need} off ${ballsLeft}`);
+      }
+      if (snap.req != null) rates.push(`REQ ${snap.req.toFixed(2)}`);
+      if (snap.need != null && snap.need <= 0) rates.push("Chased");
+    }
+  }
+  return `<div class="final-scoreboard ${snap.phase === "over" ? "is-done" : ""} ${chasing ? "is-chase" : "is-first"}">
+      <div class="final-score-col ${snap.inningsIndex === 0 && snap.phase === "live" ? "is-live" : ""}">
+        <p class="final-score-name">${esc(firstName)}</p>
+        <p class="final-score-total">${firstTotal}</p>
+      </div>
+      <div class="final-score-col ${snap.inningsIndex === 1 && snap.phase === "live" ? "is-live" : ""}">
+        <p class="final-score-name">${esc(chaseName)}</p>
+        <p class="final-score-total">${secondTotal}</p>
+      </div>
+    </div>
+    ${rates.length ? `<p class="final-rates">${rates.map((x) => esc(x)).join(" · ")}</p>` : ""}`;
+}
+
 function finalLiveBodyHtml() {
   const r = resultsRevealInfo() || {};
   const fin = r.final;
@@ -2176,24 +2280,13 @@ function finalLiveBodyHtml() {
   if (phase === "toss") {
     headline = `<p class="final-phase-copy">${esc(snap.toss || "The toss is in the air…")}</p>`;
   } else if (phase === "break") {
-    const f = snap.firstInnings || {};
-    headline = `<p class="final-phase-copy">${esc(f.teamName || "")} ${f.score}/${f.wickets} (${esc(String(f.overs || ""))} ov)</p>
-      <p class="lede">${esc(snap.bowlingTeam || fin.secondName || "")} to chase ${esc(String(fin.target != null ? fin.target : (f.score || 0) + 1))}</p>`;
+    headline = `${finalScoreboardHtml(snap, fin)}
+      <p class="lede">${esc(snap.bowlingTeam || fin.secondName || "")} to chase ${esc(String(fin.target != null ? fin.target : ((snap.firstInnings && snap.firstInnings.score) || 0) + 1))}</p>`;
   } else if (phase === "over") {
-    headline = `<p class="final-result-line">${esc(snap.resultText || fin.resultText || "")}</p>`;
+    headline = `${finalScoreboardHtml(snap, fin)}
+      <p class="final-result-line">${esc(snap.resultText || fin.resultText || "")}</p>`;
   } else {
-    const rates = [`CRR ${snap.crr.toFixed(2)}`];
-    if (snap.target != null) {
-      rates.push(`Target ${snap.target}`);
-      if (snap.need != null && snap.need > 0) rates.push(`Need ${snap.need} off ${Math.max(0, ((fin.innings[1] && fin.innings[1].balls) || 0) - snap.balls)}`);
-      if (snap.req != null) rates.push(`REQ ${snap.req.toFixed(2)}`);
-      if (snap.need != null && snap.need <= 0) rates.push("Chased");
-    }
-    headline = `<div class="final-now-score">
-        <p class="final-total"><strong>${snap.score}/${snap.wickets}</strong><span>${esc(snap.overs)} ov</span></p>
-        <p class="final-batting-team">${esc(snap.battingTeam || "")}</p>
-        <p class="final-rates">${rates.map((x) => esc(x)).join(" · ")}</p>
-      </div>
+    headline = `${finalScoreboardHtml(snap, fin)}
       <div class="final-now-players">
         <p>${snap.striker ? `${esc(snap.striker.name)} <strong>${snap.striker.runs}</strong>(${snap.striker.balls})*` : ""}</p>
         <p>${snap.nonStriker ? `${esc(snap.nonStriker.name)} <strong>${snap.nonStriker.runs}</strong>(${snap.nonStriker.balls})` : ""}</p>
@@ -2540,6 +2633,9 @@ function resultsView() {
     <section class="results">
       ${championHeroHtml()}
       ${standingsRevealHtml(false)}
+      <div class="results-share-actions">
+        <button class="btn" type="button" id="share-results">Share results</button>
+      </div>
       <p class="lede results-hint">Tap a team to see the full squad and tournament stats.</p>
     </section>
   `;
@@ -3168,6 +3264,7 @@ function wireCurrent() {
     finalScorecardOpen = !finalScorecardOpen;
     updateFinalMatchUi();
   });
+  document.getElementById("share-results")?.addEventListener("click", () => { shareResults(); });
   document.getElementById("skip-reveal")?.addEventListener("click", async () => {
     const res = await emit("skipResultsReveal");
     if (res && res.ok && state && state.resultsReveal) {
