@@ -559,6 +559,67 @@ describe("room invite links", () => {
   });
 });
 
+describe("leaving a room and going home", () => {
+  const leave = require("../public/leave-home");
+
+  test("End game / Leave stays on the start page and drops the room URL and session", () => {
+    assert.equal(leave.shouldClearUrl("/r/K7MQ2P", ""), true);
+    assert.equal(leave.shouldClearUrl("/", "?room=K7MQ2P"), true);
+    assert.equal(leave.shouldClearUrl("/", ""), false);
+    assert.equal(leave.homePath, "/");
+
+    const store = { _data: { [leave.STORE_KEY]: JSON.stringify({ code: "K7MQ2P", name: "Ashutosh" }) }, removeItem(k) { delete this._data[k]; }, getItem(k) { return this._data[k]; } };
+    leave.clearSessionStorage(store);
+    assert.equal(store.getItem(leave.STORE_KEY), undefined);
+
+    assert.deepEqual(leave.bootDecision({ stayOnHome: true, urlCode: "K7MQ2P", session: { code: "K7MQ2P", name: "Ashutosh" }, status: "ended" }), { action: "stay-home" });
+    assert.equal(leave.shouldApplyRemoteState(true, "results"), false);
+    assert.equal(leave.shouldApplyRemoteState(true, "auction"), false);
+    assert.equal(leave.shouldApplyRemoteState(false, "ended"), false);
+  });
+
+  test("refresh still resumes a live or results game when the session and URL remain", () => {
+    const session = { code: "K7MQ2P", name: "Ashutosh" };
+    assert.deepEqual(
+      leave.bootDecision({ stayOnHome: false, urlCode: "K7MQ2P", session, status: "open" }),
+      { action: "rejoin", code: "K7MQ2P", name: "Ashutosh" }
+    );
+    assert.deepEqual(
+      leave.bootDecision({ stayOnHome: false, urlCode: "K7MQ2P", session, status: "ended" }),
+      { action: "rejoin", code: "K7MQ2P", name: "Ashutosh" }
+    );
+    assert.deepEqual(
+      leave.bootDecision({ stayOnHome: false, urlCode: null, session, status: undefined }),
+      { action: "rejoin", code: "K7MQ2P", name: "Ashutosh" }
+    );
+    assert.deepEqual(
+      leave.bootDecision({ stayOnHome: false, urlCode: "K7MQ2P", session, status: "open", phase: "auction", code: "K7MQ2P" }),
+      { action: "noop" }
+    );
+    assert.equal(leave.shouldApplyRemoteState(false, "auction"), true);
+    assert.equal(leave.shouldApplyRemoteState(false, "results"), true);
+  });
+
+  test("a stranger opening an ended or missing invite still sees the landing page", () => {
+    assert.deepEqual(
+      leave.bootDecision({ stayOnHome: false, urlCode: "K7MQ2P", session: null, status: "ended" }),
+      { action: "done-landing", code: "K7MQ2P" }
+    );
+    assert.deepEqual(
+      leave.bootDecision({ stayOnHome: false, urlCode: "K7MQ2P", session: null, status: "open" }),
+      { action: "join-landing", code: "K7MQ2P" }
+    );
+    assert.deepEqual(
+      leave.bootDecision({ stayOnHome: false, urlCode: "K7MQ2P", session: null, status: "missing" }),
+      { action: "missing-landing", code: "K7MQ2P" }
+    );
+    assert.deepEqual(
+      leave.bootDecision({ stayOnHome: false, urlCode: null, session: null }),
+      { action: "home" }
+    );
+  });
+});
+
 describe("ended room records", () => {
   test("lookup reports open, ended, and missing rooms, and remembers evicted codes", () => {
     const clock = new FakeClock();

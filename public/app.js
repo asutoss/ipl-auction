@@ -67,6 +67,9 @@ const NAME_KEY = "ipl-auction-name";
 let state = null;
 let lastError = "";
 let landing = null; // { kind: "join"|"done"|"missing", code }
+let stayOnHome = false;
+let endingByUs = false;
+let bootGen = 0;
 let selectedMode = "classical";
 let bidDraft = null;
 let reveal = null; // { startedAt, skipped }
@@ -225,8 +228,19 @@ function characterTooltip(franchise) {
   return meme || real || "";
 }
 
+function leaveHomeApi() {
+  return window.IplLeaveHome || {};
+}
+
 function goHome() {
-  try { sessionStorage.removeItem(STORE_KEY); } catch {}
+  stayOnHome = true;
+  endingByUs = false;
+  bootGen += 1;
+  const api = leaveHomeApi();
+  if (api.clearSessionStorage) api.clearSessionStorage(sessionStorage);
+  else {
+    try { sessionStorage.removeItem(STORE_KEY); } catch {}
+  }
   state = null;
   lastError = "";
   lastNomineeId = null;
@@ -3023,9 +3037,14 @@ function wireGlobal() {
     if (e.target.closest("#end-game")) {
       const ok = await confirmAction("This ends the game for everyone.");
       if (!ok) return;
+      endingByUs = true;
       const res = await emit("endGame");
-      if (!res.ok) toast(res.error || "Could not end the game.");
-      else goHome();
+      if (!res || !res.ok) {
+        endingByUs = false;
+        toast((res && res.error) || "Could not end the game.");
+        return;
+      }
+      goHome();
       return;
     }
     if (e.target.closest("#leave")) {
@@ -3167,6 +3186,7 @@ function wireHome() {
       render();
       return;
     }
+    stayOnHome = false;
     saveSession(res.code, res.name);
     if (res.code) setRoomUrl(res.code);
   });
@@ -3181,6 +3201,7 @@ function wireHome() {
       return;
     }
     landing = null;
+    stayOnHome = false;
     saveSession(res.code, res.name);
     if (res.code) setRoomUrl(res.code);
   });
@@ -3330,48 +3351,69 @@ async function fetchRoomStatus(code) {
 }
 
 async function bootFromUrlOrSession() {
+  const api = leaveHomeApi();
+  const decide = api.bootDecision || (() => ({ action: "home" }));
+  const gen = bootGen;
+  const stillCurrent = () => gen === bootGen && !stayOnHome;
+  if (stayOnHome) return;
   if (state && state.code && state.phase && state.phase !== "ended") return;
+
   const urlCode = parseRoomFromLocation();
   const session = loadSession();
+  let status;
   if (urlCode) {
     const info = await fetchRoomStatus(urlCode);
-    if (info.status === "open") {
+    if (!stillCurrent()) return;
+    status = info.status;
+  }
+  if (!stillCurrent()) return;
+  const decision = decide({
+    stayOnHome,
+    urlCode,
+    session,
+    status,
+    phase: state && state.phase,
+    code: state && state.code,
+  });
+  if (decision.action === "stay-home" || decision.action === "noop" || decision.action === "home") return;
+  if (decision.action === "rejoin") {
+    const res = await emit("joinRoom", { name: decision.name, code: decision.code });
+    if (!stillCurrent()) return;
+    if (res.ok) {
+      landing = null;
+      stayOnHome = false;
+      saveSession(res.code, res.name);
+      setRoomUrl(res.code);
+      return;
+    }
+    // The host ended the room (or it has been evicted). Don't keep the
+    // finished code in the URL or show a "join this room" / "game is done" page.
+    if (status === "ended" || res.status === "ended") {
+      goHome();
+      return;
+    }
+    lastError = res.error || "Could not join room.";
+    if (urlCode && status === "open") {
       landing = { kind: "join", code: urlCode };
-      setRoomUrl(urlCode);
-      if (session && session.name && session.code === urlCode) {
-        const res = await emit("joinRoom", { name: session.name, code: urlCode });
-        if (res.ok) {
-          landing = null;
-          saveSession(res.code, res.name);
-          setRoomUrl(res.code);
-          return;
-        }
-        lastError = res.error || "Could not join room.";
-      }
       render();
-      return;
     }
-    if (info.status === "ended") {
-      if (session && session.name && session.code === urlCode) {
-        const res = await emit("joinRoom", { name: session.name, code: urlCode });
-        if (res.ok) {
-          landing = null;
-          saveSession(res.code, res.name);
-          setRoomUrl(res.code);
-          return;
-        }
-      }
-      landing = { kind: "done", code: urlCode };
-      render();
-      return;
-    }
-    landing = { kind: "missing", code: urlCode };
+    return;
+  }
+  if (decision.action === "join-landing") {
+    landing = { kind: "join", code: decision.code };
+    setRoomUrl(decision.code);
     render();
     return;
   }
-  if (session?.code && session?.name && (!state || !state.code)) {
-    const res = await emit("joinRoom", session);
-    if (res.ok && res.code) setRoomUrl(res.code);
+  if (decision.action === "done-landing") {
+    landing = { kind: "done", code: decision.code };
+    render();
+    return;
+  }
+  if (decision.action === "missing-landing") {
+    landing = { kind: "missing", code: decision.code };
+    render();
+    return;
   }
 }
 
@@ -3393,7 +3435,7 @@ if (bootLoaderRoot && window.IplWakeLoader && !(socket && socket.connected)) {
 }
 socket.on("connect", async () => {
   hideBootLoader();
-  await bootFromUrlOrSession();
+  if (!stayOnHome) await bootFromUrlOrSession();
 });
 
 let matchesLoading = false;
@@ -3417,6 +3459,15 @@ function loadMatches() {
 }
 
 socket.on("state", (next) => {
+  const api = leaveHomeApi();
+  const apply = api.shouldApplyRemoteState || ((stay, phase) => !stay && phase !== "ended");
+  if (!apply(stayOnHome, next && next.phase)) {
+    if (stayOnHome) return;
+    if (next && next.phase === "ended") {
+      goHome();
+      return;
+    }
+  }
   const prevPhase = state?.phase;
   const prevNominee = state?.auction?.nominee?.id;
   state = next;
@@ -3428,7 +3479,7 @@ socket.on("state", (next) => {
   if (state?.phase === "results" && prevPhase !== "results" && !isResultsRevealPending()) {
     // Team sheets come from the lite snapshot; match scorecards stay off the results page.
   }
-  if (state?.you && state?.code) {
+  if (state?.you && state?.code && state.phase !== "ended") {
     saveSession(state.code, state.you.name);
     setRoomUrl(state.code);
   }
@@ -3455,7 +3506,9 @@ socket.on("delta", (evt) => {
 });
 
 socket.on("gameEnded", (info) => {
-  toast(info && info.abandoned ? "The room was closed." : "The host ended the game.");
+  if (!stayOnHome && !endingByUs) {
+    toast(info && info.abandoned ? "The room was closed." : "The host ended the game.");
+  }
   goHome();
 });
 
@@ -3496,4 +3549,4 @@ window.addEventListener("keydown", (e) => {
 render();
 
 
-window.IplApp = { get state() { return state; }, emit, socket, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize, openResultsTeamSheet, closeResultsTeamSheet };
+window.IplApp = { get state() { return state; }, get stayOnHome() { return stayOnHome; }, emit, socket, goHome, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize, openResultsTeamSheet, closeResultsTeamSheet };
