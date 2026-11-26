@@ -141,6 +141,18 @@
     return `<span class="${cls}" title="${esc(view.text)}">${coin}<span class="ring-bubble-pts">${esc(view.purseLabel)}</span>${need ? `<span class="ring-bubble-dot" aria-hidden="true">·</span>${need}` : ""}</span>`;
   }
 
+  function isRingParticipant(team) {
+    if (!team) return false;
+    if (team.banned || team.eliminated) return false;
+    if (team.stillIn === false) return false;
+    if (team.complete && team.stillIn !== true) return false;
+    return true;
+  }
+
+  function participatingSeats(teams) {
+    return (teams || []).filter(isRingParticipant);
+  }
+
   function seatsFromState(state) {
     const a = state && state.auction;
     const youName = state && state.you && state.you.name;
@@ -151,7 +163,7 @@
     const source = snap.length ? snap : (franchises.length ? franchises : still);
     const minBid = a && a.minBidLakhs;
     const nomineeRole = a && a.nominee && a.nominee.role;
-    return source.map((row) => {
+    const seats = source.map((row) => {
       const name = row.name;
       const live = franchises.find((f) => f.name === name) || {};
       const inLot = stillMap.get(name) || {};
@@ -188,6 +200,7 @@
         formPct: live.formPct != null ? live.formPct : row.formPct,
       };
     });
+    return participatingSeats(seats);
   }
 
 
@@ -403,7 +416,7 @@
   }
 
   function segmentTarget(stillIn) {
-    const teams = stillIn || [];
+    const teams = participatingSeats(stillIn || []);
     const slots = layout(teams.length);
     return teams.map((t, i) => ({
       key: keyOf(t),
@@ -817,5 +830,5 @@
     return size;
   }
 
-  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize };
+  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget };
 });

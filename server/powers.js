@@ -103,6 +103,34 @@ function transfer(room, from, to, amount) {
   return paid;
 }
 
+
+function samePlayerId(a, b) {
+  return a != null && b != null && String(a) === String(b);
+}
+
+function removePlayerFromSquad(team, playerId) {
+  if (!team) return null;
+  const squad = Array.isArray(team.squad) ? team.squad : [];
+  const idx = squad.findIndex((s) => s && s.player && samePlayerId(s.player.id, playerId));
+  if (idx < 0) return null;
+  const slot = squad[idx];
+  team.squad = squad.filter((_, i) => i !== idx);
+  if (samePlayerId(team.captainId, playerId)) team.captainId = null;
+  return slot;
+}
+
+function retagSoldLog(room, playerId, patch = {}) {
+  for (const entry of room && room.soldLog || []) {
+    if (!entry || !entry.player || !samePlayerId(entry.player.id, playerId)) continue;
+    if (Object.prototype.hasOwnProperty.call(patch, "buyerName")) {
+      entry.buyerName = patch.buyerName;
+      entry.short = patch.short != null ? patch.short : patch.buyerName;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "characterId")) entry.characterId = patch.characterId;
+    if (patch.wiped) entry.wiped = true;
+  }
+}
+
 function lastSoldEntries(room, n = 10) {
   const log = (room.soldLog || []).filter((e) => e && e.player && !e.wiped);
   return log.slice(-n).reverse();
@@ -136,6 +164,7 @@ function lastSoldRivalTargets(room, actor, opts = {}) {
       player: entry.player,
       priceLakhs: entry.priceLakhs,
       fromName: found.team.name,
+      fromTeamName: found.team.name,
       fromKey: found.team.key,
     });
   }
@@ -492,18 +521,17 @@ definePower({
     const add = canAddToSquad(team.squad, found.slot.player, room.mode);
     if (!add.ok) return { ok: false, error: add.reason };
     const rival = found.team;
-    rival.squad = rival.squad.filter((s) => s.player.id !== choice.playerId);
-    addToSquad(team, found.slot.player, price, room.mode);
+    const taken = removePlayerFromSquad(rival, choice.playerId) || found.slot;
+    addToSquad(team, taken.player, price, room.mode);
     const paid = debit(room, team, price);
     credit(room, rival, paid);
     if (team.spentLakhs != null) team.spentLakhs += paid;
     if (rival.spentLakhs != null) rival.spentLakhs = Math.max(0, rival.spentLakhs - paid);
-    const entry = (room.soldLog || []).find((e) => e.player && e.player.id === choice.playerId && e.buyerName === rival.name);
-    if (entry) {
-      entry.buyerName = team.name;
-      entry.short = team.name;
-      entry.characterId = characterIdOf(team.franchise);
-    }
+    retagSoldLog(room, choice.playerId, {
+      buyerName: team.name,
+      short: team.name,
+      characterId: characterIdOf(team.franchise),
+    });
     return {
       ok: true,
       effect: "kala_hiran",
@@ -652,11 +680,14 @@ definePower({
     const found = playerStillOnSquad(room, choice.playerId);
     if (!found) return { ok: false, error: "That player is no longer on a squad." };
     const rival = found.team;
-    const theirSlot = found.slot;
-    const myIdx = team.squad.indexOf(mine);
-    const theirIdx = rival.squad.indexOf(theirSlot);
-    team.squad[myIdx] = { player: theirSlot.player, priceLakhs: theirSlot.priceLakhs };
-    rival.squad[theirIdx] = { player: mine.player, priceLakhs: mine.priceLakhs };
+    const theirSlot = removePlayerFromSquad(rival, choice.playerId) || found.slot;
+    const mySlot = removePlayerFromSquad(team, mine.player.id) || mine;
+    team.squad = team.squad || [];
+    rival.squad = rival.squad || [];
+    team.squad.push({ player: theirSlot.player, priceLakhs: theirSlot.priceLakhs });
+    rival.squad.push({ player: mySlot.player, priceLakhs: mySlot.priceLakhs });
+    retagSoldLog(room, theirSlot.player.id, { buyerName: team.name, short: team.name, characterId: characterIdOf(team.franchise) });
+    retagSoldLog(room, mySlot.player.id, { buyerName: rival.name, short: rival.name, characterId: characterIdOf(rival.franchise) });
     return {
       ok: true,
       effect: "travis_kelce_trade",
@@ -705,6 +736,7 @@ definePower({
       .map((f) => ({
         key: f.key,
         name: f.name,
+        teamName: f.name,
         character: displayName(f),
         squadSize: (f.squad || []).length,
         wipe: Math.floor((f.squad || []).length / 2),
@@ -738,11 +770,11 @@ definePower({
     }
     const wiped = shuffled.slice(0, wipeN);
     const wipeIds = new Set(wiped.map((s) => s.player.id));
-    target.squad = (target.squad || []).filter((s) => !wipeIds.has(s.player.id));
-    if (target.captainId && wipeIds.has(target.captainId)) target.captainId = null;
+    for (const id of wipeIds) removePlayerFromSquad(target, id);
     const names = [];
     for (const slot of wiped) {
       names.push(slot.player.name);
+      retagSoldLog(room, slot.player.id, { wiped: true });
       if (typeof room.returnPlayerToPool === "function") {
         room.returnPlayerToPool(slot.player);
       } else if (typeof room.retirePlayer === "function") {
@@ -869,6 +901,8 @@ module.exports = {
   maybeBanBrokeIncomplete,
   banBrokeIncompleteTeams,
   transfer,
+  removePlayerFromSquad,
+  retagSoldLog,
   lastSoldRivalTargets,
   peekNextPlayers,
   liveTeams,

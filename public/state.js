@@ -4,6 +4,53 @@
 })(typeof self !== "undefined" ? self : this, function () {
   const DEFAULT_QUOTA = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
 
+  function slotCounts(you, role) {
+    const have = (you && you.roleCounts && role) ? (you.roleCounts[role] || 0) : 0;
+    const remaining = (you && you.remainingQuota && role) ? (you.remainingQuota[role] || 0) : 0;
+    const cap = have + remaining;
+    const squadHave = you && you.squad ? you.squad.length : 0;
+    const squadLeft = you && you.remainingQuota
+      ? Object.values(you.remainingQuota).reduce((s, v) => s + (Number(v) || 0), 0)
+      : 0;
+    const squadCap = squadHave + squadLeft;
+    return { have, cap, remaining, squadHave, squadCap, squadLeft };
+  }
+
+  function formatPoints(n) {
+    const v = Number(n) || 0;
+    return `${v} pt${v === 1 ? "" : "s"}`;
+  }
+
+  function bidBlockReason(you, auction, amount) {
+    if (!you || !auction) return "You cannot bid right now.";
+    if (you.banned) return "You are banned for match fixing.";
+    if (you.eliminated) return "You are eliminated.";
+    const p = auction.nominee;
+    const role = p && p.role;
+    const slots = slotCounts(you, role);
+    if (you.complete || slots.squadLeft <= 0) {
+      return `Squad full (${slots.squadHave}/${slots.squadCap} spots)`;
+    }
+    if (role && slots.remaining <= 0) {
+      return `Squad full (${slots.have}/${slots.cap} ${role} spots)`;
+    }
+    const bid = amount != null ? Number(amount) : Number(auction.minBidLakhs != null ? auction.minBidLakhs : auction.currentBidLakhs);
+    const purse = Number(you.purseLakhs) || 0;
+    if (Number.isFinite(bid) && bid > purse) {
+      return `Not enough balance (need ${formatPoints(bid)}, have ${formatPoints(purse)})`;
+    }
+    const needed = { BAT: 0, WK: 0, AR: 0, BOWL: 0, ...(you.remainingQuota || {}) };
+    if (role && Object.prototype.hasOwnProperty.call(needed, role)) {
+      needed[role] = Math.max(0, (needed[role] || 0) - 1);
+    }
+    const reserve = ROLE_ORDER.reduce((sum, r) => sum + Math.max(0, needed[r] || 0), 0);
+    if (Number.isFinite(bid) && purse - bid < reserve) {
+      return `Not enough balance (need ${formatPoints(bid + reserve)} to bid and fill remaining spots, have ${formatPoints(purse)})`;
+    }
+    if (auction.currentBidderName === you.name) return "You have the leading bid.";
+    return null;
+  }
+
   function decorateAuctionYou(state) {
     const a = state.auction;
     const you = state.you;
@@ -25,13 +72,19 @@
     } else if (!mine) {
       a.youCanBid = false;
       a.youCanOptOut = false;
-      if (!a.youReason || a.youReason === "You have the leading bid.") {
+      const blocked = bidBlockReason(you, a, a.minBidLakhs);
+      if (blocked && !/leading bid/i.test(blocked)) a.youReason = blocked;
+      else if (!a.youReason || a.youReason === "You have the leading bid.") {
         a.youReason = "You are not in the running for this player.";
       }
     } else {
-      a.youCanBid = true;
+      const amount = a.minBidLakhs != null ? a.minBidLakhs : (Number(a.currentBidLakhs) || 0) + 1;
+      const blocked = bidBlockReason(you, a, amount);
+      const canVol = canVoluntaryBid(you, a);
+      const canPay = canVol && canAffordAmount(you, a, amount);
+      a.youCanBid = canPay;
       a.youCanOptOut = true;
-      a.youReason = null;
+      a.youReason = canPay ? null : (blocked || a.youReason || "You cannot bid right now.");
     }
   }
 
@@ -55,7 +108,9 @@
   }
 
   function findTeam(state, name) {
-    return (state.franchises || []).find((f) => f.name === name) || null;
+    if (!name) return null;
+    const list = state.franchises || [];
+    return list.find((f) => f.name === name || f.key === name) || null;
   }
 
   function syncYou(state) {
@@ -155,6 +210,21 @@
       const ids = new Set(evt.wipedPlayerIds);
       for (const entry of state.soldLog) {
         if (entry && entry.player && ids.has(entry.player.id)) entry.wiped = true;
+      }
+    }
+    if (Array.isArray(evt.soldLogUpdates) && evt.soldLogUpdates.length && Array.isArray(state.soldLog)) {
+      const byId = new Map();
+      for (const u of evt.soldLogUpdates) {
+        if (u && u.playerId) byId.set(String(u.playerId), u);
+      }
+      for (const entry of state.soldLog) {
+        const id = entry && entry.player && entry.player.id;
+        const u = id != null ? byId.get(String(id)) : null;
+        if (!u) continue;
+        if (Object.prototype.hasOwnProperty.call(u, "buyerName")) entry.buyerName = u.buyerName;
+        if (Object.prototype.hasOwnProperty.call(u, "short")) entry.short = u.short;
+        if (Object.prototype.hasOwnProperty.call(u, "characterId")) entry.characterId = u.characterId;
+        if (u.wiped) entry.wiped = true;
       }
     }
     syncYou(state);
@@ -547,5 +617,23 @@
     return state;
   }
 
-  return { applyDelta, decorateAuctionYou, recomputeTeam, canAffordAmount, canVoluntaryBid, bidChoices };
+
+  const LOW_BUDGET_FLOOR_PTS = 5;
+  const MIN_START_BID_PTS = 1;
+
+  function remainingOpenSpots(you) {
+    if (!you || !you.remainingQuota) return 0;
+    return Object.values(you.remainingQuota).reduce((s, v) => s + (Number(v) || 0), 0);
+  }
+
+  function isLowBudget(you) {
+    if (!you || you.eliminated || you.banned || you.complete) return false;
+    const purse = Number(you.purseLakhs) || 0;
+    const left = remainingOpenSpots(you);
+    if (left <= 0 || purse <= 0) return false;
+    return purse <= Math.max(LOW_BUDGET_FLOOR_PTS, left * MIN_START_BID_PTS);
+  }
+
+  return { applyDelta, decorateAuctionYou, recomputeTeam, canAffordAmount, canVoluntaryBid, bidChoices, bidBlockReason, slotCounts, findTeam, isLowBudget, remainingOpenSpots, LOW_BUDGET_FLOOR_PTS, MIN_START_BID_PTS };
+
 });

@@ -916,3 +916,95 @@ describe("retired players are not re-nominated after powers", () => {
     }
   });
 });
+
+
+describe("squad-changing powers stay in sync on every client", () => {
+  function idsOf(state, name) {
+    const team = name === state.you?.name ? state.you : (state.franchises || []).find((f) => f.name === name);
+    return (team && team.squad ? team.squad : []).map((s) => s.player.id);
+  }
+
+  function clientsAndEvents(room, names) {
+    const clients = {};
+    for (const name of names) clients[name] = JSON.parse(JSON.stringify(room.getState(name)));
+    const events = [];
+    room.on("delta", (evt) => events.push(JSON.parse(JSON.stringify(evt))));
+    return { clients, events };
+  }
+
+  function playDeltas(room, clients, events, from) {
+    const slice = events.slice(from);
+    for (const name of Object.keys(clients)) {
+      for (const evt of slice) applyDelta(clients[name], room.personalizeDelta(evt, name));
+    }
+  }
+
+  test("Kala Hiran removes the stolen player from the source squad on every client", () => {
+    const room = roomWith(["A", "B", "C"], { powerRevealMs: 0 });
+    setChar(room, "A", IDS.salman);
+    setChar(room, "B", IDS.ravi);
+    setChar(room, "C", IDS.modi);
+    start(room);
+    const bat = firstOfRole("BAT");
+    givePlayer(room, "B", bat, 8);
+    room.findByName("B").captainId = bat.id;
+    const { clients, events } = clientsAndEvents(room, ["A", "B", "C"]);
+    const startLen = events.length;
+    assert.equal(room.usePower("A").ok, true);
+    const opts = room.powerWait.options;
+    assert.equal(opts[0].fromName, "B");
+    assert.equal(opts[0].fromTeamName, "B");
+    const res = room.pickPowerTarget("A", { playerId: bat.id });
+    assert.equal(res.ok, true, res.error);
+    playDeltas(room, clients, events, startLen);
+    const ended = events.find((e) => e.type === "powerWaitEnded");
+    assert.ok(ended && ended.soldLogUpdates, "aftermath should include sold-log updates");
+    for (const [label, st] of [["thief", clients.A], ["victim", clients.B], ["spectator", clients.C]]) {
+      assert.ok(idsOf(st, "A").includes(bat.id), `${label} missing the stolen player`);
+      assert.ok(!idsOf(st, "B").includes(bat.id), `${label} still shows the stolen player on B`);
+    }
+    assert.equal(room.findByName("B").captainId, null);
+    assert.equal(clients.B.franchises.find((f) => f.name === "B").captainId, null);
+    const log = (clients.B.soldLog || []).find((e) => e.player && e.player.id === bat.id);
+    if (log) assert.equal(log.buyerName, "A");
+  });
+
+  test("Travis Kelce Trade moves both players and does not leave a leftover on either client", () => {
+    const room = roomWith(["A", "B"], { powerRevealMs: 0 });
+    setChar(room, "A", IDS.taylor);
+    setChar(room, "B", IDS.ravi);
+    start(room);
+    const used = new Set();
+    const hers = firstOfRole("BAT", used); used.add(hers.id);
+    const theirs = firstOfRole("BAT", used);
+    givePlayer(room, "A", hers, 5);
+    givePlayer(room, "B", theirs, 9);
+    const { clients, events } = clientsAndEvents(room, ["A", "B"]);
+    const startLen = events.length;
+    assert.equal(room.usePower("A").ok, true);
+    const res = room.pickPowerTarget("A", { playerId: theirs.id, swapPlayerId: hers.id });
+    assert.equal(res.ok, true, res.error);
+    playDeltas(room, clients, events, startLen);
+    for (const [label, st] of [["A", clients.A], ["B", clients.B]]) {
+      assert.ok(idsOf(st, "A").includes(theirs.id), `${label} A missing theirs`);
+      assert.ok(idsOf(st, "B").includes(hers.id), `${label} B missing hers`);
+      assert.ok(!idsOf(st, "A").includes(hers.id), `${label} A still has hers`);
+      assert.ok(!idsOf(st, "B").includes(theirs.id), `${label} B still has theirs`);
+    }
+  });
+
+  test("power team pickers list the team's actual name, not the co-owner", () => {
+    const room = roomWith(["CSK", "MI"], { powerRevealMs: 0 });
+    setChar(room, "CSK", IDS.kim);
+    setChar(room, "MI", IDS.ravi);
+    start(room, "CSK");
+    givePlayer(room, "MI", firstOfRole("BAT"), 4);
+    givePlayer(room, "MI", firstOfRole("WK"), 4);
+    assert.equal(room.usePower("CSK").ok, true);
+    const opts = room.powerWait.options;
+    assert.ok(opts.length);
+    assert.equal(opts[0].name, "MI");
+    assert.equal(opts[0].teamName, "MI");
+    assert.ok(opts[0].character && opts[0].character !== "MI", opts[0].character);
+  });
+});

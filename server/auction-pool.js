@@ -1,6 +1,129 @@
 const { ROLES, resolveMode, remainingQuota } = require("./rules");
 const { shuffle, resolveRng } = require("./random");
 
+const MARQUEE_WINDOW = 10;
+
+function isMarquee(player) {
+  return Boolean(player && player.marquee);
+}
+
+function minMarqueesForLength(n) {
+  return Math.ceil(Math.max(0, Number(n) || 0) / MARQUEE_WINDOW);
+}
+
+function unusedMarquees(allPlayers, usedIds) {
+  const used = usedIds instanceof Set ? usedIds : new Set(usedIds || []);
+  return (allPlayers || []).filter((p) => p && p.id && isMarquee(p) && !used.has(p.id));
+}
+
+function lastMarqueeIndex(list) {
+  const arr = list || [];
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (isMarquee(arr[i])) return i;
+  }
+  return -1;
+}
+
+function suffixMarqueeNeed(pickedLen, prefix) {
+  const pre = prefix || [];
+  const last = lastMarqueeIndex(pre);
+  const tail = last < 0 ? pre.length : pre.length - 1 - last;
+  const run = pickedLen + Math.min(Math.max(0, tail), MARQUEE_WINDOW - 1);
+  return minMarqueesForLength(run);
+}
+
+/** Make sure a list holds enough marquees for a max-gap of 9, swapping like-for-like roles first. */
+function injectMarquees(picked, allPlayers, opts = {}) {
+  const list = (picked || []).slice();
+  const need = Math.max(minMarqueesForLength(list.length), suffixMarqueeNeed(list.length, opts.prefix || []));
+  if (need <= 0) return list;
+  // Include sold / queued / presented ids so top-ups never reintroduce a used player.
+  const used = usedPlayerIds([opts.usedIds, list, opts.prefix]);
+  const spare = unusedMarquees(allPlayers, used);
+  const takeSpare = (pred) => {
+    const i = spare.findIndex(pred);
+    if (i < 0) return null;
+    return spare.splice(i, 1)[0];
+  };
+  const count = () => list.filter(isMarquee).length;
+  for (let i = 0; i < list.length && spare.length && count() < need; i++) {
+    if (isMarquee(list[i])) continue;
+    const swap = takeSpare((p) => p.role === list[i].role);
+    if (swap) {
+      used.delete(list[i].id);
+      list[i] = swap;
+      used.add(swap.id);
+    }
+  }
+  // Same-role swaps only, so mode composition (and no-AR Rapid/Bullet lists) stay intact.
+  return list;
+}
+
+/**
+ * Rearrange a future list so no 10 consecutive non-marquees appear in
+ * (prefix + list). Already-presented prefix players are not moved.
+ */
+function ensureMarqueeSpacing(list, rng, opts = {}) {
+  const windowSize = Math.max(1, Number(opts.windowSize) || MARQUEE_WINDOW);
+  const prefix = Array.isArray(opts.prefix) ? opts.prefix : [];
+  const source = list || [];
+  const marquees = [];
+  const rest = [];
+  for (const p of source) {
+    if (isMarquee(p)) marquees.push(p);
+    else rest.push(p);
+  }
+  if (!marquees.length) return source.slice();
+  const out = [];
+  let mi = 0;
+  let ni = 0;
+  let last = lastMarqueeIndex(prefix);
+  const suffixLen = source.length;
+  const prefixLen = prefix.length;
+  for (let i = 0; i < suffixLen; i++) {
+    const comb = prefixLen + i;
+    const leftoverM = marquees.length - mi;
+    const leftoverN = rest.length - ni;
+    const remainingAfter = suffixLen - i - 1;
+    const must = leftoverM > 0 && (comb - last >= windowSize || leftoverM > remainingAfter);
+    if (must) {
+      out.push(marquees[mi++]);
+      last = comb;
+    } else if (leftoverN > 0) {
+      out.push(rest[ni++]);
+    } else {
+      out.push(marquees[mi++]);
+      last = comb;
+    }
+  }
+  return out;
+}
+
+function maxNonMarqueeRun(list) {
+  let run = 0;
+  let max = 0;
+  for (const p of list || []) {
+    if (isMarquee(p)) run = 0;
+    else {
+      run += 1;
+      if (run > max) max = run;
+    }
+  }
+  return max;
+}
+
+function windowsHaveMarquee(list, windowSize = MARQUEE_WINDOW) {
+  const arr = list || [];
+  for (let i = 0; i < arr.length; i += windowSize) {
+    const end = Math.min(i + windowSize, arr.length);
+    if (end - i < windowSize) break;
+    if (!arr.slice(i, end).some(isMarquee)) return false;
+  }
+  return maxNonMarqueeRun(arr) < windowSize;
+}
+
+
+
 /**
  * Extra players picked per role so the list still covers unsolds and
  * teams that still need that role. Half a set, at least one, is enough
@@ -72,7 +195,8 @@ function buildAuctionList(allPlayers, mode, numTeams, rng) {
     for (const p of take) used.add(p.id);
     picked.push(...take);
   }
-  return shuffle(picked, r);
+  const withMarquees = injectMarquees(picked, allPlayers);
+  return ensureMarqueeSpacing(shuffle(withMarquees, r), r);
 }
 
 /**
@@ -80,7 +204,7 @@ function buildAuctionList(allPlayers, mode, numTeams, rng) {
  * in the database. Used when the original list runs out before every
  * incomplete team has the roles it still needs.
  */
-function extraPlayersForNeeds({ allPlayers, mode, teams, usedIds, rng }) {
+function extraPlayersForNeeds({ allPlayers, mode, teams, usedIds, rng, prefix }) {
   const r = resolveRng(rng);
   const m = resolveMode(mode);
   const needy = (teams || []).filter(Boolean);
@@ -103,7 +227,8 @@ function extraPlayersForNeeds({ allPlayers, mode, teams, usedIds, rng }) {
     for (const p of take) used.add(p.id);
     extras.push(...take);
   }
-  return shuffle(extras, r);
+  const withMarquees = injectMarquees(extras, allPlayers, { prefix: prefix || [], usedIds: used });
+  return ensureMarqueeSpacing(shuffle(withMarquees, r), r, { prefix: prefix || [] });
 }
 
 
@@ -114,7 +239,7 @@ const TOP_UP_BATCH = 10;
  * that incomplete teams still need, then filling the rest of the batch
  * with whoever is left. Used when the auction list runs out.
  */
-function nextAuctionBatch({ allPlayers, usedIds, neededRoles, rng, size = TOP_UP_BATCH } = {}) {
+function nextAuctionBatch({ allPlayers, usedIds, neededRoles, rng, size = TOP_UP_BATCH, prefix } = {}) {
   const r = resolveRng(rng);
   const cap = Math.max(1, Math.floor(Number(size) || TOP_UP_BATCH));
   const used = usedPlayerIds([usedIds]);
@@ -131,12 +256,14 @@ function nextAuctionBatch({ allPlayers, usedIds, neededRoles, rng, size = TOP_UP
   for (const list of [preferred, rest]) {
     const shuffled = shuffle(list, r);
     for (const p of shuffled) {
-      if (picked.length >= cap) return picked;
+      if (picked.length >= cap) break;
       picked.push(p);
       used.add(p.id);
     }
+    if (picked.length >= cap) break;
   }
-  return picked;
+  const withMarquees = injectMarquees(picked, allPlayers, { prefix: prefix || [], usedIds: used });
+  return ensureMarqueeSpacing(withMarquees, r, { prefix: prefix || [] });
 }
 
 module.exports = {
@@ -147,4 +274,11 @@ module.exports = {
   extraPlayersForNeeds,
   nextAuctionBatch,
   TOP_UP_BATCH,
+  MARQUEE_WINDOW,
+  isMarquee,
+  minMarqueesForLength,
+  injectMarquees,
+  ensureMarqueeSpacing,
+  maxNonMarqueeRun,
+  windowsHaveMarquee,
 };

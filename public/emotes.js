@@ -18,9 +18,9 @@
     { id: "cool", kind: "emoji", glyph: "😎" },
   ];
 
-  // Client display. Server rate-limit is a generous anti-abuse cap only.
-  const EMOTE_RATE_MAX = 10;
-  const EMOTE_RATE_WINDOW_MS = 1000;
+  // Shared burst cap for emotes and pre-written lines (server-enforced).
+  const EMOTE_RATE_MAX = 3;
+  const EMOTE_RATE_WINDOW_MS = 9000;
   const EMOTE_DURATION_MS = 3200;
   const EMOTE_MAX_VISIBLE = 40;
 

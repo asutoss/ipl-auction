@@ -124,9 +124,9 @@ function bowlersOf(team) {
   return (team.squad || []).filter((s) => ["AR", "BOWL"].includes(s.player.role));
 }
 
-const FORM_MIN_PCT = 85;
-const FORM_MAX_PCT = 115;
-/** How much of the 85–115% deviation is applied to batting/bowling. 0.5 keeps form moderate. */
+const FORM_MIN_PCT = 95;
+const FORM_MAX_PCT = 105;
+/** How much of the 95–105% deviation is applied to batting/bowling. 0.5 keeps form moderate. */
 const FORM_EFFECT = 0.5;
 
 /** Shift the form centre by this many points from first (+ ) to last (− ). */

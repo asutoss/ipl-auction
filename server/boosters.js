@@ -65,7 +65,7 @@ const BOOSTERS = [
     name: "Net Session Masterclass",
     pricePoints: 19,
     effect: "form-self",
-    impact: { size: "medium", bars: 2, line: "Win chance about +10%. Form re-rolled to 101–115% if below 100.", score: 10.915, titleWinPp: 10 },
+    impact: { size: "medium", bars: 2, line: "Win chance about +10%. Form re-rolled to 101–105% if below 100.", score: 10.915, titleWinPp: 10 },
     blurb: "A week of throwdowns in the nets. Guarantees your Current form finishes above 100%.",
   },
   {
@@ -225,7 +225,7 @@ function applyFormBoosters(teams, rng) {
           message: `${selfName}: ${name} form already ${from}%`,
         });
       } else {
-        const to = rollUniformPct(rng, 101, 115);
+        const to = rollUniformPct(rng, 101, 105);
         team.formPct = to;
         events.push({
           kind: "self",
@@ -250,7 +250,7 @@ function applyFormBoosters(teams, rng) {
           message: `${curseName} from ${casterLabel(casters)}: ${name} form already ${from}%`,
         });
       } else {
-        const to = rollUniformPct(rng, 85, 99);
+        const to = rollUniformPct(rng, 95, 99);
         team.formPct = to;
         events.push({
           kind: "curse",

@@ -71,7 +71,7 @@ const {
   peekNextPlayers,
 } = require("./powers");
 const { QUICK_CHAT_COOLDOWN_MS } = require("../public/quick-chat");
-const { buildAuctionList, nextAuctionBatch, TOP_UP_BATCH } = require("./auction-pool");
+const { buildAuctionList, nextAuctionBatch, TOP_UP_BATCH, ensureMarqueeSpacing } = require("./auction-pool");
 
 function normalizeName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
@@ -380,7 +380,46 @@ class GameRoom extends EventEmitter {
       teams: this.franchises.map((f) => this.packTeamDelta(f)),
       lotSnapshot: this.auction ? this.packLotSnapshot() : null,
       wipedPlayerIds: (this.soldLog || []).filter((e) => e.wiped && e.player).map((e) => e.player.id),
+      soldLogUpdates: (this.soldLog || []).filter((e) => e && e.player).map((e) => ({
+        playerId: e.player.id,
+        buyerName: e.buyerName || null,
+        short: e.short || e.buyerName || null,
+        characterId: e.characterId || null,
+        wiped: Boolean(e.wiped),
+      })),
     };
+  }
+
+  decoratePublicPlayer(player) {
+    if (!player) return player;
+    if (player.id === "vfx-hidden" || player.hidden || player.vfxHidden) return player;
+    const rating = Math.round(overallRating(player));
+    return {
+      ...player,
+      marquee: Boolean(player.marquee),
+      rating: Number.isFinite(rating) ? rating : null,
+    };
+  }
+
+  presentedAuctionPlayers() {
+    const out = [];
+    const seen = new Set();
+    const push = (p) => {
+      if (!p || !p.id || seen.has(p.id)) return;
+      seen.add(p.id);
+      out.push(p);
+    };
+    for (const e of this.soldLog || []) push(e && e.player);
+    for (const p of this.unsold || []) push(p);
+    if (this.auction) push(this.auction.nominee);
+    return out;
+  }
+
+  arrangeQueueMarquees() {
+    this.queue = ensureMarqueeSpacing(this.queue || [], this.rng, {
+      prefix: this.presentedAuctionPlayers(),
+    });
+    return this.queue;
   }
 
   packAuctionPublic() {
@@ -395,7 +434,7 @@ class GameRoom extends EventEmitter {
       ? this.findByKey(this.auction.defaultBidderKey)
       : null;
     return {
-      nominee: this.auction.nominee,
+      nominee: this.decoratePublicPlayer(this.auction.nominee),
       currentBidLakhs: this.auction.currentBidLakhs,
       currentBidderName: leader ? leader.name : null,
       currentBidderShort: leader ? leader.name : null,
@@ -748,6 +787,7 @@ class GameRoom extends EventEmitter {
     this.clearChaiDisconnectTimer();
     this.phase = "auction";
     this.queue = buildAuctionList(this.allPlayers, this.mode, this.franchises.length, this.rng);
+    this.arrangeQueueMarquees();
     this.lotTotal = this.queue.length;
     this.lotId = 0;
     this.unsold = [];
@@ -881,9 +921,11 @@ class GameRoom extends EventEmitter {
       neededRoles: needed,
       rng: this.rng,
       size: TOP_UP_BATCH,
+      prefix: this.presentedAuctionPlayers().concat(this.queue || []),
     });
     if (!batch.length) return false;
     this.queue.push(...batch);
+    this.arrangeQueueMarquees();
     this.lotTotal += batch.length;
     const message = `${batch.length} more player${batch.length === 1 ? " has" : "s have"} been added to the auction.`;
     this.lastEvent = { type: "poolTopUp", count: batch.length, message };
@@ -924,6 +966,7 @@ class GameRoom extends EventEmitter {
       const add = fromUnsold.out.filter((p) => p && !inQueue.has(p.id));
       if (add.length) {
         this.queue.push(...add);
+        this.arrangeQueueMarquees();
         return true;
       }
     }
@@ -2849,6 +2892,8 @@ class GameRoom extends EventEmitter {
       const other = findLine(lineId);
       return { ok: false, error: other ? "That line is not yours." : "Unknown line." };
     }
+    const burst = this.takeReactionSlot(team);
+    if (!burst.ok) return burst;
     const now = Date.now();
     if (team.lastQuickChatAt && now - team.lastQuickChatAt < QUICK_CHAT_COOLDOWN_MS) {
       return { ok: false, error: "Wait a moment before sending another line." };
@@ -3010,7 +3055,28 @@ class GameRoom extends EventEmitter {
     }
   }
 
+  takeReactionSlot(team, now = Date.now()) {
+    if (!team) return { ok: false, error: "You are not in this room." };
+    const windowMs = Number(EMOTE_RATE_WINDOW_MS) || 9000;
+    const max = Number(EMOTE_RATE_MAX) || 3;
+    const recent = (team.emoteTimes || []).filter((t) => now - t < windowMs);
+    if (recent.length >= max) {
+      team.emoteTimes = recent;
+      const waitMs = Math.max(0, windowMs - (now - recent[0]));
+      return {
+        ok: false,
+        dropped: true,
+        waitMs,
+        error: "Slow down — you can send 3 reactions every 9 seconds.",
+      };
+    }
+    recent.push(now);
+    team.emoteTimes = recent;
+    return { ok: true };
+  }
+
   emote(byName, emoteId) {
+
     if (this.ended) return { ok: false, error: "This game has ended." };
     const team = this.findByName(byName);
     if (!team) return { ok: false, error: "You are not in this room." };
@@ -3028,17 +3094,9 @@ class GameRoom extends EventEmitter {
       }
       lineText = line.text;
     }
+    const burst = this.takeReactionSlot(team);
+    if (!burst.ok) return burst;
     const now = Date.now();
-    const windowMs = Number(EMOTE_RATE_WINDOW_MS) || 1000;
-    const max = Number(EMOTE_RATE_MAX) || 10;
-    const recent = (team.emoteTimes || []).filter((t) => now - t < windowMs);
-    if (recent.length >= max) {
-      team.emoteTimes = recent;
-      // Silent drop — spam is allowed up to the cap; excess is not broadcast.
-      return { ok: false, dropped: true };
-    }
-    recent.push(now);
-    team.emoteTimes = recent;
     team.lastEmoteAt = now;
     const payload = { teamId: team.key, emoteId: id };
     if (lineText) payload.text = lineText;

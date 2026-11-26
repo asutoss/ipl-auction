@@ -32,6 +32,7 @@ function loadPlayers() {
       basePriceLakhs: BASE_PRICE_POINTS,
       batting: Number(p.batting),
       bowling: Number(p.bowling),
+      marquee: Boolean(p.marquee),
     };
     registerCaptainMatches(p.id, p.captainMatches);
     const shot = officialHeadshotUrl(p.headshot);

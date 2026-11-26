@@ -1065,7 +1065,7 @@ describe("form boosters", () => {
     return room;
   }
 
-  test("Net Session Masterclass re-rolls form into 101–115, or leaves it if already above 100", () => {
+  test("Net Session Masterclass re-rolls form into 101–105, or leaves it if already above 100", () => {
     const self = getBooster(FORM_SELF_ID);
     assert.equal(self.name, "Net Session Masterclass");
     assert.equal(self.pricePoints, 19);
@@ -1077,7 +1077,7 @@ describe("form boosters", () => {
     assert.equal(ash.formPct, 96);
     room.finishCaptains();
     assert.equal(room.phase, "results");
-    assert.ok(ash.formPct >= 101 && ash.formPct <= 115, `reroll ${ash.formPct}`);
+    assert.ok(ash.formPct >= 101 && ash.formPct <= 105, `reroll ${ash.formPct}`);
     const pos = room.tournament.positions.find((p) => p.name === "Ashutosh");
     assert.equal(pos.formPct, ash.formPct);
 
@@ -1090,7 +1090,7 @@ describe("form boosters", () => {
     assert.equal(ash2.formPct, 108);
   });
 
-  test("Nazar Lag Gayi needs a valid rival and forces form into 85–99, or leaves it if already below 100", () => {
+  test("Nazar Lag Gayi needs a valid rival and forces form into 95–99, or leaves it if already below 100", () => {
     const curse = getBooster(FORM_RIVAL_ID);
     assert.equal(curse.name, "Nazar Lag Gayi");
     assert.equal(curse.pricePoints, 20);
@@ -1112,7 +1112,7 @@ describe("form boosters", () => {
     assert.equal(priya.formPct, 112);
     assert.equal(ash.boosters[0].targetName, "Priya");
     room.finishCaptains();
-    assert.ok(priya.formPct >= 85 && priya.formPct <= 99, `curse ${priya.formPct}`);
+    assert.ok(priya.formPct >= 95 && priya.formPct <= 99, `curse ${priya.formPct}`);
     const pos = room.tournament.positions.find((p) => p.name === "Priya");
     assert.equal(pos.formPct, priya.formPct);
 
@@ -1142,7 +1142,7 @@ describe("form boosters", () => {
 
   test("several curses on one team without a guarantee count as a single re-roll below 100", () => {
     const rolls = [];
-    const rng = { random() { rolls.push(1); return 0; } }; // always 85
+    const rng = { random() { rolls.push(1); return 0; } }; // always 95
     const room = roomWith(["Ashutosh", "Priya", "Rohan"], null, { rng });
     for (const name of ["Ashutosh", "Priya", "Rohan"]) {
       const team = room.findByName(name);
@@ -1164,7 +1164,7 @@ describe("form boosters", () => {
     assert.equal(room.buyBooster("Rohan", FORM_RIVAL_ID, "Ashutosh").ok, true);
     const before = rolls.length;
     room.finishCaptains();
-    assert.equal(ash.formPct, 85);
+    assert.equal(ash.formPct, 95);
     assert.equal(rolls.length, before + 1);
   });
 
@@ -1222,7 +1222,7 @@ describe("form boosters", () => {
     ], { random: () => 0 });
     assert.equal(hit.length, 1);
     assert.equal(hit[0].kind, "curse");
-    assert.equal(hit[0].message, "Nazar Lag Gayi from Priya: Ashutosh form 110% -> 85% (\u22129% title chance)");
+    assert.equal(hit[0].message, "Nazar Lag Gayi from Priya: Ashutosh form 110% -> 95% (\u22129% title chance)");
 
     const noop = applyFormBoosters([
       { name: "Priya", formPct: 90, boosters: [{ id: FORM_RIVAL_ID, targetName: "Ashutosh" }] },
@@ -2408,6 +2408,44 @@ describe("auto-fill sold sequence", () => {
   });
 });
 
+describe("marquee auction spacing", () => {
+  const {
+    buildAuctionList,
+    windowsHaveMarquee,
+    maxNonMarqueeRun,
+    minMarqueesForLength,
+    MARQUEE_WINDOW,
+    isMarquee,
+  } = require("../server/auction-pool");
+
+  test("the pool has a curated set of real IPL superstars marked marquee", () => {
+    const marked = players.filter((p) => p.marquee);
+    assert.ok(marked.length >= 30, `only ${marked.length} marquees`);
+    for (const name of ["Virat Kohli", "MS Dhoni", "Jasprit Bumrah", "Rohit Sharma", "Rashid Khan"]) {
+      const row = players.find((p) => p.name === name);
+      assert.ok(row && row.marquee, name);
+    }
+  });
+
+  test("every random auction list has a marquee in each block of 10 and no 10-gap", () => {
+    assert.equal(MARQUEE_WINDOW, 10);
+    let checked = 0;
+    for (let seed = 1; seed <= 120; seed++) {
+      for (const [mode, n] of [["classical", 4], ["classical", 8], ["rapid", 5], ["bullet", 2], ["bullet", 8]]) {
+        const list = buildAuctionList(players, mode, n, seed);
+        checked += 1;
+        assert.ok(list.filter(isMarquee).length >= minMarqueesForLength(list.length), `${mode} x ${n} seed ${seed} short of marquees`);
+        assert.equal(windowsHaveMarquee(list), true, `${mode} x ${n} seed ${seed} missing a decade marquee`);
+        assert.ok(maxNonMarqueeRun(list) < 10, `${mode} x ${n} seed ${seed} run ${maxNonMarqueeRun(list)}`);
+        for (let i = 0; i + 10 <= list.length; i += 10) {
+          assert.ok(list.slice(i, i + 10).some(isMarquee), `block ${i}-${i + 9} on ${mode} ${n} seed ${seed}`);
+        }
+      }
+    }
+    assert.ok(checked >= 100);
+  });
+});
+
 describe("auction pool top-up", () => {
   test("fetches unused players in batches of 10 when the queue runs out", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
@@ -2447,6 +2485,26 @@ describe("auction pool top-up", () => {
     assert.ok(ev, "expected a room-wide empty-pool message");
     assert.match(ev.message, /no more players/i);
     assert.ok(["captains", "simulating", "results"].includes(room.phase), room.phase);
+  });
+
+  test("a top-up batch never reintroduces sold or already-queued players, even to place a marquee", () => {
+    const { nextAuctionBatch, injectMarquees } = require("../server/auction-pool");
+    const sold = players.filter((p) => p.marquee).slice(0, 20);
+    assert.ok(sold.length >= 15, "need sold marquees to tempt a reuse");
+    const usedIds = new Set(sold.map((p) => p.id));
+    const batch = nextAuctionBatch({
+      allPlayers: players,
+      usedIds,
+      neededRoles: new Set(["BAT", "WK", "AR", "BOWL"]),
+      rng: 7,
+      size: 10,
+      prefix: sold,
+    });
+    assert.equal(batch.length, 10);
+    for (const p of batch) assert.ok(!usedIds.has(p.id), `batch reused ${p.name}`);
+    const filler = players.filter((p) => !p.marquee && !usedIds.has(p.id)).slice(0, 10);
+    const injected = injectMarquees(filler, players, { usedIds, prefix: sold });
+    for (const p of injected) assert.ok(!usedIds.has(p.id), `inject reused ${p.name}`);
   });
 
   test("nextAuctionBatch prefers needed roles and caps at 10", () => {
@@ -2526,10 +2584,10 @@ describe("team form", () => {
     room2.autoFill();
     const filled = room2.findByName("Ashutosh");
     assert.equal(isSquadComplete(filled.squad), true);
-    assert.ok(filled.formPct >= 85 && filled.formPct <= 115, filled.formPct);
+    assert.ok(filled.formPct >= 95 && filled.formPct <= 105, filled.formPct);
   });
 
-  test("form rolls are in 85–115 and mildly centre-weighted", () => {
+  test("form rolls are in 95–105 and mildly centre-weighted", () => {
     const { rollTeamForm } = require("../server/simulate");
     const { mulberry32 } = require("../server/random");
     const rng = mulberry32(2026);
@@ -2538,19 +2596,22 @@ describe("team form", () => {
     let sum = 0;
     let min = 200;
     let max = 0;
+    const { FORM_MIN_PCT, FORM_MAX_PCT } = require("../server/simulate");
+    assert.equal(FORM_MIN_PCT, 95);
+    assert.equal(FORM_MAX_PCT, 105);
     for (let i = 0; i < n; i++) {
       const v = rollTeamForm(rng);
-      assert.ok(v >= 85 && v <= 115, v);
+      assert.ok(v >= 95 && v <= 105, v);
       sum += v;
       if (v < min) min = v;
       if (v > max) max = v;
-      if (v >= 95 && v <= 105) counts.mid += 1;
-      if (v <= 90 || v >= 110) counts.tail += 1;
+      if (v >= 98 && v <= 102) counts.mid += 1;
+      if (v <= 96 || v >= 104) counts.tail += 1;
     }
     const mean = sum / n;
     assert.ok(mean > 98 && mean < 102, `mean ${mean}`);
     assert.ok(counts.mid > counts.tail, `mid ${counts.mid} vs tail ${counts.tail}`);
-    assert.ok(min <= 90 && max >= 110, `range ${min}-${max}`);
+    assert.ok(min <= 97 && max >= 103, `range ${min}-${max}`);
   });
 
   test("form swings equal-rating results moderately and is included on match data", () => {
@@ -2933,7 +2994,7 @@ describe("retired players stay out of the auction", () => {
 describe("form bias by completion order", () => {
   const { rollTeamForm, formRankShift, FORM_RANK_SHIFT, mulberry32 } = require("../server/simulate");
 
-  test("shifts the form centre linearly from +5 for first to -5 for last, clamped to 85–115", () => {
+  test("shifts the form centre linearly from +5 for first to -5 for last, clamped to 95–105", () => {
     assert.equal(FORM_RANK_SHIFT, 5);
     assert.equal(formRankShift(1, 1), 0);
     assert.equal(formRankShift(1, 4), 5);
@@ -2943,11 +3004,11 @@ describe("form bias by completion order", () => {
     const rng = mulberry32(99);
     for (let i = 0; i < 200; i++) {
       const v = rollTeamForm(rng, { rank: 1, total: 8 });
-      assert.ok(v >= 85 && v <= 115, v);
+      assert.ok(v >= 95 && v <= 105, v);
     }
   });
 
-  test("Monte Carlo: first finishers out-form last finishers on average, with upsets still possible", () => {
+  test("Monte Carlo: first finishers out-form last finishers on average", () => {
     const rng = mulberry32(2026);
     const n = 8000;
     const sums = [0, 0, 0, 0];
@@ -2967,9 +3028,10 @@ describe("form bias by completion order", () => {
     console.log("form bias MC", { means, pFirst, pUpset, ties: ties / n });
     assert.ok(means[0] > means[1] && means[1] > means[2] && means[2] > means[3], means);
     assert.ok(means[0] > 102 && means[0] < 108, `first mean ${means[0]}`);
-    assert.ok(means[3] > 92 && means[3] < 98, `last mean ${means[3]}`);
+    assert.ok(means[3] > 94 && means[3] < 100, `last mean ${means[3]}`);
     assert.ok(pFirst > 0.7, `P(first > last) ${pFirst}`);
-    assert.ok(pUpset > 0.08 && pUpset < 0.3, `P(last > first) ${pUpset}`);
+    // ±5 rank shift now spans the whole 95–105 band, so last cannot roll strictly hotter than first.
+    assert.ok(pUpset === 0, `P(last > first) ${pUpset}`);
   });
 
   test("completion rank is assigned when form is rolled, and auto-fill or last-team fill finish last", () => {

@@ -442,30 +442,49 @@ describe("emotes", () => {
     assert.match(tooSoon.error, /auction/i);
   });
 
-  test("allows a burst of emotes and silently drops above ~10 per second per team", () => {
-    assert.equal(EMOTE_RATE_MAX, 10);
-    assert.equal(EMOTE_RATE_WINDOW_MS, 1000);
+  test("allows 3 reactions in 9 seconds and tells the player to slow down after that", () => {
+    assert.equal(EMOTE_RATE_MAX, 3);
+    assert.equal(EMOTE_RATE_WINDOW_MS, 9000);
     const room = liveRoom();
     const events = [];
     room.on("emote", (evt) => events.push(evt));
-    const ids = ["fire", "clap", "laugh", "cry", "clown", "money", "mindblown", "cool", "fire", "clap", "laugh"];
+    const ids = ["fire", "clap", "laugh", "cry", "clown"];
     const results = ids.map((id) => room.emote("Priya", id));
     const accepted = results.filter((r) => r.ok);
-    const dropped = results.filter((r) => !r.ok && r.dropped);
-    assert.equal(accepted.length, EMOTE_RATE_MAX);
-    assert.equal(dropped.length, ids.length - EMOTE_RATE_MAX);
-    assert.equal(dropped.every((r) => !r.error), true, "excess is dropped silently, with no error string");
-    assert.equal(events.length, EMOTE_RATE_MAX);
-    // A different team can still emote immediately.
+    const dropped = results.filter((r) => !r.ok);
+    assert.equal(accepted.length, 3);
+    assert.equal(dropped.length, 2);
+    assert.equal(dropped.every((r) => r.dropped), true);
+    assert.equal(dropped.every((r) => /3 reactions every 9 seconds/i.test(r.error || "")), true);
+    assert.equal(events.length, 3);
     const other = room.emote("Ashutosh", "cool");
     assert.equal(other.ok, true);
-    assert.equal(events.length, EMOTE_RATE_MAX + 1);
-    // After the window, the same team can send again.
+    assert.equal(events.length, 4);
     const team = room.findByName("Priya");
     team.emoteTimes = (team.emoteTimes || []).map((t) => t - EMOTE_RATE_WINDOW_MS - 1);
     const again = room.emote("Priya", "clap");
     assert.equal(again.ok, true, again.error);
     assert.equal(again.emoteId, "clap");
+  });
+
+  test("emotes and quick chat share the same 3-in-9-seconds burst cap", () => {
+    const room = liveRoom();
+    assert.equal(room.emote("Priya", "laugh").ok, true);
+    assert.equal(room.emote("Priya", "fire").ok, true);
+    assert.equal(room.emote("Priya", "clap").ok, true);
+    // Power wait opens quick chat; the shared bucket should still be full.
+    room.powerWait = { kind: "chai", actorKey: room.findByName("Ashutosh").key };
+    const line = require("../public/characters").characterLines(room.findByName("Priya").franchise.id || room.findByName("Priya").franchise.characterId)[0];
+    // find a usable line id
+    const { characterLines } = require("../public/characters");
+    const pack = room.findByName("Priya").franchise;
+    const cid = pack.characterId || pack.id;
+    const lines = characterLines(cid) || [];
+    if (lines.length) {
+      const blocked = room.quickChat("Priya", lines[0].id);
+      assert.equal(blocked.ok, false);
+      assert.match(blocked.error || "", /3 reactions every 9 seconds/i);
+    }
   });
 
   test("broadcasts {teamId, emoteId} and works while paused", () => {
@@ -747,21 +766,84 @@ describe("ring seat bubbles", () => {
       },
     };
     const seats = seatsFromState(state);
-    assert.equal(seats.length, 2);
+    assert.equal(seats.length, 1, "complete / opted-out teams leave the ring");
     const mitron = seats.find((s) => s.name === "Mitron");
-    const dolly = seats.find((s) => s.name === "Dolly");
+    assert.ok(mitron);
     assert.equal(mitron.purseLakhs, 70);
     assert.equal(mitron.pending, 10);
     assert.equal(mitron.isLeader, true);
     assert.equal(mitron.stillIn, true);
-    assert.equal(dolly.purseLakhs, 55);
-    assert.equal(dolly.complete, true);
-    assert.equal(dolly.stillIn, false);
+    assert.equal(seats.some((s) => s.name === "Dolly"), false);
     const mb = seatBubble(mitron, { minBidLakhs: mitron.minBidLakhs, nomineeRole: mitron.nomineeRole });
     assert.equal(mb.text, "70 · 10 left");
-    const db = seatBubble(dolly, { minBidLakhs: dolly.minBidLakhs });
-    assert.equal(db.complete, true);
-    assert.equal(db.text, "55 · Full");
+  });
+});
+
+describe("auction ring participants", () => {
+  const { seatsFromState, layout, participatingSeats, segmentTarget, isRingParticipant } = require("../public/ring");
+
+  function team(name, flags = {}) {
+    return { name, purseLakhs: 80, pending: 4, complete: false, banned: false, eliminated: false, stillIn: true, color: "#fc0", ...flags };
+  }
+
+  test("layout divides the full circle equally between however many teams are in", () => {
+    for (const n of [1, 2, 3, 4, 8]) {
+      const slots = layout(n);
+      assert.equal(slots.length, n);
+      const open = n === 1 ? 0 : (slots[0].a0 * 2);
+      assert.ok(Math.abs((slots[0].a0 - open / 2) - 0) < 1e-6, `start ${slots[0].a0}`);
+      assert.ok(Math.abs((slots[n - 1].a1 + open / 2) - 360) < 1e-6, `end ${slots[n - 1].a1}`);
+      const widths = slots.map((s) => s.a1 - s.a0);
+      for (const w of widths) assert.ok(Math.abs(w - widths[0]) < 1e-6);
+    }
+  });
+
+  test("eliminated, banned, complete, and opted-out teams are removed and the rest fill 360°", () => {
+    const seats = participatingSeats([
+      team("Live"),
+      team("Out", { eliminated: true }),
+      team("Banned", { banned: true }),
+      team("Full", { complete: true, stillIn: false, pending: 0 }),
+      team("Passed", { stillIn: false }),
+      team("AlsoLive", { color: "#0af" }),
+    ]);
+    assert.deepEqual(seats.map((s) => s.name), ["Live", "AlsoLive"]);
+    const spec = segmentTarget(seats);
+    assert.equal(spec.length, 2);
+    const span0 = spec[0].a1 - spec[0].a0;
+    const span1 = spec[1].a1 - spec[1].a0;
+    assert.ok(Math.abs(span0 - span1) < 1e-6);
+    const gap = spec[0].a0 * 2;
+    assert.ok(Math.abs(spec[1].a1 + gap / 2 - 360) < 1e-6);
+  });
+
+  test("fewer teams in the room each get a larger equal slice", () => {
+    const three = segmentTarget([team("A"), team("B"), team("C")]);
+    const four = segmentTarget([team("A"), team("B"), team("C"), team("D")]);
+    assert.equal(three.length, 3);
+    assert.equal(four.length, 4);
+    assert.ok(three[0].a1 - three[0].a0 > four[0].a1 - four[0].a0);
+  });
+
+  test("seatsFromState only keeps teams still in the current lot", () => {
+    const state = {
+      franchises: [
+        { name: "A", purseLakhs: 40, remainingQuota: { BAT: 1 }, complete: false, eliminated: false },
+        { name: "B", purseLakhs: 0, remainingQuota: { BAT: 1 }, complete: false, eliminated: true },
+        { name: "C", purseLakhs: 20, remainingQuota: { BAT: 0 }, complete: true },
+      ],
+      auction: {
+        stillIn: [{ name: "A", isLeader: true }],
+        lotSnapshot: [
+          { name: "A", pending: 1, complete: false },
+          { name: "B", pending: 1, complete: false, eliminated: true },
+          { name: "C", pending: 0, complete: true },
+        ],
+      },
+    };
+    const seats = seatsFromState(state);
+    assert.deepEqual(seats.map((s) => s.name), ["A"]);
+    assert.equal(isRingParticipant({ name: "B", eliminated: true, stillIn: false }), false);
   });
 });
 
@@ -968,5 +1050,51 @@ describe("wake loader helpers", () => {
     assert.ok(first !== second);
     assert.ok(loader.LINES.length >= 6);
     assert.equal(loader.ROTATE_MS, 4000);
+  });
+});
+
+
+describe("bid block reasons and low-budget warning", () => {
+  const { bidBlockReason, isLowBudget, remainingOpenSpots, LOW_BUDGET_FLOOR_PTS } = require("../public/state");
+
+  test("explains a full role, a full squad, and not enough balance", () => {
+    const you = {
+      name: "A",
+      purseLakhs: 3,
+      remainingQuota: { BAT: 0, WK: 1, AR: 0, BOWL: 0 },
+      roleCounts: { BAT: 4, WK: 0, AR: 2, BOWL: 4 },
+      squad: new Array(10).fill(0),
+      complete: false,
+    };
+    const fullRole = bidBlockReason(you, { nominee: { role: "BAT" }, minBidLakhs: 2 });
+    assert.match(fullRole, /Squad full \(4\/4 BAT spots\)/);
+    you.remainingQuota = { BAT: 0, WK: 0, AR: 0, BOWL: 0 };
+    you.complete = true;
+    you.roleCounts = { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
+    you.squad = new Array(11).fill(0);
+    const fullSquad = bidBlockReason(you, { nominee: { role: "WK" }, minBidLakhs: 2 });
+    assert.match(fullSquad, /Squad full \(11\/11 spots\)/);
+    const broke = bidBlockReason(
+      { name: "A", purseLakhs: 4, remainingQuota: { BAT: 2, WK: 0, AR: 0, BOWL: 0 }, roleCounts: { BAT: 2 }, squad: [{}], complete: false },
+      { nominee: { role: "BAT" }, minBidLakhs: 6 }
+    );
+    assert.match(broke, /Not enough balance \(need 6 pts, have 4 pts\)/);
+  });
+
+  test("warns when purse is at most 5 points or too small to cover remaining min bids", () => {
+    assert.equal(LOW_BUDGET_FLOOR_PTS, 5);
+    const tight = { purseLakhs: 5, remainingQuota: { BAT: 2, WK: 1, AR: 0, BOWL: 0 }, complete: false };
+    assert.equal(remainingOpenSpots(tight), 3);
+    assert.equal(isLowBudget(tight), true);
+    const ok = { purseLakhs: 20, remainingQuota: { BAT: 2 }, complete: false };
+    assert.equal(isLowBudget(ok), false);
+    const oneSlot = { purseLakhs: 6, remainingQuota: { WK: 1 }, complete: false };
+    assert.equal(isLowBudget(oneSlot), false);
+    const fiveWithOne = { purseLakhs: 5, remainingQuota: { WK: 1 }, complete: false };
+    assert.equal(isLowBudget(fiveWithOne), true);
+    const done = { purseLakhs: 2, remainingQuota: { BAT: 0 }, complete: true };
+    assert.equal(isLowBudget(done), false);
+    const out = { purseLakhs: 2, remainingQuota: { BAT: 2 }, eliminated: true };
+    assert.equal(isLowBudget(out), false);
   });
 });

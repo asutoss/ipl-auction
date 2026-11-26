@@ -92,6 +92,113 @@ function money(points) {
   return `${n} pt${n === 1 ? "" : "s"}`;
 }
 
+const MIN_START_BID_PTS = 1;
+const LOW_BUDGET_FLOOR_PTS = 5;
+const REACTION_RATE_MAX = (window.IplEmotes && window.IplEmotes.EMOTE_RATE_MAX) || 3;
+const REACTION_RATE_WINDOW_MS = (window.IplEmotes && window.IplEmotes.EMOTE_RATE_WINDOW_MS) || 9000;
+let hubRatingOpen = false;
+let samayPreviewDismissed = false;
+const reactionSentAt = [];
+
+function remainingOpenSpots(you) {
+  if (!you) return 0;
+  if (you.remainingQuota) {
+    return Object.values(you.remainingQuota).reduce((s, v) => s + (Number(v) || 0), 0);
+  }
+  return 0;
+}
+
+function isLowBudget(you) {
+  if (!you || you.eliminated || you.banned || you.complete) return false;
+  const purse = Number(you.purseLakhs) || 0;
+  const left = remainingOpenSpots(you);
+  if (left <= 0 || purse <= 0) return false;
+  return purse <= Math.max(LOW_BUDGET_FLOOR_PTS, left * MIN_START_BID_PTS);
+}
+
+function lowBudgetBannerHtml(you) {
+  if (!isLowBudget(you)) return "";
+  return `<p class="low-budget-banner" id="low-budget-banner">Low budget — if your purse hits 0 with open squad slots, you're eliminated.</p>`;
+}
+
+function playerRating(p) {
+  if (!p || p.vfxHidden || p.hidden) return null;
+  if (p.rating != null && Number.isFinite(Number(p.rating))) return Math.round(Number(p.rating));
+  const bat = Number(p.batting) || 0;
+  const bowl = Number(p.bowling) || 0;
+  let raw;
+  switch (p.role) {
+    case "BAT":
+    case "WK":
+      raw = bat * 0.9 + bowl * 0.1;
+      break;
+    case "AR":
+      raw = bat * 0.5 + bowl * 0.5;
+      break;
+    case "BOWL":
+      raw = bowl * 0.9 + bat * 0.1;
+      break;
+    default:
+      raw = (bat + bowl) / 2;
+  }
+  return Math.round(raw);
+}
+
+function isMarqueePlayer(p) {
+  return Boolean(p && p.marquee && !p.vfxHidden && !p.hidden);
+}
+
+function clientBidReason(amount) {
+  const api = window.IplState;
+  const you = state && state.you;
+  const a = state && state.auction;
+  if (api && api.bidBlockReason) {
+    const min = amount != null ? amount : (a && (a.minBidLakhs != null ? a.minBidLakhs : (Number(a.currentBidLakhs) || 0) + 1));
+    const detailed = api.bidBlockReason(you, a, min);
+    if (detailed && !/leading bid/i.test(detailed)) return detailed;
+    return (a && a.youReason) || detailed || "You cannot bid right now.";
+  }
+  return (a && a.youReason) || "You cannot bid right now.";
+}
+
+function openActionReason(message, title) {
+  const modal = document.getElementById("action-reason");
+  const body = document.getElementById("action-reason-body");
+  const heading = document.getElementById("action-reason-title");
+  if (!modal || !body) {
+    toast(message);
+    return;
+  }
+  if (heading) heading.textContent = title || "Just so you know";
+  body.textContent = message;
+  modal.hidden = false;
+}
+
+function closeActionReason() {
+  const modal = document.getElementById("action-reason");
+  if (modal) modal.hidden = true;
+}
+
+function openRulesModal() {
+  const modal = document.getElementById("rules-modal");
+  if (modal) modal.hidden = false;
+}
+
+function closeRulesModal() {
+  const modal = document.getElementById("rules-modal");
+  if (modal) modal.hidden = true;
+}
+
+function closeSamayPreview() {
+  samayPreviewDismissed = true;
+  const box = document.getElementById("samay-preview");
+  if (box) box.hidden = true;
+}
+
+function disabledAttr(on) {
+  return on ? `class="is-disabled" aria-disabled="true"` : "";
+}
+
 function roomLinkApi() {
   return window.IplRoomLink || {};
 }
@@ -632,7 +739,7 @@ function syncWaitModal() {
       html += `<div class="chai-table-wrap"><table class="chai-table"><thead><tr><th>Team</th><th>Pts</th><th>Squad</th><th>Missing</th></tr></thead><tbody>`;
       for (const row of wait.table) {
         const squad = (row.squad || []).map((p) => `${p.name} (${p.role})`).join(", ") || "—";
-        html += `<tr class="${row.banned ? "is-banned" : ""}"><td>${esc(row.character || row.name)}${row.banned ? " · banned" : ""}</td><td>${row.purseLakhs}</td><td>${esc(squad)}</td><td>${esc(missingRolesLabel(row.missingRoles))}</td></tr>`;
+        html += `<tr class="${row.banned ? "is-banned" : ""}"><td>${esc(row.teamName || row.name)}${row.banned ? " · banned" : ""}</td><td>${row.purseLakhs}</td><td>${esc(squad)}</td><td>${esc(missingRolesLabel(row.missingRoles))}</td></tr>`;
       }
       html += `</tbody></table></div>`;
       html += `<button type="button" class="btn" id="chai-khatam">Chai khatam</button>`;
@@ -652,7 +759,7 @@ function syncWaitModal() {
   } else if (wait.youAreActor && wait.options) {
     if (wait.kind === "pick_team") {
       html += `<div class="wait-options">` + wait.options.map((o) =>
-        `<button type="button" class="btn secondary wait-pick" data-target-key="${esc(o.key)}">${esc(o.character || o.name)}${o.wipe ? ` · wipe ${o.wipe}` : ""}</button>`
+        `<button type="button" class="btn secondary wait-pick" data-target-key="${esc(o.key)}">${esc(o.teamName || o.name)}${o.wipe ? ` · wipe ${o.wipe}` : ""}</button>`
       ).join("") + `</div>`;
     } else if (wait.kind === "pick_player") {
       html += `<div class="wait-options">` + wait.options.map((o) =>
@@ -676,7 +783,7 @@ function syncSamayPreview() {
   const box = document.getElementById("samay-preview");
   if (!box) return;
   const preview = state && state.you && state.you.samayPreview;
-  const show = Boolean(preview && preview.length && state.phase === "auction");
+  const show = Boolean(preview && preview.length && state.phase === "auction" && !samayPreviewDismissed);
   box.hidden = !show;
   if (!show) return;
   const list = document.getElementById("samay-list");
@@ -853,10 +960,31 @@ function gameModeCards() {
   }).join("");
 }
 
+function parkRulesButton() {
+  const rulesBtn = document.getElementById("open-rules");
+  const topbar = document.querySelector(".topbar");
+  if (rulesBtn && topbar && rulesBtn.parentElement !== topbar) topbar.appendChild(rulesBtn);
+  return rulesBtn;
+}
+
+function placeRulesButton(home) {
+  const rulesBtn = document.getElementById("open-rules");
+  if (!rulesBtn) return;
+  if (home) {
+    const brand = document.querySelector(".topbar .brand");
+    if (brand) brand.after(rulesBtn);
+    return;
+  }
+  const actions = topMeta.querySelector(".top-actions");
+  if (actions) actions.insertBefore(rulesBtn, actions.firstChild);
+}
+
 function renderTop() {
+  parkRulesButton();
   if (!state || !state.code || state.phase === "ended") {
     topMeta.hidden = true;
     topMeta.innerHTML = "";
+    placeRulesButton(true);
     return;
   }
   topMeta.hidden = false;
@@ -874,6 +1002,7 @@ function renderTop() {
       ${youPill}
       <span class="top-actions">${hostEnd}</span>
     `;
+    placeRulesButton(false);
     return;
   }
   topMeta.innerHTML = `
@@ -887,6 +1016,7 @@ function renderTop() {
       ${hostEnd}
     </span>
   `;
+  placeRulesButton(false);
 }
 
 function gameDoneView() {
@@ -1210,7 +1340,7 @@ function powerButtonHtml() {
   const whyHtml = why
     ? `<p class="power-why" id="power-why">${esc(why)}</p>`
     : `<p class="power-why" id="power-why" hidden></p>`;
-  return `<button type="button" class="power-btn ${used ? "is-used" : ""}" id="use-power" ${disabled ? "disabled" : ""} title="${esc(title)}" aria-describedby="${why ? "power-why" : ""}" aria-label="${esc(used ? label : `Use power: ${power.name}. ${title}`)}">
+  return `<button type="button" class="power-btn ${used ? "is-used" : ""} ${disabled ? "is-disabled" : ""}" id="use-power" ${disabled ? 'aria-disabled="true"' : ""} title="${esc(title)}" aria-describedby="${why ? "power-why" : ""}" aria-label="${esc(used ? label : `Use power: ${power.name}. ${title}`)}">
     ${teamMark(you.franchise, "sm", you.name)}
     <span class="power-btn-copy"><small>Power${used ? " used" : " · once"}</small><strong>${esc(power.name)}</strong></span>
   </button>${whyHtml}`;
@@ -1542,14 +1672,14 @@ function bidButtonsHtml(a) {
   let primary;
   if (primaryOpt) {
     const enabled = Boolean(shown[0] && shown[0].enabled);
-    primary = `<button class="btn bid-amt bid-primary" data-step="${primaryOpt.step}" aria-label="Bid ${primaryOpt.amount} points" ${enabled ? "" : "disabled"}>
+    primary = `<button class="btn bid-amt bid-primary ${enabled ? "" : "is-disabled"}" data-step="${primaryOpt.step}" aria-label="Bid ${primaryOpt.amount} points" ${enabled ? "" : 'aria-disabled="true"'}>
       <span class="bid-primary-label">Bid ${primaryOpt.amount}</span>
     </button>`;
   } else {
-    primary = `<button class="btn bid-amt bid-primary" type="button" disabled><span class="bid-primary-label">Bid</span></button>`;
+    primary = `<button class="btn bid-amt bid-primary is-disabled" type="button" aria-disabled="true" data-bid-blocked="1"><span class="bid-primary-label">Bid</span></button>`;
   }
   const extras = rest
-    .map((o) => `<button class="btn bid-amt bid-extra" data-step="${o.step}" aria-label="Bid ${o.amount} points" ${o.enabled ? "" : "disabled"}>
+    .map((o) => `<button class="btn bid-amt bid-extra ${o.enabled ? "" : "is-disabled"}" data-step="${o.step}" aria-label="Bid ${o.amount} points" ${o.enabled ? "" : 'aria-disabled="true"'}>
         <span class="bid-amt-num">${o.amount}</span>
         <span class="bid-amt-unit">pt${o.amount === 1 ? "" : "s"}</span>
       </button>`)
@@ -1585,9 +1715,10 @@ function auctionView() {
   return `
     <div>${banner}</div>
     <section class="auction-layout">
-      <div class="panel player-card ${p.vfxHidden ? "is-vfx" : ""}">
+      <div class="panel player-card ${p.vfxHidden ? "is-vfx" : ""} ${isMarqueePlayer(p) ? "is-marquee" : ""}">
         <p class="lede">${esc(modeInfo().compositionLabel)} · ${a.lotId && a.lotTotal ? `Lot ${a.lotId} of ${a.lotTotal}` : a.lotId ? `Lot ${a.lotId}` : "On the block"} · starts at ${money(a.startBidLakhs != null ? a.startBidLakhs : 1)}</p>
         <div class="live-bid-wrap">${liveBidHtml(a)}</div>
+        ${you ? lowBudgetBannerHtml(you) : ""}
         <p class="nominee-kicker">${esc(p.name)}</p>
         <div class="auction-stage">
           <div class="ring-wrap">
@@ -1601,13 +1732,16 @@ function auctionView() {
               <span class="bail b1"></span><span class="bail b2"></span>
               <span class="stump s1"></span><span class="stump s2"></span><span class="stump s3"></span>
             </div>
-            <div class="hub" id="auction-hub" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
+            <div class="hub ${isMarqueePlayer(p) ? "is-marquee" : ""} ${hubRatingOpen && !p.vfxHidden ? "is-rating" : ""}" id="auction-hub" role="button" tabindex="0" aria-label="${p.vfxHidden ? "Current player hidden" : "Show current player rating"}" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
               <div class="hub-inner">
                 ${window.IplHeadshot ? IplHeadshot.markup(p, { id: "hub-headshot" }) : ""}
+                ${isMarqueePlayer(p) ? `<span class="marquee-badge">Marquee</span>` : ""}
                 <p class="hub-name ${p.vfxHidden ? "is-vfx" : ""}" id="hub-name">${esc(p.name)}</p>
                 <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
                   ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
-                  <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>`}
+                  <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>
+                  <div class="hub-rating" id="hub-rating"><p class="hub-rating-label">Rating</p><p class="hub-rating-value">${playerRating(p) != null ? playerRating(p) : "—"}</p><p class="hub-rating-hint">Bat ${p.batting} · Bowl ${p.bowling}</p></div>
+                  <p class="hub-tap-hint">${hubRatingOpen ? "Tap to hide rating" : "Tap for rating"}</p>`}
                 </div>
               </div>
             </div>
@@ -1766,6 +1900,13 @@ function patchAuction() {
   syncPowerConfirm();
   const purse = document.querySelector(".side .purse");
   if (purse && state.you) purse.textContent = money(state.you.purseLakhs);
+  const budgetHost = document.querySelector(".player-card .live-bid-wrap");
+  if (budgetHost && state.you) {
+    let ban = document.getElementById("low-budget-banner");
+    const html = lowBudgetBannerHtml(state.you);
+    if (html && !ban) budgetHost.insertAdjacentHTML("afterend", html);
+    else if (!html && ban) ban.remove();
+  }
   const sideSlots = document.getElementById("side-slots");
   if (sideSlots && state.you) sideSlots.innerHTML = squadSlots(state.you);
   const lede = document.getElementById("side-lede");
@@ -2702,6 +2843,32 @@ function closeEmotePicker() {
   if (btn) btn.setAttribute("aria-expanded", "false");
 }
 
+function clampEmotePopover() {
+  const pop = document.getElementById("emote-popover");
+  const btn = document.getElementById("emote-btn");
+  if (!pop || pop.hidden || !btn) return;
+  const margin = 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  pop.style.left = "0px";
+  pop.style.top = "0px";
+  pop.style.right = "auto";
+  pop.style.bottom = "auto";
+  const br = btn.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  let left = br.right - pr.width;
+  let top = br.top - pr.height - 8;
+  if (left < margin) left = margin;
+  if (left + pr.width > vw - margin) left = Math.max(margin, vw - pr.width - margin);
+  if (top < margin) {
+    top = br.bottom + 8;
+    if (top + pr.height > vh - margin) top = Math.max(margin, vh - pr.height - margin);
+  }
+  if (top + pr.height > vh - margin) top = Math.max(margin, vh - pr.height - margin);
+  pop.style.left = `${Math.round(left)}px`;
+  pop.style.top = `${Math.round(top)}px`;
+}
+
 function toggleEmotePicker() {
   if (emotePickerOpen) {
     closeEmotePicker();
@@ -2712,6 +2879,7 @@ function toggleEmotePicker() {
   const btn = document.getElementById("emote-btn");
   if (pop) pop.hidden = false;
   if (btn) btn.setAttribute("aria-expanded", "true");
+  requestAnimationFrame(clampEmotePopover);
 }
 
 function emotePickerHtml() {
@@ -2757,20 +2925,14 @@ function syncEmoteDock() {
     dock.innerHTML = emotePickerHtml();
     dock.dataset.lines = linesKey;
   }
-  const overlayUp = isSoldRevealActive() || isLastTeamFillActive() || isPlayerIntroActive() || Boolean(state.paused);
-  const wrap = document.querySelector(".ring-wrap");
-  if (wrap && !overlayUp) {
-    if (dock.parentElement !== wrap) wrap.appendChild(dock);
-    dock.classList.remove("is-fixed");
-  } else {
-    if (dock.parentElement !== document.body) document.body.appendChild(dock);
-    dock.classList.add("is-fixed");
-  }
+  if (dock.parentElement !== document.body) document.body.appendChild(dock);
+  dock.classList.add("is-fixed");
   const btn = document.getElementById("emote-btn");
   if (btn) btn.disabled = false;
   const pop = document.getElementById("emote-popover");
   if (pop) pop.hidden = !emotePickerOpen;
   if (btn) btn.setAttribute("aria-expanded", emotePickerOpen ? "true" : "false");
+  if (emotePickerOpen) requestAnimationFrame(clampEmotePopover);
 }
 
 function findEmoteTeam(teamId) {
@@ -2923,12 +3085,26 @@ function showEmote(payload) {
   el.addEventListener("animationcancel", () => dismissEmote(rec), { once: true });
 }
 
+function reactionAllowed() {
+  const now = Date.now();
+  while (reactionSentAt.length && now - reactionSentAt[0] >= REACTION_RATE_WINDOW_MS) reactionSentAt.shift();
+  if (reactionSentAt.length >= REACTION_RATE_MAX) {
+    toast("Slow down — you can send 3 reactions every 9 seconds.");
+    return false;
+  }
+  return true;
+}
+
+function noteReactionSent() {
+  reactionSentAt.push(Date.now());
+}
+
 async function sendEmote(id) {
   if (!state || state.phase !== "auction" || !id) return;
+  if (!reactionAllowed()) return;
   const res = await emit("emote", { emoteId: id });
-  if (res && res.dropped) return;
   if (res && res.ok) {
-    // The broadcast also arrives on this socket; don't double-show here.
+    noteReactionSent();
     return;
   }
   if (res && res.error) toast(res.error);
@@ -2938,6 +3114,37 @@ function wireGlobal() {
   if (wireGlobal.done) return;
   wireGlobal.done = true;
   document.addEventListener("click", async (e) => {
+    if (e.target.closest("#open-rules")) {
+      e.preventDefault();
+      openRulesModal();
+      return;
+    }
+    if (e.target.closest("#close-rules") || e.target.closest("[data-close-rules]")) {
+      e.preventDefault();
+      closeRulesModal();
+      return;
+    }
+    if (e.target.closest("#action-reason-ok") || e.target.closest("[data-close-reason]")) {
+      e.preventDefault();
+      closeActionReason();
+      return;
+    }
+    if (e.target.closest("#samay-close")) {
+      e.preventDefault();
+      closeSamayPreview();
+      return;
+    }
+    if (e.target.closest("#auction-hub") && !e.target.closest("button")) {
+      const p = state && state.auction && state.auction.nominee;
+      if (p && !p.vfxHidden && !p.hidden) {
+        hubRatingOpen = !hubRatingOpen;
+        const hub = document.getElementById("auction-hub");
+        if (hub) hub.classList.toggle("is-rating", hubRatingOpen);
+        const hint = hub && hub.querySelector(".hub-tap-hint");
+        if (hint) hint.textContent = hubRatingOpen ? "Tap to hide rating" : "Tap for rating";
+      }
+      return;
+    }
     const emotePick = e.target.closest("[data-emote]");
     if (emotePick) {
       e.preventDefault();
@@ -2961,7 +3168,9 @@ function wireGlobal() {
     const quick = e.target.closest("[data-quick-chat]");
     if (quick) {
       e.preventDefault();
+      if (!reactionAllowed()) return;
       const res = await emit("quickChat", { lineId: quick.getAttribute("data-quick-chat") });
+      if (res && res.ok) noteReactionSent();
       if (!res || !res.ok) toast((res && res.error) || "Could not send that line.");
       return;
     }
@@ -3007,6 +3216,15 @@ function wireGlobal() {
       return;
     }
     if (e.target.closest("#use-power")) {
+      e.preventDefault();
+      const btn = e.target.closest("#use-power");
+      if (btn && btn.getAttribute("aria-disabled") === "true") {
+        const why = (typeof powerDisabledReason === "function" && powerDisabledReason())
+          || (state.you && (state.you.canUsePowerReason || state.you.canUsePowerHint))
+          || "You cannot use your power right now.";
+        openActionReason(why, "Can't use power");
+        return;
+      }
       openPowerConfirm();
       return;
     }
@@ -3053,6 +3271,15 @@ function wireGlobal() {
       goHome();
       return;
     }
+    const blockedBid = e.target.closest("[data-bid-blocked], .bid-amt[aria-disabled='true']");
+    if (blockedBid && state && state.phase === "auction") {
+      e.preventDefault();
+      const step = Number(blockedBid.getAttribute("data-step"));
+      const current = state.auction && state.auction.currentBidLakhs;
+      const amount = Number.isFinite(step) ? current + step : (state.auction && state.auction.minBidLakhs);
+      openActionReason(clientBidReason(amount), "Can't bid");
+      return;
+    }
     const stepBtn = e.target.closest("[data-step]");
     if (stepBtn && state && state.phase === "auction") {
       const step = Number(stepBtn.getAttribute("data-step"));
@@ -3074,6 +3301,7 @@ function render() {
   if (!state || !state.phase || !state.code || state.phase === "ended") {
     lastNomineeId = null;
     lastBidShown = null;
+    hubRatingOpen = false;
     if (landing && landing.kind === "done") main.innerHTML = gameDoneView();
     else if (landing && landing.kind === "missing") main.innerHTML = roomNotFoundView();
     else if (landing && landing.kind === "join") main.innerHTML = joinLinkView();
@@ -3475,6 +3703,7 @@ socket.on("state", (next) => {
     bidDraft = state?.auction?.minBidLakhs ?? null;
     lastError = "";
     lastYouLed = null;
+    hubRatingOpen = false;
   }
   if (state?.phase === "results" && prevPhase !== "results" && !isResultsRevealPending()) {
     // Team sheets come from the lite snapshot; match scorecards stay off the results page.
@@ -3498,6 +3727,7 @@ socket.on("delta", (evt) => {
     bidDraft = state.auction?.minBidLakhs ?? null;
     lastError = "";
     lastYouLed = null;
+    hubRatingOpen = false;
   }
   if (state.phase === "results" && (prevPhase !== "results" || (evt && evt.type === "resultsReveal" && evt.complete)) && !isResultsRevealPending()) {
     // Match-by-match output is no longer shown on the results page.
@@ -3539,6 +3769,24 @@ window.addEventListener("keydown", (ev) => {
 });
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  const rules = document.getElementById("rules-modal");
+  if (rules && !rules.hidden) {
+    closeRulesModal();
+    e.preventDefault();
+    return;
+  }
+  const reason = document.getElementById("action-reason");
+  if (reason && !reason.hidden) {
+    closeActionReason();
+    e.preventDefault();
+    return;
+  }
+  const peek = document.getElementById("samay-preview");
+  if (peek && !peek.hidden) {
+    closeSamayPreview();
+    e.preventDefault();
+    return;
+  }
   if (isPowerConfirmOpen()) {
     closePowerConfirm();
     e.preventDefault();
@@ -3546,7 +3794,10 @@ window.addEventListener("keydown", (e) => {
   }
   if (emotePickerOpen) closeEmotePicker();
 });
+window.addEventListener("resize", () => {
+  if (emotePickerOpen) clampEmotePopover();
+});
 render();
 
 
-window.IplApp = { get state() { return state; }, get stayOnHome() { return stayOnHome; }, emit, socket, goHome, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize, openResultsTeamSheet, closeResultsTeamSheet };
+window.IplApp = { get state() { return state; }, get stayOnHome() { return stayOnHome; }, emit, socket, goHome, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize, openResultsTeamSheet, closeResultsTeamSheet, openRulesModal, closeRulesModal, openActionReason, closeActionReason, closeSamayPreview, clampEmotePopover, isLowBudget, playerRating, get hubRatingOpen() { return hubRatingOpen; } };
