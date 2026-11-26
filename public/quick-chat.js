@@ -15,7 +15,7 @@
     throw new Error("characters.js must be loaded before quick-chat.js");
   }
 
-  const QUICK_CHAT_COOLDOWN_MS = 2000;
+  const QUICK_CHAT_COOLDOWN_MS = 1000;
 
   function linesFor(characterId) {
     return chars.characterLines(characterId);

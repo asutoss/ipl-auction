@@ -3057,17 +3057,18 @@ class GameRoom extends EventEmitter {
 
   takeReactionSlot(team, now = Date.now()) {
     if (!team) return { ok: false, error: "You are not in this room." };
-    const windowMs = Number(EMOTE_RATE_WINDOW_MS) || 9000;
-    const max = Number(EMOTE_RATE_MAX) || 3;
+    const windowMs = Number(EMOTE_RATE_WINDOW_MS) || 10000;
+    const max = Number(EMOTE_RATE_MAX) || 6;
     const recent = (team.emoteTimes || []).filter((t) => now - t < windowMs);
     if (recent.length >= max) {
       team.emoteTimes = recent;
       const waitMs = Math.max(0, windowMs - (now - recent[0]));
+      const secs = Math.round(windowMs / 1000);
       return {
         ok: false,
         dropped: true,
         waitMs,
-        error: "Slow down — you can send 3 reactions every 9 seconds.",
+        error: `Slow down — you can send ${max} reactions every ${secs} seconds.`,
       };
     }
     recent.push(now);

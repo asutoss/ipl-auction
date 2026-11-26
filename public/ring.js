@@ -104,7 +104,7 @@
     opts = opts || {};
     const purseN = Number(team && team.purseLakhs);
     const purse = Number.isFinite(purseN) ? Math.max(0, Math.round(purseN)) : null;
-    const purseLabel = purse == null ? "—" : String(purse);
+    const purseLabel = purse == null ? "—" : `${purse} pts`;
     const banned = Boolean(team && team.banned);
     const eliminated = Boolean(team && team.eliminated);
     const muted = banned || eliminated;
@@ -128,7 +128,6 @@
   }
 
   function bubbleHtml(view) {
-    const coin = `<svg class="ring-coin" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#f5c518" stroke="#8a6a10" stroke-width="1.2"/><circle cx="8" cy="8" r="4.5" fill="none" stroke="#fff4b0" stroke-width="1"/><path d="M8 4.4v7.2" stroke="#8a6a10" stroke-width="1.15" stroke-linecap="round"/></svg>`;
     const need = view.complete
       ? `<span class="ring-bubble-tick" title="Squad complete">✓</span>`
       : (view.needLabel ? `<span class="ring-bubble-need">${esc(view.needLabel)}</span>` : "");
@@ -138,7 +137,11 @@
       view.complete ? "is-full" : "",
       view.muted ? "is-muted" : "",
     ].filter(Boolean).join(" ");
-    return `<span class="${cls}" title="${esc(view.text)}">${coin}<span class="ring-bubble-pts">${esc(view.purseLabel)}</span>${need ? `<span class="ring-bubble-dot" aria-hidden="true">·</span>${need}` : ""}</span>`;
+    const pts = `<span class="ring-bubble-pts">${esc(view.purseLabel)}</span>`;
+    const rows = view.complete || view.needLabel
+      ? `${pts}${need}`
+      : pts;
+    return `<span class="${cls}" title="${esc(view.text)}">${rows}</span>`;
   }
 
   function isRingParticipant(team) {
@@ -558,8 +561,12 @@
 
   function placeMeta(mid) {
     const m = ((Number(mid) % 360) + 360) % 360;
-    if (m >= 50 && m < 130) return { side: "right", x: "-2px", y: "40px" };
-    if (m >= 230 && m < 310) return { side: "left", x: "2px", y: "40px" };
+    // Bottom of the ring sits just above the bid bar on a 360px phone.
+    // Keep those labels beside the face, not underneath it.
+    if (m >= 130 && m < 180) return { side: "right", x: "58px", y: "8px" };
+    if (m >= 180 && m < 230) return { side: "left", x: "-58px", y: "8px" };
+    if (m >= 50 && m < 130) return { side: "right", x: "4px", y: "38px" };
+    if (m >= 230 && m < 310) return { side: "left", x: "-4px", y: "38px" };
     return { side: "radial", out: null };
   }
 
@@ -614,7 +621,8 @@
       pin.appendChild(meta);
     }
     const view = seatBubble(team, { minBidLakhs: team.minBidLakhs, nomineeRole: team.nomineeRole });
-    meta.innerHTML = `<span class="ring-seat-name">${esc(team.name || team.short || "")}</span>${bubbleHtml(view)}`;
+    const label = team.name || team.short || "";
+    meta.innerHTML = `<span class="ring-seat-name" title="${esc(label)}">${esc(label)}</span>${bubbleHtml(view)}`;
     pin.style.setProperty("--lift-x", (item.lift && item.lift.style.getPropertyValue("--lift-x")) || "0");
     pin.style.setProperty("--lift-y", (item.lift && item.lift.style.getPropertyValue("--lift-y")) || "0");
     pin.style.setProperty("--bob-x", (item.root && item.root.style.getPropertyValue("--bob-x")) || "0");
@@ -830,5 +838,5 @@
     return size;
   }
 
-  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget };
+  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget, placeMeta };
 });

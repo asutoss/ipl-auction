@@ -94,8 +94,8 @@ function money(points) {
 
 const MIN_START_BID_PTS = 1;
 const LOW_BUDGET_FLOOR_PTS = 5;
-const REACTION_RATE_MAX = (window.IplEmotes && window.IplEmotes.EMOTE_RATE_MAX) || 3;
-const REACTION_RATE_WINDOW_MS = (window.IplEmotes && window.IplEmotes.EMOTE_RATE_WINDOW_MS) || 9000;
+const REACTION_RATE_MAX = (window.IplEmotes && window.IplEmotes.EMOTE_RATE_MAX) || 6;
+const REACTION_RATE_WINDOW_MS = (window.IplEmotes && window.IplEmotes.EMOTE_RATE_WINDOW_MS) || 10000;
 let hubRatingOpen = false;
 let samayPreviewDismissed = false;
 const reactionSentAt = [];
@@ -1732,7 +1732,7 @@ function auctionView() {
               <span class="bail b1"></span><span class="bail b2"></span>
               <span class="stump s1"></span><span class="stump s2"></span><span class="stump s3"></span>
             </div>
-            <div class="hub ${isMarqueePlayer(p) ? "is-marquee" : ""} ${hubRatingOpen && !p.vfxHidden ? "is-rating" : ""}" id="auction-hub" role="button" tabindex="0" aria-label="${p.vfxHidden ? "Current player hidden" : "Show current player rating"}" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
+            <div class="hub ${isMarqueePlayer(p) ? "is-marquee" : ""} ${hubRatingOpen && !p.vfxHidden ? "is-rating" : ""}" id="auction-hub" role="button" tabindex="0" aria-label="${p.vfxHidden ? "Current player hidden" : "Show batting and bowling ratings"}" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
               <div class="hub-inner">
                 ${window.IplHeadshot ? IplHeadshot.markup(p, { id: "hub-headshot" }) : ""}
                 ${isMarqueePlayer(p) ? `<span class="marquee-badge">Marquee</span>` : ""}
@@ -1740,8 +1740,17 @@ function auctionView() {
                 <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
                   ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
                   <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>
-                  <div class="hub-rating" id="hub-rating"><p class="hub-rating-label">Rating</p><p class="hub-rating-value">${playerRating(p) != null ? playerRating(p) : "—"}</p><p class="hub-rating-hint">Bat ${p.batting} · Bowl ${p.bowling}</p></div>
-                  <p class="hub-tap-hint">${hubRatingOpen ? "Tap to hide rating" : "Tap for rating"}</p>`}
+                  <div class="hub-rating" id="hub-rating">
+                    <div class="hub-stat">
+                      <p class="hub-stat-label">Bat</p>
+                      <p class="hub-stat-value">${p.batting != null ? p.batting : "—"}</p>
+                    </div>
+                    <div class="hub-stat">
+                      <p class="hub-stat-label">Bowl</p>
+                      <p class="hub-stat-value">${p.bowling != null ? p.bowling : "—"}</p>
+                    </div>
+                  </div>
+                  <p class="hub-tap-hint">${hubRatingOpen ? "Tap to hide" : "Tap for bat & bowl"}</p>`}
                 </div>
               </div>
             </div>
@@ -3089,7 +3098,7 @@ function reactionAllowed() {
   const now = Date.now();
   while (reactionSentAt.length && now - reactionSentAt[0] >= REACTION_RATE_WINDOW_MS) reactionSentAt.shift();
   if (reactionSentAt.length >= REACTION_RATE_MAX) {
-    toast("Slow down — you can send 3 reactions every 9 seconds.");
+    toast(`Slow down — you can send ${REACTION_RATE_MAX} reactions every ${Math.round(REACTION_RATE_WINDOW_MS / 1000)} seconds.`);
     return false;
   }
   return true;
@@ -3141,7 +3150,7 @@ function wireGlobal() {
         const hub = document.getElementById("auction-hub");
         if (hub) hub.classList.toggle("is-rating", hubRatingOpen);
         const hint = hub && hub.querySelector(".hub-tap-hint");
-        if (hint) hint.textContent = hubRatingOpen ? "Tap to hide rating" : "Tap for rating";
+        if (hint) hint.textContent = hubRatingOpen ? "Tap to hide" : "Tap for bat & bowl";
       }
       return;
     }

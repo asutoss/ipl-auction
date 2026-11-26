@@ -442,24 +442,24 @@ describe("emotes", () => {
     assert.match(tooSoon.error, /auction/i);
   });
 
-  test("allows 3 reactions in 9 seconds and tells the player to slow down after that", () => {
-    assert.equal(EMOTE_RATE_MAX, 3);
-    assert.equal(EMOTE_RATE_WINDOW_MS, 9000);
+  test("allows 6 reactions in 10 seconds and tells the player to slow down after that", () => {
+    assert.equal(EMOTE_RATE_MAX, 6);
+    assert.equal(EMOTE_RATE_WINDOW_MS, 10000);
     const room = liveRoom();
     const events = [];
     room.on("emote", (evt) => events.push(evt));
-    const ids = ["fire", "clap", "laugh", "cry", "clown"];
+    const ids = ["fire", "clap", "laugh", "cry", "clown", "money", "mindblown", "cool"];
     const results = ids.map((id) => room.emote("Priya", id));
     const accepted = results.filter((r) => r.ok);
     const dropped = results.filter((r) => !r.ok);
-    assert.equal(accepted.length, 3);
+    assert.equal(accepted.length, 6);
     assert.equal(dropped.length, 2);
     assert.equal(dropped.every((r) => r.dropped), true);
-    assert.equal(dropped.every((r) => /3 reactions every 9 seconds/i.test(r.error || "")), true);
-    assert.equal(events.length, 3);
+    assert.equal(dropped.every((r) => /6 reactions every 10 seconds/i.test(r.error || "")), true);
+    assert.equal(events.length, 6);
     const other = room.emote("Ashutosh", "cool");
     assert.equal(other.ok, true);
-    assert.equal(events.length, 4);
+    assert.equal(events.length, 7);
     const team = room.findByName("Priya");
     team.emoteTimes = (team.emoteTimes || []).map((t) => t - EMOTE_RATE_WINDOW_MS - 1);
     const again = room.emote("Priya", "clap");
@@ -467,11 +467,14 @@ describe("emotes", () => {
     assert.equal(again.emoteId, "clap");
   });
 
-  test("emotes and quick chat share the same 3-in-9-seconds burst cap", () => {
+  test("emotes and quick chat share the same 6-in-10-seconds burst cap", () => {
     const room = liveRoom();
     assert.equal(room.emote("Priya", "laugh").ok, true);
     assert.equal(room.emote("Priya", "fire").ok, true);
     assert.equal(room.emote("Priya", "clap").ok, true);
+    assert.equal(room.emote("Priya", "cry").ok, true);
+    assert.equal(room.emote("Priya", "clown").ok, true);
+    assert.equal(room.emote("Priya", "money").ok, true);
     // Power wait opens quick chat; the shared bucket should still be full.
     room.powerWait = { kind: "chai", actorKey: room.findByName("Ashutosh").key };
     const line = require("../public/characters").characterLines(room.findByName("Priya").franchise.id || room.findByName("Priya").franchise.characterId)[0];
@@ -483,7 +486,7 @@ describe("emotes", () => {
     if (lines.length) {
       const blocked = room.quickChat("Priya", lines[0].id);
       assert.equal(blocked.ok, false);
-      assert.match(blocked.error || "", /3 reactions every 9 seconds/i);
+      assert.match(blocked.error || "", /6 reactions every 10 seconds/i);
     }
   });
 
@@ -708,11 +711,21 @@ describe("ring seat bubbles", () => {
 
   test("combines purse and slots left in one bubble", () => {
     const b = seatBubble({ name: "Mitron", purseLakhs: 42, pending: 3 }, { minBidLakhs: 6 });
-    assert.equal(b.purseLabel, "42");
+    assert.equal(b.purseLabel, "42 pts");
     assert.equal(b.needLabel, "3 left");
     assert.equal(b.tone, "ok");
     assert.equal(b.complete, false);
-    assert.equal(b.text, "42 · 3 left");
+    assert.equal(b.text, "42 pts · 3 left");
+  });
+
+  test("bubble markup shows purse in points and open slots on their own rows", () => {
+    const { bubbleHtml } = require("../public/ring");
+    const html = bubbleHtml(seatBubble({ name: "Mitron", purseLakhs: 42, pending: 3 }, { minBidLakhs: 6 }));
+    assert.match(html, /42 pts/);
+    assert.match(html, /3 left/);
+    assert.match(html, /ring-bubble-pts/);
+    assert.match(html, /ring-bubble-need/);
+    assert.equal(/overall|rating/i.test(html), false);
   });
 
   test("uses a tick/Full mark when the squad is complete", () => {
@@ -720,7 +733,7 @@ describe("ring seat bubbles", () => {
     assert.equal(b.complete, true);
     assert.equal(b.needLabel, "Full");
     assert.equal(b.tone, "ok");
-    assert.equal(b.text, "42 · Full");
+    assert.equal(b.text, "42 pts · Full");
   });
 
   test("goes red when the team cannot afford the next bid", () => {
@@ -775,7 +788,19 @@ describe("ring seat bubbles", () => {
     assert.equal(mitron.stillIn, true);
     assert.equal(seats.some((s) => s.name === "Dolly"), false);
     const mb = seatBubble(mitron, { minBidLakhs: mitron.minBidLakhs, nomineeRole: mitron.nomineeRole });
-    assert.equal(mb.text, "70 · 10 left");
+    assert.equal(mb.text, "70 pts · 10 left");
+  });
+});
+
+describe("ring label placement", () => {
+  const { placeMeta } = require("../public/ring");
+
+  test("bottom seats put the purse and slots beside the face, not under the bid bar", () => {
+    assert.equal(placeMeta(160).side, "right");
+    assert.equal(placeMeta(200).side, "left");
+    assert.equal(placeMeta(0).side, "radial");
+    assert.equal(placeMeta(90).side, "right");
+    assert.equal(placeMeta(270).side, "left");
   });
 });
 
