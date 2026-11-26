@@ -292,11 +292,13 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
   html.is-auction .hub .hub-leader { display: none; }
   html.is-auction .hub-inner { gap: 4px; }
   html.is-auction .hub .hub-name { font-size: clamp(16px, 5.4vw, 22px); }
-  .ring-seat-name { font-size: 9px; max-width: 58px; }
+  .ring-seat-name { font-size: 8px; width: max-content; max-width: min(112px, 31vw); line-height: 1.15; white-space: normal; overflow: visible; overflow-wrap: normal; word-break: normal; }
+  .ring-seat-name.is-long { width: 64px; min-width: 64px; }
+  .ring-seat-meta { width: max-content; max-width: min(112px, 31vw); }
   .ring-bubble { font-size: 9px; padding: 1px 6px; max-width: 72px; flex-direction: row; gap: 3px; }
   .ring-logo-bob { width: 48px; height: 48px; }
   .ring-logo-pin.is-leader .ring-logo-bob { width: 54px; height: 54px; }
-  .ring-seat-meta { --meta-out: -40px; }
+  .ring-seat-meta { --meta-out: -50px; }
 
   .bid-box {
     padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));

@@ -462,9 +462,12 @@ describe("e2e: Kim wipe updates every client's squad", () => {
     const wanted = ["kim-jong-un", "ravi-kishan", "narendra-modi"];
     const pickRoom = ctx.manager.get(code);
     const fillers = pickRoom.characterOrder.filter((id) => !wanted.includes(id));
+    const charIdOf = (f) => (f && f.franchise && (f.franchise.characterId || f.franchise.id)) || null;
     for (const [i, sock] of [kim, victim, spectator].entries()) {
-      const id = fillers[i];
-      assert.equal((await ack(sock, "selectCharacter", { characterId: id, identityId: id })).ok, true);
+      const held = pickRoom.franchises.map(charIdOf);
+      const id = fillers.find((fid) => !held.includes(fid) || held[i] === fid);
+      const res = await ack(sock, "selectCharacter", { characterId: id, identityId: id });
+      assert.equal(res.ok, true, res.error);
     }
     assert.equal((await ack(kim, "selectCharacter", { characterId: "kim-jong-un", identityId: "kim-jong-un" })).ok, true);
     assert.equal((await ack(victim, "selectCharacter", { characterId: "ravi-kishan", identityId: "ravi-kishan" })).ok, true);

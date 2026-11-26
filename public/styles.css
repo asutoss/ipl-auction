@@ -702,6 +702,9 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(112px, 31vw);
   transform: translate(-50%, -50%) rotate(var(--mid, 0deg)) translateY(var(--meta-out, -50px)) rotate(calc(-1 * var(--mid, 0deg)));
   pointer-events: none;
   z-index: 8;
@@ -713,15 +716,25 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 }
 .ring-seat-name {
   display: block;
-  max-width: 62px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(112px, 31vw);
   font-size: 10px;
   font-weight: 800;
-  line-height: 1.05;
+  line-height: 1.15;
   color: #fff;
   text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-align: center;
+}
+.ring-seat-name.is-long,
+.ring-seat-meta.is-long .ring-seat-name {
+  width: 64px;
+  min-width: 64px;
+  max-width: min(112px, 31vw);
 }
 .ring-bubble {
   display: inline-flex;
@@ -777,10 +790,10 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .ring-logo-pin.is-out .ring-seat-name { color: #c5ccc8; }
 .ring-logo-layer[data-count="4"] .ring-seat-meta,
 .ring-logo-layer[data-count="5"] .ring-seat-meta,
-.ring-logo-layer[data-count="6"] .ring-seat-meta { --meta-out: -42px; }
+.ring-logo-layer[data-count="6"] .ring-seat-meta { --meta-out: -52px; }
 .ring-logo-layer[data-count="4"] .ring-seat-name,
 .ring-logo-layer[data-count="5"] .ring-seat-name,
-.ring-logo-layer[data-count="6"] .ring-seat-name { max-width: 70px; font-size: 10px; }
+.ring-logo-layer[data-count="6"] .ring-seat-name { max-width: min(112px, 31vw); font-size: 8px; line-height: 1.15; }
 .ring-logo-layer[data-count="4"] .ring-bubble,
 .ring-logo-layer[data-count="5"] .ring-bubble,
 .ring-logo-layer[data-count="6"] .ring-bubble { min-width: 0; max-width: 64px; padding: 1px 6px; }
@@ -805,7 +818,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .ring-logo-layer[data-count="7"] .ring-seat-name,
 .ring-logo-layer[data-count="8"] .ring-seat-name,
 .ring-logo-layer[data-count="9"] .ring-seat-name,
-.ring-logo-layer[data-count="10"] .ring-seat-name { max-width: 58px; font-size: 9px; }
+.ring-logo-layer[data-count="10"] .ring-seat-name { max-width: min(96px, 26vw); font-size: 8px; line-height: 1.15; }
 .ring-logo-layer[data-count="7"] .ring-bubble,
 .ring-logo-layer[data-count="8"] .ring-bubble,
 .ring-logo-layer[data-count="9"] .ring-bubble,
@@ -853,6 +866,15 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   gap: 3px;
   overflow: hidden;
 }
+.hub-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  width: 100%;
+  min-width: 0;
+}
 
 /* Bidding-screen player headshot (hub + intro). Fixed size, no layout shift. */
 .player-headshot {
@@ -868,7 +890,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   box-shadow: inset 0 0 0 2px rgba(255, 210, 80, 0.28), 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 .hub-inner .player-headshot {
-  --ph-size: clamp(56px, 40cqmin, 92px);
+  --ph-size: clamp(56px, 40cqmin, 76px);
   margin: 0 0 1px;
   flex: 0 0 var(--ph-size);
   display: block;
@@ -2461,21 +2483,29 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .hub.is-rating .hub-rating {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2px 8px;
+  gap: 6px 10px;
   width: 100%;
-  margin-top: 2px;
+  margin: 0;
+}
+.hub.is-rating .hub-rating.is-wk,
+.hub.is-rating.is-wk .hub-rating {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px 6px;
 }
 .hub.is-rating .hub-rates { display: none; }
-.hub.is-rating .player-headshot {
-  display: block;
-  --ph-size: clamp(40px, 28cqmin, 64px);
+.hub.is-rating .hub-identity,
+.hub.is-rating .player-headshot,
+.hub.is-rating .marquee-badge,
+.hub.is-rating .hub-name,
+.hub.is-rating .hub-meta,
+.hub.is-rating .hub-tap-hint {
+  display: none !important;
 }
 .hub.is-rating { z-index: 8; }
-.hub.is-rating .hub-inner { max-height: 92%; width: 84%; gap: 2px; overflow: visible; }
-.hub.is-rating .marquee-badge { margin: 0 0 1px; font-size: 9px; padding: 1px 6px; }
-.hub.is-rating .hub-name { font-size: 13px !important; line-height: 1.15; max-height: 2.4em; }
-.hub.is-rating .hub-tap-hint { display: none; }
-.hub.is-rating .hub-stat-value { font-size: 24px; }
+.hub.is-rating .hub-inner { max-height: 88%; width: 86%; gap: 0; overflow: visible; justify-content: center; }
+.hub.is-rating .hub-stat-value { font-size: clamp(26px, 20cqmin, 40px); }
+.hub.is-rating .hub-rating.is-wk .hub-stat-value,
+.hub.is-rating.is-wk .hub-stat-value { font-size: clamp(22px, 16cqmin, 32px); }
 .hub-stat { text-align: center; min-width: 0; }
 .hub-stat-label {
   margin: 0;
@@ -2552,11 +2582,17 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   .top-meta { flex: 1 0 100%; width: 100%; justify-content: flex-end; }
   html.is-auction .brand h1 { font-size: 18px; line-height: 1.1; }
   html.is-auction .top-meta > .pill { display: none; }
-  .hub.is-rating .player-headshot { display: block; --ph-size: clamp(40px, 18vw, 56px); }
+  .hub.is-rating .hub-identity,
+  .hub.is-rating .player-headshot,
+  .hub.is-rating .marquee-badge,
+  .hub.is-rating .hub-name,
+  .hub.is-rating .hub-meta { display: none !important; }
   .hub.is-rating { z-index: 8; }
-  .hub.is-rating .hub-inner { max-height: 92%; overflow: visible; }
-  .hub.is-rating .hub-rating { margin-top: 1px; gap: 2px 8px; }
-  .hub.is-rating .hub-stat-value { font-size: 22px; }
+  .hub.is-rating .hub-inner { max-height: 88%; overflow: visible; }
+  .hub.is-rating .hub-rating { margin: 0; gap: 6px 8px; }
+  .hub.is-rating .hub-stat-value { font-size: clamp(24px, 8vw, 36px); }
+  .hub.is-rating .hub-rating.is-wk .hub-stat-value,
+  .hub.is-rating.is-wk .hub-stat-value { font-size: clamp(20px, 6.4vw, 28px); }
   .low-budget-banner { font-size: 11px; }
   .emote-dock,
   .ring-wrap .emote-dock,

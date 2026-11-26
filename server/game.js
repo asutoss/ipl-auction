@@ -1,5 +1,5 @@
 const { EventEmitter } = require("events");
-const { overallRating, officialHeadshotUrl } = require("./players");
+const { overallRating, derivedFielding, officialHeadshotUrl } = require("./players");
 const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthBreakdown } = require("./simulate");
 const { findFinalMatch, buildFinalTimeline } = require("./final-timeline");
 const { captainBonusFields, packCaptainBonus } = require("./captaincy");
@@ -394,10 +394,12 @@ class GameRoom extends EventEmitter {
     if (!player) return player;
     if (player.id === "vfx-hidden" || player.hidden || player.vfxHidden) return player;
     const rating = Math.round(overallRating(player));
+    const fielding = Math.round(derivedFielding(player));
     return {
       ...player,
       marquee: Boolean(player.marquee),
       rating: Number.isFinite(rating) ? rating : null,
+      fielding: Number.isFinite(fielding) ? fielding : null,
     };
   }
 
@@ -2668,8 +2670,10 @@ class GameRoom extends EventEmitter {
   }
 
   maskNomineeFor(viewer) {
-    if (!this.auction || !this.auction.vfxHidden) return this.auction ? this.auction.nominee : null;
-    if (viewer && viewer.key === this.auction.vfxSeerKey) return this.auction.nominee;
+    if (!this.auction || !this.auction.vfxHidden) {
+      return this.auction ? this.decoratePublicPlayer(this.auction.nominee) : null;
+    }
+    if (viewer && viewer.key === this.auction.vfxSeerKey) return this.decoratePublicPlayer(this.auction.nominee);
     return hiddenNomineePlaceholder();
   }
 

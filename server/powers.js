@@ -31,6 +31,7 @@ function hiddenNomineePlaceholder() {
     overseas: false,
     batting: null,
     bowling: null,
+    fielding: null,
     basePriceLakhs: null,
     hidden: true,
     vfxHidden: true,

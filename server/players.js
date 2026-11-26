@@ -58,8 +58,17 @@ function overallRating(player) {
   }
 }
 
+function derivedFielding(player) {
+  if (!player) return 0;
+  // No separate fielding or keeping column exists in the player pool.
+  // Keepers are judged mainly on batting class (plus a little bowling);
+  // everyone else uses overall class. Matches are simulated with this value.
+  if (player.role === "WK") return (Number(player.batting) || 0) * 0.85 + (Number(player.bowling) || 0) * 0.15;
+  return overallRating(player);
+}
+
 function clonePlayer(p) {
   return { ...p };
 }
 
-module.exports = { loadPlayers, overallRating, clonePlayer, DATA_PATH, officialHeadshotUrl };
+module.exports = { loadPlayers, overallRating, derivedFielding, clonePlayer, DATA_PATH, officialHeadshotUrl };

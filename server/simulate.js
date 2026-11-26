@@ -1,4 +1,4 @@
-const { overallRating } = require("./players");
+const { overallRating, derivedFielding } = require("./players");
 const { captainBonus, captainMatchesOf } = require("./captaincy");
 const { ROLES, QUOTA, formatPoints, resolveMode, inningsFormat } = require("./rules");
 const { hasBooster } = require("./boosters");
@@ -36,14 +36,6 @@ function ballsToOvers(balls) {
 
 function formatOvers(balls) {
   return ballsToOvers(balls).toFixed(1);
-}
-
-function derivedFielding(player) {
-  if (!player) return 0;
-  // No separate fielding ratings exist. Keepers are judged mainly on their
-  // batting class (plus a little bowling), everyone else on overall class.
-  if (player.role === "WK") return player.batting * 0.85 + player.bowling * 0.15;
-  return overallRating(player);
 }
 
 function playerRatings(slot, isCaptain) {

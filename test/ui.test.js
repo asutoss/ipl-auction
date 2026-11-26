@@ -116,6 +116,14 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
       powerRevealMs: 0,
     };
     const CHAR_IDS = ["narendra-modi", "dolly-chaiwala", "prabhas", "ravi-kishan", "kim-jong-un", "samay-raina"];
+    const LONG_NAMES = [
+      "Royal Challengers Bengal",
+      "Super Kings Express",
+      "Mumbai Mavericks XI",
+      "Sunrisers Hyderabad",
+      "Chennai Super Knights",
+      "Lucknow Giants United",
+    ];
 
     function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
@@ -151,8 +159,10 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
       args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--window-size=360,800"],
     });
 
-    async function runRing(count) {
-      const names = ["Mitron", "Dolly", "Baahubali", "Ravi", "Kim", "Samay"].slice(0, count);
+    async function runRing(count, opts = {}) {
+      const names = (opts.names || ["Mitron", "Dolly", "Baahubali", "Ravi", "Kim", "Samay"]).slice(0, count);
+      const forceWk = Boolean(opts.forceWk);
+      const checkTap = opts.checkTap != null ? Boolean(opts.checkTap) : count === 6;
       const purses = [42, 88, 15, 61, 27, 100];
       const give = [3, 1, 2, 2, 3, 0];
       const ctx = await browser.createBrowserContext();
@@ -199,6 +209,16 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
             given += 1;
           }
         });
+        if (forceWk) {
+          const current = room.auction && room.auction.nominee;
+          if (!current || current.role !== "WK") {
+            const wk = players.find((p) => p.role === "WK" && (!current || p.id !== current.id) && !room.soldIds.has(p.id));
+            if (!wk) throw new Error("no WK available to put on the block");
+            if (current) room.queue.unshift(current);
+            room.queue = (room.queue || []).filter((p) => p.id !== wk.id);
+            room.auction.nominee = wk;
+          }
+        }
         room.bump("auction");
         const seatDeadline = Date.now() + 40000;
         let foundSeats = [];
@@ -227,12 +247,19 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
           const allPins = document.querySelectorAll(".ring-logo-pin").length;
           const leaving = document.querySelectorAll(".ring-logo-pin.is-leaving").length;
           const franchiseCount = window.IplApp && IplApp.state && IplApp.state.franchises ? IplApp.state.franchises.length : 0;
-          const pills = [...document.querySelectorAll(".ring-logo-pin:not(.is-leaving)")].map((pin) => ({
-            name: (pin.querySelector(".ring-seat-name") || {}).textContent || "",
-            pts: ((pin.querySelector(".ring-bubble-pts") || {}).textContent || "").trim(),
-            need: ((pin.querySelector(".ring-bubble-need") || {}).textContent || "").trim(),
-            title: (pin.querySelector(".ring-bubble") || {}).getAttribute("title") || "",
-          }));
+          const pills = [...document.querySelectorAll(".ring-logo-pin:not(.is-leaving)")].map((pin) => {
+            const nameEl = pin.querySelector(".ring-seat-name");
+            const box = nameEl ? nameEl.getBoundingClientRect() : null;
+            return {
+              name: (nameEl && nameEl.textContent || "").trim(),
+              pts: ((pin.querySelector(".ring-bubble-pts") || {}).textContent || "").trim(),
+              need: ((pin.querySelector(".ring-bubble-need") || {}).textContent || "").trim(),
+              title: (pin.querySelector(".ring-bubble") || {}).getAttribute("title") || "",
+              overflowX: nameEl ? Math.max(0, nameEl.scrollWidth - nameEl.clientWidth) : 0,
+              overflowY: nameEl ? Math.max(0, nameEl.scrollHeight - nameEl.clientHeight) : 0,
+              nameBox: box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom } : null,
+            };
+          });
           const dock = document.querySelector(".emote-dock");
           const dockBox = dock ? dock.getBoundingClientRect() : null;
           const chips = [...document.querySelectorAll(".ring-seat-meta")].map((el) => el.getBoundingClientRect());
@@ -304,6 +331,12 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
           assert.match(p.pts, /\d+p/, `${p.name} missing compact purse: ${JSON.stringify(p)}`);
           assert.ok(p.need, `${p.name} missing slots: ${JSON.stringify(p)}`);
           assert.match(p.title, /pts/, `${p.name} missing full title`);
+          assert.ok(names.includes(p.name), `chip name ${JSON.stringify(p.name)} is not a full team name`);
+          assert.ok(p.overflowX <= 1, `team name clipped horizontally: ${JSON.stringify(p)}`);
+          assert.ok(p.overflowY <= 1, `team name clipped vertically: ${JSON.stringify(p)}`);
+          if (p.nameBox) {
+            assert.ok(p.nameBox.left >= -0.5 && p.nameBox.right <= 360.5, `team name off the 360px screen: ${JSON.stringify(p)}`);
+          }
         }
         const hub = report.hubInfo || {};
         assert.equal(hub.shotShown, true, `${count}-team hub headshot hidden: ${JSON.stringify(hub)}`);
@@ -316,6 +349,9 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
         if (count === 6) {
           assert.equal(report.dockHits, false, "emote dock overlaps a ring chip");
           assert.ok(report.liveH > 0 && report.liveH <= 120, `live-bid card still tall: ${report.liveH}`);
+        }
+        if (checkTap) {
+          const playerName = await host.evaluate(() => ((document.getElementById("hub-name") || {}).textContent || "").trim());
           await host.evaluate(() => {
             const hubEl = document.getElementById("auction-hub");
             if (hubEl) hubEl.click();
@@ -331,22 +367,78 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
             const hubEl = document.getElementById("auction-hub");
             const shot = document.getElementById("hub-headshot") || (hubEl && hubEl.querySelector(".player-headshot"));
             const rating = document.getElementById("hub-rating");
+            const name = document.getElementById("hub-name");
+            const identity = document.getElementById("hub-identity");
+            const badge = hubEl && hubEl.querySelector(".marquee-badge");
+            const meta = hubEl && hubEl.querySelector(".hub-meta");
+            const visibleHubText = hubEl
+              ? [...hubEl.querySelectorAll("*")]
+                .filter(isShown)
+                .map((el) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(""))
+                .join(" ")
+                .replace(/\s+/g, " ")
+                .trim()
+              : "";
             return {
               isRating: Boolean(hubEl && hubEl.classList.contains("is-rating")),
+              isWk: Boolean(hubEl && hubEl.classList.contains("is-wk")),
               shotShown: isShown(shot),
-              shotH: shot ? Math.round(shot.getBoundingClientRect().height) : 0,
+              nameShown: isShown(name),
+              identityShown: isShown(identity),
+              badgeShown: isShown(badge),
+              metaShown: isShown(meta),
               ratingShown: isShown(rating),
               labels: [...(rating ? rating.querySelectorAll(".hub-stat-label") : [])].map((el) => el.textContent.trim()),
               values: [...(rating ? rating.querySelectorAll(".hub-stat-value") : [])].map((el) => el.textContent.trim()),
+              visibleHubText,
             };
           });
-          assert.equal(tapped.isRating, true, "tap did not open bat/bowl: " + JSON.stringify(tapped));
-          assert.equal(tapped.ratingShown, true, "bat/bowl panel hidden after tap");
-          assert.equal(tapped.labels.join(" "), "Bat Bowl");
-          assert.equal(tapped.values.length, 2);
+          assert.equal(tapped.isRating, true, "tap did not open ratings: " + JSON.stringify(tapped));
+          assert.equal(tapped.ratingShown, true, "ratings panel hidden after tap");
+          assert.equal(tapped.shotShown, false, "headshot still visible in ratings view: " + JSON.stringify(tapped));
+          assert.equal(tapped.nameShown, false, "player name still visible in ratings view");
+          assert.equal(tapped.identityShown, false, "identity block still visible in ratings view");
+          assert.equal(tapped.badgeShown, false, "marquee badge still visible in ratings view");
+          assert.equal(tapped.metaShown, false, "role/meta still visible in ratings view");
+          if (forceWk || tapped.isWk) {
+            assert.equal(tapped.labels.join(" "), "Bat Bowl Field");
+            assert.equal(tapped.values.length, 3);
+          } else {
+            assert.equal(tapped.labels.join(" "), "Bat Bowl");
+            assert.equal(tapped.values.length, 2);
+          }
           assert.ok(tapped.values.every((v) => v && v !== "—"), "missing rating values: " + JSON.stringify(tapped.values));
-          assert.equal(tapped.shotShown, true, "headshot hidden after opening ratings: " + JSON.stringify(tapped));
-          assert.ok(tapped.shotH >= 32, "headshot too small after tap: " + JSON.stringify(tapped));
+          if (playerName) {
+            assert.equal(tapped.visibleHubText.includes(playerName), false, "player name leaked into ratings view: " + tapped.visibleHubText);
+          }
+          await host.evaluate(() => {
+            const hubEl = document.getElementById("auction-hub");
+            if (hubEl) hubEl.click();
+          });
+          const restored = await host.evaluate(() => {
+            function isShown(el) {
+              if (!el) return false;
+              const s = getComputedStyle(el);
+              if (s.display === "none" || s.visibility === "hidden" || Number(s.opacity) === 0) return false;
+              const r = el.getBoundingClientRect();
+              return r.width > 8 && r.height > 8;
+            }
+            const hubEl = document.getElementById("auction-hub");
+            const shot = document.getElementById("hub-headshot") || (hubEl && hubEl.querySelector(".player-headshot"));
+            const rating = document.getElementById("hub-rating");
+            const name = document.getElementById("hub-name");
+            return {
+              isRating: Boolean(hubEl && hubEl.classList.contains("is-rating")),
+              shotShown: isShown(shot),
+              nameShown: isShown(name),
+              ratingShown: isShown(rating),
+              name: (name && name.textContent || "").trim(),
+            };
+          });
+          assert.equal(restored.isRating, false, "second tap did not restore the default hub");
+          assert.equal(restored.shotShown, true, "headshot missing after second tap: " + JSON.stringify(restored));
+          assert.equal(restored.nameShown, true, "player name missing after second tap");
+          assert.equal(restored.ratingShown, false, "ratings still visible after second tap");
         }
         assert.ok(report.patch, "patchAuction was not exported");
         assert.equal(report.patch.bidRebuilt, false, "bid buttons rebuilt");
@@ -365,7 +457,9 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
 
     try {
       await runRing(4);
-      await runRing(6);
+      await runRing(6, { forceWk: true, checkTap: true });
+      await runRing(4, { names: LONG_NAMES, checkTap: false });
+      await runRing(6, { names: LONG_NAMES, forceWk: true, checkTap: true });
     } finally {
       await browser.close();
       await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));

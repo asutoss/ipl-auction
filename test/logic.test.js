@@ -1,6 +1,6 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { loadPlayers, overallRating } = require("../server/players");
+const { loadPlayers, overallRating, derivedFielding } = require("../server/players");
 const {
   bidIncrement,
   nextBidAmount,
@@ -859,6 +859,52 @@ describe("overall rating", () => {
   test("weights bowling higher for bowlers", () => {
     const p = { role: "BOWL", batting: 20, bowling: 90 };
     assert.ok(Math.abs(overallRating(p) - 83) < 0.01);
+  });
+});
+
+describe("derived fielding", () => {
+  test("there is no fielding column; keepers use a batting-heavy blend", () => {
+    const wk = { role: "WK", batting: 88, bowling: 8 };
+    assert.equal(derivedFielding(wk), 88 * 0.85 + 8 * 0.15);
+    const bat = { role: "BAT", batting: 80, bowling: 20 };
+    assert.equal(derivedFielding(bat), overallRating(bat));
+    const bowl = { role: "BOWL", batting: 20, bowling: 90 };
+    assert.equal(derivedFielding(bowl), overallRating(bowl));
+  });
+
+  test("decoratePublicPlayer adds a rounded fielding rating and leaves VFX placeholders untouched", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    const wk = players.find((p) => p.role === "WK");
+    const packed = room.decoratePublicPlayer(wk);
+    assert.equal(packed.fielding, Math.round(wk.batting * 0.85 + wk.bowling * 0.15));
+    const bat = players.find((p) => p.role === "BAT");
+    assert.equal(room.decoratePublicPlayer(bat).fielding, Math.round(overallRating(bat)));
+    const hidden = room.decoratePublicPlayer({
+      id: "vfx-hidden",
+      name: "VFX loading…",
+      role: "???",
+      batting: null,
+      bowling: null,
+      fielding: null,
+      hidden: true,
+      vfxHidden: true,
+    });
+    assert.equal(hidden.fielding, null);
+    assert.equal(hidden.batting, null);
+    room.startAuction("Ashutosh");
+    const nominee = room.decoratePublicPlayer(room.auction.nominee);
+    assert.equal(nominee.fielding, Math.round(derivedFielding(room.auction.nominee)));
+  });
+
+  test("team names are capped at 24 characters", () => {
+    const room = roomWith(["Ashutosh"]);
+    const tooLong = room.addPlayer("R".repeat(25), "sock-long");
+    assert.equal(tooLong.ok, false);
+    assert.match(tooLong.error, /24 characters or fewer/);
+    const name24 = "Royal Challengers Bengal";
+    assert.equal(name24.length, 24);
+    const added = room.addPlayer(name24, "sock-24");
+    assert.equal(added.ok, true, added.error);
   });
 });
 

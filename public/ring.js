@@ -616,7 +616,7 @@
     const fx = face.left + face.width / 2;
     const fy = face.top + face.height / 2;
     const fr = Math.max(face.width, face.height) / 2;
-    const gap = 6;
+    const gap = 8;
     const m = ((Number(mid) % 360) + 360) % 360;
     const a = ((m - 90) * Math.PI) / 180;
     let ux = Math.cos(a);
@@ -629,7 +629,7 @@
       uy /= len;
     }
     const cx = fx + ux * (fr + gap + w / 2);
-    const cy = fy + uy * (fr + gap + (h / 2) * 0.7);
+    const cy = fy + uy * (fr + gap + h / 2);
     const rect = { left: cx - w / 2, top: cy - h / 2, right: cx + w / 2, bottom: cy + h / 2 };
     return pushRectFromCircle(rect, fx, fy, fr, 2);
   }
@@ -773,10 +773,14 @@
     return { live, bid, dock };
   }
 
+  function pxNumber(v) {
+    const n = typeof v === "number" ? v : parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  }
   function setMetaLocal(pin, x, y) {
     pin.classList.add("is-side");
-    pin.style.setProperty("--meta-x", `${x}px`);
-    pin.style.setProperty("--meta-y", `${y}px`);
+    pin.style.setProperty("--meta-x", `${pxNumber(x)}px`);
+    pin.style.setProperty("--meta-y", `${pxNumber(y)}px`);
   }
 
   function metaCenter(meta) {
@@ -840,13 +844,13 @@
       return { pin, face, meta, faceBox, mid, w: cal.w, h: cal.h, rect, cal };
     }).filter(Boolean);
 
-    for (let iter = 0; iter < 20; iter++) {
+    for (let iter = 0; iter < 32; iter++) {
       let moved = false;
       for (const s of seats) {
         const fx = s.faceBox.left + s.faceBox.width / 2;
         const fy = s.faceBox.top + s.faceBox.height / 2;
         const fr = Math.max(s.faceBox.width, s.faceBox.height) / 2;
-        const next = pushRectFromCircle(s.rect, fx, fy, fr, 3);
+        const next = pushRectFromCircle(s.rect, fx, fy, fr, 5);
         if (next.left !== s.rect.left || next.top !== s.rect.top) { s.rect = next; moved = true; }
         if (hubBox) {
           const hx = hubBox.left + hubBox.width / 2;
@@ -856,7 +860,7 @@
           if (after.left !== s.rect.left || after.top !== s.rect.top) { s.rect = after; moved = true; }
         }
         if (ringEl) {
-          const offRing = pushRectFromEllipse(s.rect, ringEl, 3);
+          const offRing = pushRectFromEllipse(s.rect, ringEl, 6);
           if (offRing.left !== s.rect.left || offRing.top !== s.rect.top) { s.rect = offRing; moved = true; }
         }
         const awayLive = pushRectFromBox(s.rect, walls.live, 4);
@@ -891,6 +895,82 @@
       if (!moved) break;
     }
 
+    function inView(rect) {
+      return rect.left >= view.left - 0.5 && rect.right <= view.right + 0.5
+        && rect.top >= view.top - 0.5 && rect.bottom <= view.bottom + 0.5;
+    }
+    function rectCost(rect, s) {
+      let cost = 0;
+      if (!inView(rect)) cost += 80;
+      const fx = s.faceBox.left + s.faceBox.width / 2;
+      const fy = s.faceBox.top + s.faceBox.height / 2;
+      const fr = Math.max(s.faceBox.width, s.faceBox.height) / 2;
+      if (circleHitsRect(fx, fy, fr, rect, 4)) cost += 200;
+      if (hubBox) {
+        const hx = hubBox.left + hubBox.width / 2;
+        const hy = hubBox.top + hubBox.height / 2;
+        const hr = Math.min(hubBox.width, hubBox.height) / 2;
+        if (circleHitsRect(hx, hy, hr, rect, 3)) cost += 180;
+      }
+      if (ringEl && ellipseHitsRect(ringEl, rect, 3)) cost += 180;
+      if (walls.live && rectsOverlap(rect, walls.live, 4)) cost += 160;
+      if (walls.bid && rectsOverlap(rect, walls.bid, 4)) cost += 160;
+      if (walls.dock && rectsOverlap(rect, walls.dock, 4)) cost += 160;
+      for (const other of seats) {
+        if (other === s) continue;
+        if (rectsOverlap(rect, other.rect, 2)) cost += 140;
+        const ox = other.faceBox.left + other.faceBox.width / 2;
+        const oy = other.faceBox.top + other.faceBox.height / 2;
+        const orad = Math.max(other.faceBox.width, other.faceBox.height) / 2;
+        if (circleHitsRect(ox, oy, orad, rect, 3)) cost += 140;
+      }
+      return cost;
+    }
+    function parkOffAvatar(s) {
+      const fx = s.faceBox.left + s.faceBox.width / 2;
+      const fy = s.faceBox.top + s.faceBox.height / 2;
+      const fr = Math.max(s.faceBox.width, s.faceBox.height) / 2;
+      const current = clampRect(pushRectFromCircle(s.rect, fx, fy, fr, 5), view);
+      if (rectCost(current, s) === 0) return current;
+      const w = current.right - current.left;
+      const h = current.bottom - current.top;
+      const gap = 6;
+      const mid = ((Number(s.mid) % 360) + 360) % 360;
+      const a = ((mid - 90) * Math.PI) / 180;
+      const options = [current];
+      const spots = [
+        [fx + fr + gap, fy - h / 2],
+        [fx - fr - gap - w, fy - h / 2],
+        [fx - w / 2, fy + fr + gap],
+        [fx - w / 2, fy - fr - gap - h],
+        [fx + fr + gap, fy + fr + gap],
+        [fx - fr - gap - w, fy + fr + gap],
+        [fx + fr + gap, fy - fr - gap - h],
+        [fx - fr - gap - w, fy - fr - gap - h],
+      ];
+      for (const dist of [36, 48, 60, 72, 84]) {
+        const cx = fx + Math.cos(a) * dist;
+        const cy = fy + Math.sin(a) * dist;
+        spots.push([cx - w / 2, cy - h / 2]);
+        spots.push([cx - w / 2 + 14, cy - h / 2]);
+        spots.push([cx - w / 2 - 14, cy - h / 2]);
+      }
+      for (const [left, top] of spots) {
+        options.push(clampRect({ left, top, right: left + w, bottom: top + h }, view));
+      }
+      let best = current;
+      let bestCost = Infinity;
+      const preferX = (current.left + current.right) / 2;
+      const preferY = (current.top + current.bottom) / 2;
+      for (const r of options) {
+        const c = rectCost(r, s) + Math.hypot((r.left + r.right) / 2 - preferX, (r.top + r.bottom) / 2 - preferY) / 40;
+        if (c < bestCost) { bestCost = c; best = r; }
+      }
+      return best;
+    }
+    for (let pass = 0; pass < 4; pass++) {
+      for (const s of seats) s.rect = parkOffAvatar(s);
+    }
     for (const s of seats) {
       const cx = (s.rect.left + s.rect.right) / 2;
       const cy = (s.rect.top + s.rect.bottom) / 2;
@@ -899,7 +979,39 @@
       s.pin.classList.toggle("is-side-left", cx < s.faceBox.left + s.faceBox.width / 2);
       setMetaLocal(s.pin, loc.x, loc.y);
     }
+    if (ringEl) {
+      for (let iter = 0; iter < 10; iter++) {
+        let moved = false;
+        for (const s of seats) {
+          const box = boxOf(s.meta);
+          if (!box || !ellipseHitsRect(ringEl, box, 0.5)) continue;
+          const cx = (box.left + box.right) / 2;
+          const cy = (box.top + box.bottom) / 2;
+          let vx = cx - ringEl.cx;
+          let vy = cy - ringEl.cy;
+          const len = Math.hypot(vx, vy) || 1;
+          vx /= len;
+          vy /= len;
+          const loc = localForScreen(s.cal, cx + vx * 6, cy + vy * 6);
+          const prevX = s.pin.style.getPropertyValue("--meta-x");
+          const prevY = s.pin.style.getPropertyValue("--meta-y");
+          setMetaLocal(s.pin, loc.x, loc.y);
+          const next = boxOf(s.meta);
+          const worse = !next || !inView(next)
+            || (walls.dock && rectsOverlap(next, walls.dock, 0.5))
+            || (walls.bid && rectsOverlap(next, walls.bid, 0.5))
+            || (walls.live && rectsOverlap(next, walls.live, 0.5));
+          if (worse) {
+            setMetaLocal(s.pin, prevX, prevY);
+          } else {
+            moved = true;
+          }
+        }
+        if (!moved) break;
+      }
+    }
     return seats;
+
   }
 
   function measureRingCollisions(svg) {
@@ -1034,7 +1146,9 @@
     }
     const view = seatBubble(team, { minBidLakhs: team.minBidLakhs, nomineeRole: team.nomineeRole });
     const label = team.name || team.short || "";
-    meta.innerHTML = `<span class="ring-seat-name" title="${esc(label)}">${esc(label)}</span>${bubbleHtml(view)}`;
+    const longName = String(label).length > 12 || /\s/.test(label);
+    meta.classList.toggle("is-long", longName);
+    meta.innerHTML = `<span class="ring-seat-name${longName ? " is-long" : ""}" title="${esc(label)}">${esc(label)}</span>${bubbleHtml(view)}`;
     pin.style.setProperty("--lift-x", (item.lift && item.lift.style.getPropertyValue("--lift-x")) || "0");
     pin.style.setProperty("--lift-y", (item.lift && item.lift.style.getPropertyValue("--lift-y")) || "0");
     pin.style.setProperty("--bob-x", (item.root && item.root.style.getPropertyValue("--bob-x")) || "0");

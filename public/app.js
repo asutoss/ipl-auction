@@ -1822,14 +1822,17 @@ function auctionView() {
               <span class="bail b1"></span><span class="bail b2"></span>
               <span class="stump s1"></span><span class="stump s2"></span><span class="stump s3"></span>
             </div>
-            <div class="hub ${isMarqueePlayer(p) ? "is-marquee" : ""} ${hubRatingOpen && !p.vfxHidden ? "is-rating" : ""}" id="auction-hub" role="button" tabindex="0" aria-label="${p.vfxHidden ? "Current player hidden" : "Show batting and bowling ratings"}" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
+            <div class="hub ${isMarqueePlayer(p) ? "is-marquee" : ""} ${p.role === "WK" ? "is-wk" : ""} ${hubRatingOpen && !p.vfxHidden ? "is-rating" : ""}" id="auction-hub" role="button" tabindex="0" aria-pressed="${hubRatingOpen && !p.vfxHidden ? "true" : "false"}" aria-label="${p.vfxHidden ? "Current player hidden" : (p.role === "WK" ? "Show batting, bowling and fielding ratings" : "Show batting and bowling ratings")}" style="--c:${esc(a.currentBidderColor || "var(--gold)")}">
               <div class="hub-inner">
-                ${window.IplHeadshot ? IplHeadshot.markup(p, { id: "hub-headshot" }) : ""}
-                ${isMarqueePlayer(p) ? `<span class="marquee-badge">Marquee</span>` : ""}
-                <p class="hub-name ${p.vfxHidden ? "is-vfx" : ""}" id="hub-name">${esc(p.name)}</p>
-                <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
-                  ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
-                  <div class="hub-rating" id="hub-rating">
+                <div class="hub-identity" id="hub-identity">
+                  ${window.IplHeadshot ? IplHeadshot.markup(p, { id: "hub-headshot" }) : ""}
+                  ${isMarqueePlayer(p) ? `<span class="marquee-badge">Marquee</span>` : ""}
+                  <p class="hub-name ${p.vfxHidden ? "is-vfx" : ""}" id="hub-name">${esc(p.name)}</p>
+                  <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
+                    ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}`}
+                  </div>
+                </div>
+                ${p.vfxHidden ? "" : `<div class="hub-rating${p.role === "WK" ? " is-wk" : ""}" id="hub-rating">
                     <div class="hub-stat">
                       <p class="hub-stat-label">Bat</p>
                       <p class="hub-stat-value">${p.batting != null ? p.batting : "—"}</p>
@@ -1838,9 +1841,11 @@ function auctionView() {
                       <p class="hub-stat-label">Bowl</p>
                       <p class="hub-stat-value">${p.bowling != null ? p.bowling : "—"}</p>
                     </div>
-                  </div>
-                  <p class="hub-tap-hint">${hubRatingOpen ? "Tap to hide" : "Tap for bat & bowl"}</p>`}
-                </div>
+                    ${p.role === "WK" ? `<div class="hub-stat">
+                      <p class="hub-stat-label">Field</p>
+                      <p class="hub-stat-value">${p.fielding != null ? p.fielding : "—"}</p>
+                    </div>` : ""}
+                  </div>`}
               </div>
             </div>
           </div>
@@ -3405,9 +3410,10 @@ function wireGlobal() {
       if (p && !p.vfxHidden && !p.hidden) {
         hubRatingOpen = !hubRatingOpen;
         const hub = document.getElementById("auction-hub");
-        if (hub) hub.classList.toggle("is-rating", hubRatingOpen);
-        const hint = hub && hub.querySelector(".hub-tap-hint");
-        if (hint) hint.textContent = hubRatingOpen ? "Tap to hide" : "Tap for bat & bowl";
+        if (hub) {
+          hub.classList.toggle("is-rating", hubRatingOpen);
+          hub.setAttribute("aria-pressed", hubRatingOpen ? "true" : "false");
+        }
       }
       return;
     }
