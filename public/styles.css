@@ -153,6 +153,7 @@ html.is-auction .player-card { overflow: visible; }
   padding: 14px 16px 16px;
   width: 100%;
   max-width: min(520px, 100%);
+  contain: layout paint;
 }
 .bid-label {
   margin: 0 0 10px;
@@ -562,6 +563,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   position: relative; width: min(460px, 100%); aspect-ratio: 1;
   margin: 0 auto;
   overflow: visible;
+  contain: layout;
 }
 .ring-stage {
   position: relative;
@@ -691,6 +693,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   color: #fff;
 }
 
+.ring-logo-face { position: relative; z-index: 3; }
 .ring-seat-meta {
   position: absolute;
   left: 50%;
@@ -701,7 +704,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
   gap: 2px;
   transform: translate(-50%, -50%) rotate(var(--mid, 0deg)) translateY(var(--meta-out, -50px)) rotate(calc(-1 * var(--mid, 0deg)));
   pointer-events: none;
-  z-index: 4;
+  z-index: 8;
   text-align: center;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.65));
 }
@@ -710,10 +713,10 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 }
 .ring-seat-name {
   display: block;
-  max-width: 78px;
-  font-size: 11px;
+  max-width: 62px;
+  font-size: 10px;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.05;
   color: #fff;
   text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,0.8);
   white-space: nowrap;
@@ -722,26 +725,27 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 }
 .ring-bubble {
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  min-width: 52px;
+  gap: 3px;
+  min-width: 0;
   max-width: 72px;
-  padding: 3px 6px 4px;
-  border-radius: 9px;
+  padding: 2px 6px;
+  border-radius: 999px;
   background: rgba(8, 16, 14, 0.94);
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.22);
   color: #f4f7f2;
   font-family: var(--score, var(--display));
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.ring-bubble-pts { font-weight: 800; font-size: 11px; }
+.ring-bubble-pts { font-weight: 800; font-size: 10px; }
+.ring-bubble-sep { opacity: 0.7; font-weight: 700; }
 .ring-bubble-need { font-weight: 700; font-size: 10px; letter-spacing: 0.02em; color: #d7e0dc; }
 .ring-bubble-tick {
   font-size: 11px;
@@ -779,7 +783,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .ring-logo-layer[data-count="6"] .ring-seat-name { max-width: 70px; font-size: 10px; }
 .ring-logo-layer[data-count="4"] .ring-bubble,
 .ring-logo-layer[data-count="5"] .ring-bubble,
-.ring-logo-layer[data-count="6"] .ring-bubble { min-width: 48px; max-width: 64px; padding: 2px 5px 3px; }
+.ring-logo-layer[data-count="6"] .ring-bubble { min-width: 0; max-width: 64px; padding: 1px 6px; }
 .ring-logo-layer[data-count="4"] .ring-bubble-pts,
 .ring-logo-layer[data-count="5"] .ring-bubble-pts,
 .ring-logo-layer[data-count="6"] .ring-bubble-pts { font-size: 10px; }
@@ -805,7 +809,7 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .ring-logo-layer[data-count="7"] .ring-bubble,
 .ring-logo-layer[data-count="8"] .ring-bubble,
 .ring-logo-layer[data-count="9"] .ring-bubble,
-.ring-logo-layer[data-count="10"] .ring-bubble { min-width: 44px; max-width: 58px; padding: 2px 4px 3px; font-size: 9px; }
+.ring-logo-layer[data-count="10"] .ring-bubble { min-width: 0; max-width: 58px; padding: 1px 5px; font-size: 9px; }
 .ring-logo-layer[data-count="7"] .ring-bubble-pts,
 .ring-logo-layer[data-count="8"] .ring-bubble-pts,
 .ring-logo-layer[data-count="9"] .ring-bubble-pts,
@@ -2539,7 +2543,9 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 }
 
 @media (max-width: 700px) {
-  .btn-rules { font-size: 11px; padding: 4px 8px; min-height: 28px; }
+  .btn-rules { font-size: 12px; padding: 8px 10px; min-height: 40px; }
+  html.is-auction .top-actions .btn,
+  html.is-auction .btn-rules { min-height: 40px; min-width: 40px; padding: 8px 10px; }
   .top-meta { flex: 1 0 100%; width: 100%; justify-content: flex-end; }
   html.is-auction .brand h1 { font-size: 18px; line-height: 1.1; }
   html.is-auction .top-meta > .pill { display: none; }
@@ -2555,4 +2561,8 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
     right: 10px;
     bottom: calc(150px + env(safe-area-inset-bottom, 0px));
   }
+}
+
+html.is-bidding .ring-logo-pin.is-leader .ring-logo-bob {
+  animation: none !important;
 }

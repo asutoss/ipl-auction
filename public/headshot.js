@@ -153,6 +153,7 @@
     const started = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
     const img = document.createElement("img");
     img.decoding = "async";
+    img.loading = "eager";
     img.referrerPolicy = "no-referrer";
     img.alt = alt || "";
     img.width = 96;

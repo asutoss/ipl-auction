@@ -36,7 +36,74 @@ function shareResultsPayload() {
   };
 }
 
+const phaseScriptLoads = Object.create(null);
+
+function loadScript(src) {
+  if (phaseScriptLoads[src]) return phaseScriptLoads[src];
+  if (typeof document === "undefined") {
+    phaseScriptLoads[src] = Promise.resolve();
+    return phaseScriptLoads[src];
+  }
+  const present = document.querySelector(`script[src="${src}"]`);
+  const already =
+    (src.indexOf("final-match") !== -1 && window.IplFinal) ||
+    (src.indexOf("share-results") !== -1 && window.IplShareResults) ||
+    (src.indexOf("booster-shop") !== -1 && window.IplBoosterShop);
+  if (already) {
+    phaseScriptLoads[src] = Promise.resolve();
+    return phaseScriptLoads[src];
+  }
+  phaseScriptLoads[src] = new Promise((resolve, reject) => {
+    const s = present && !present.getAttribute("data-loading") ? present : document.createElement("script");
+    if (s !== present) {
+      s.src = src;
+      s.async = true;
+      s.setAttribute("data-phase-src", src);
+      document.head.appendChild(s);
+    }
+    s.addEventListener("load", () => resolve(), { once: true });
+    s.addEventListener("error", () => {
+      delete phaseScriptLoads[src];
+      reject(new Error("Failed to load " + src));
+    }, { once: true });
+  });
+  return phaseScriptLoads[src];
+}
+
+function phaseScriptSrcs(st) {
+  if (!st || !st.phase) return [];
+  const out = [];
+  if (st.phase === "captains" || st.phase === "formBoosts") out.push("/booster-shop.js");
+  if (st.phase === "simulating" || st.phase === "results") {
+    out.push("/final-match.js", "/share-results.js");
+  }
+  return out;
+}
+
+function missingPhaseScripts(st) {
+  return phaseScriptSrcs(st).filter((src) => {
+    if (src.indexOf("final-match") !== -1) return !window.IplFinal;
+    if (src.indexOf("share-results") !== -1) return !window.IplShareResults;
+    if (src.indexOf("booster-shop") !== -1) return !window.IplBoosterShop;
+    return true;
+  });
+}
+
+let phaseScriptGen = 0;
+function ensurePhaseScripts(st, then) {
+  const missing = missingPhaseScripts(st);
+  if (!missing.length) return false;
+  const gen = ++phaseScriptGen;
+  Promise.all(missing.map(loadScript)).then(() => {
+    if (gen !== phaseScriptGen) return;
+    if (typeof then === "function") then();
+    else render();
+  }).catch(() => {});
+  return true;
+}
+
 async function shareResults() {
+  try { await loadScript("/share-results.js"); } catch (err) { /* ignore */ }
   if (!window.IplShareResults) {
     toast("Sharing is not available right now.");
     return;
@@ -501,6 +568,13 @@ function showSoldModal(evt) {
     modal.classList.remove("is-in");
     void modal.offsetWidth;
     modal.classList.add("is-in");
+    if (evt.type === "sold" && window.IplFx && typeof IplFx.celebrateSold === "function") {
+      IplFx.celebrateSold({
+        color: evt.color || evt.buyerColor,
+        marquee: typeof isMarqueePlayer === "function" && isMarqueePlayer(evt.player),
+        priceLakhs: evt.priceLakhs,
+      });
+    }
   } else {
     modal.hidden = false;
   }
@@ -1207,7 +1281,7 @@ function lobbyView() {
   `;
 }
 
-function squadSlots(franchise) {
+function slotRows(franchise) {
   const quota = (modeInfo().quota) || { BAT: 4, WK: 1, AR: 2, BOWL: 4 };
   const groups = ["BAT", "WK", "AR", "BOWL"]
     .map((role) => [role, quota[role] || 0])
@@ -1219,18 +1293,34 @@ function squadSlots(franchise) {
     for (let i = 0; i < count; i++) {
       const slot = matches[i];
       if (slot) {
-        rows.push(`
-          <div class="slot">
-            <span class="r">${role}</span>
-            <span>${esc(slot.player.name)}${slot.isCaptain ? ' <span class="cap">CAP</span>' : ""}</span>
-            <span>${money(slot.priceLakhs)}</span>
-          </div>`);
+        rows.push({
+          role,
+          filled: true,
+          name: slot.player.name,
+          cap: Boolean(slot.isCaptain),
+          price: money(slot.priceLakhs),
+        });
       } else {
-        rows.push(`<div class="slot empty"><span class="r">${role}</span><span>Open slot</span><span>—</span></div>`);
+        rows.push({ role, filled: false, name: "Open slot", cap: false, price: "—" });
       }
     }
   }
-  return `<div class="slots">${rows.join("")}</div>`;
+  return rows;
+}
+
+function slotHtml(row) {
+  if (row.filled) {
+    return `<div class="slot" data-role="${esc(row.role)}" data-filled="1">
+            <span class="r">${esc(row.role)}</span>
+            <span class="slot-name">${esc(row.name)}${row.cap ? ' <span class="cap">CAP</span>' : ""}</span>
+            <span class="slot-price">${esc(row.price)}</span>
+          </div>`;
+  }
+  return `<div class="slot empty" data-role="${esc(row.role)}" data-filled="0"><span class="r">${esc(row.role)}</span><span class="slot-name">Open slot</span><span class="slot-price">—</span></div>`;
+}
+
+function squadSlots(franchise) {
+  return `<div class="slots">${slotRows(franchise).map(slotHtml).join("")}</div>`;
 }
 
 
@@ -1340,7 +1430,7 @@ function powerButtonHtml() {
   const whyHtml = why
     ? `<p class="power-why" id="power-why">${esc(why)}</p>`
     : `<p class="power-why" id="power-why" hidden></p>`;
-  return `<button type="button" class="power-btn ${used ? "is-used" : ""} ${disabled ? "is-disabled" : ""}" id="use-power" ${disabled ? 'aria-disabled="true"' : ""} title="${esc(title)}" aria-describedby="${why ? "power-why" : ""}" aria-label="${esc(used ? label : `Use power: ${power.name}. ${title}`)}">
+  return `<button type="button" class="power-btn ${used ? "is-used" : ""} ${disabled ? "is-disabled" : ""}" id="use-power" data-power="${esc(power.name)}" ${disabled ? 'aria-disabled="true"' : ""} title="${esc(title)}" aria-describedby="${why ? "power-why" : ""}" aria-label="${esc(used ? label : `Use power: ${power.name}. ${title}`)}">
     ${teamMark(you.franchise, "sm", you.name)}
     <span class="power-btn-copy"><small>Power${used ? " used" : " · once"}</small><strong>${esc(power.name)}</strong></span>
   </button>${whyHtml}`;
@@ -1798,6 +1888,8 @@ function syncRingSize(force) {
   }
   const size = IplRing.applyRingSize(document.documentElement, next);
   lastRingViewport = { ...next, size };
+  const ring = document.getElementById("auction-ring");
+  if (ring && typeof IplRing.scheduleChipLayout === "function") IplRing.scheduleChipLayout(ring);
   return size;
 }
 
@@ -1874,6 +1966,141 @@ function animateBid(from, to) {
   requestAnimationFrame(frame);
 }
 
+
+let lastAuctionPatch = { bidRebuilt: true, powerRebuilt: true, slotsRebuilt: true };
+
+function setBidDisabled(btn, enabled) {
+  if (!btn) return;
+  btn.classList.toggle("is-disabled", !enabled);
+  if (enabled) btn.removeAttribute("aria-disabled");
+  else btn.setAttribute("aria-disabled", "true");
+}
+
+function bidActionModel(a) {
+  const choices = (window.IplState && IplState.bidChoices(state)) || { options: [], canOptOut: false };
+  const options = choices.options || [];
+  const shown = options.filter((o) => o.show);
+  return { shown, options, canOptOut: Boolean(choices.canOptOut), primary: shown[0] || options[0] || null };
+}
+
+function syncBidActions(a) {
+  const actions = document.getElementById("bid-actions");
+  lastAuctionPatch.bidRebuilt = true;
+  if (!actions) return;
+  const model = bidActionModel(a);
+  const primaryBtn = actions.querySelector(".bid-primary");
+  const extras = [...actions.querySelectorAll(".bid-extra")];
+  const opt = actions.querySelector("#optout");
+  const rest = (model.shown || []).slice(1);
+  const samePrimary = Boolean(
+    primaryBtn && (
+      (model.primary && primaryBtn.getAttribute("data-step") === String(model.primary.step))
+      || (!model.primary && primaryBtn.hasAttribute("data-bid-blocked"))
+    )
+  );
+  const sameExtras = extras.length === rest.length && rest.every((o, i) => extras[i].getAttribute("data-step") === String(o.step));
+  if (samePrimary && sameExtras && opt) {
+    if (model.primary) {
+      const enabled = Boolean(model.shown[0] && model.shown[0].enabled);
+      setBidDisabled(primaryBtn, enabled);
+      primaryBtn.setAttribute("aria-label", `Bid ${model.primary.amount} points`);
+      const lab = primaryBtn.querySelector(".bid-primary-label");
+      if (lab) lab.textContent = `Bid ${model.primary.amount}`;
+    }
+    rest.forEach((o, i) => {
+      setBidDisabled(extras[i], o.enabled);
+      extras[i].setAttribute("aria-label", `Bid ${o.amount} points`);
+      const num = extras[i].querySelector(".bid-amt-num");
+      if (num) num.textContent = String(o.amount);
+      const unit = extras[i].querySelector(".bid-amt-unit");
+      if (unit) unit.textContent = `pt${o.amount === 1 ? "" : "s"}`;
+    });
+    opt.disabled = !model.canOptOut;
+    lastAuctionPatch.bidRebuilt = false;
+    return;
+  }
+  actions.innerHTML = bidButtonsHtml(a);
+}
+
+function syncPowerButton() {
+  const wrap = document.getElementById("power-btn-wrap");
+  lastAuctionPatch.powerRebuilt = true;
+  if (!wrap) return;
+  const html = powerButtonHtml();
+  const btn = wrap.querySelector("#use-power");
+  const power = yourPower();
+  if (!html) {
+    if (wrap.innerHTML) wrap.innerHTML = "";
+    lastAuctionPatch.powerRebuilt = Boolean(btn);
+    return;
+  }
+  const used = Boolean(state.you && (state.you.powerUsed || (state.you.powerUsesLeft != null && state.you.powerUsesLeft <= 0) || (power && power.used)));
+  const why = powerButtonNeedsWhy();
+  if (btn && power && btn.getAttribute("data-power") === power.name) {
+    const disabled = btn.classList.contains("is-disabled");
+    const shouldDisable = used || powerUseBlocked(state.you, used) || Boolean(state.paused || state.powerReveal || state.powerWait || (typeof isSoldRevealActive === "function" && isSoldRevealActive()) || (typeof isLastTeamFillActive === "function" && isLastTeamFillActive()) || (typeof isPlayerIntroActive === "function" && isPlayerIntroActive()));
+    btn.classList.toggle("is-used", used);
+    btn.classList.toggle("is-disabled", shouldDisable);
+    if (shouldDisable) btn.setAttribute("aria-disabled", "true");
+    else btn.removeAttribute("aria-disabled");
+    const title = (shouldDisable ? powerDisabledReason() : null) || (state.you && state.you.canUsePowerReason) || power.description || power.name;
+    const label = used ? `${power.name} used` : power.name;
+    btn.title = title;
+    btn.setAttribute("aria-label", used ? label : `Use power: ${power.name}. ${title}`);
+    const strong = btn.querySelector(".power-btn-copy strong");
+    if (strong) strong.textContent = power.name;
+    const small = btn.querySelector(".power-btn-copy small");
+    if (small) small.textContent = used ? "Power used" : "Power · once";
+    let whyEl = wrap.querySelector("#power-why");
+    const whyText = shouldDisable ? powerDisabledReason() : null;
+    if (whyEl) {
+      whyEl.hidden = !whyText;
+      whyEl.textContent = whyText || "";
+    }
+    lastAuctionPatch.powerRebuilt = false;
+    return;
+  }
+  wrap.innerHTML = html;
+}
+
+function powerButtonNeedsWhy() { return null; }
+
+function syncSideSlots(you) {
+  const host = document.getElementById("side-slots");
+  lastAuctionPatch.slotsRebuilt = true;
+  if (!host || !you) return;
+  const rows = slotRows(you);
+  const box = host.querySelector(".slots") || host;
+  const existing = [...box.querySelectorAll(":scope > .slot")];
+  const same = existing.length === rows.length && rows.every((row, i) => existing[i].getAttribute("data-role") === row.role);
+  if (!same) {
+    host.innerHTML = squadSlots(you);
+    return;
+  }
+  rows.forEach((row, i) => {
+    const el = existing[i];
+    el.classList.toggle("empty", !row.filled);
+    el.setAttribute("data-filled", row.filled ? "1" : "0");
+    const role = el.querySelector(".r");
+    if (role) role.textContent = row.role;
+    let name = el.querySelector(".slot-name") || el.children[1];
+    if (name) {
+      if (row.filled) name.innerHTML = `${esc(row.name)}${row.cap ? ' <span class="cap">CAP</span>' : ""}`;
+      else name.textContent = "Open slot";
+    }
+    let price = el.querySelector(".slot-price") || el.children[2];
+    if (price) price.textContent = row.price;
+  });
+  lastAuctionPatch.slotsRebuilt = false;
+}
+
+function setBiddingClass() {
+  const auctionLive = Boolean(state && state.phase === "auction" && state.auction);
+  const bidding = auctionLive && !(typeof isSoldRevealActive === "function" && isSoldRevealActive()) && !(typeof isPlayerIntroActive === "function" && isPlayerIntroActive()) && !(typeof isLastTeamFillActive === "function" && isLastTeamFillActive());
+  document.documentElement.classList.toggle("is-auction", auctionLive);
+  document.documentElement.classList.toggle("is-bidding", bidding);
+}
+
 function patchAuction() {
   const a = state && state.auction;
   if (!a) return;
@@ -1895,8 +2122,7 @@ function patchAuction() {
   if (dockPurse && state.you) dockPurse.textContent = money(state.you.purseLakhs);
   const dockSquad = document.getElementById("you-dock-squad");
   if (dockSquad && state.you) dockSquad.textContent = youSquadLine(state.you);
-  const actions = document.getElementById("bid-actions");
-  if (actions) actions.innerHTML = bidButtonsHtml(a);
+  syncBidActions(a);
   const why = document.getElementById("bid-why");
   if (why) {
     why.hidden = !a.youReason;
@@ -1904,8 +2130,7 @@ function patchAuction() {
   }
   const err = document.querySelector(".bid-box .error");
   if (err) err.textContent = lastError || "";
-  const powerWrap = document.getElementById("power-btn-wrap");
-  if (powerWrap) powerWrap.innerHTML = powerButtonHtml();
+  syncPowerButton();
   syncPowerConfirm();
   const purse = document.querySelector(".side .purse");
   if (purse && state.you) purse.textContent = money(state.you.purseLakhs);
@@ -1916,8 +2141,7 @@ function patchAuction() {
     if (html && !ban) budgetHost.insertAdjacentHTML("afterend", html);
     else if (!html && ban) ban.remove();
   }
-  const sideSlots = document.getElementById("side-slots");
-  if (sideSlots && state.you) sideSlots.innerHTML = squadSlots(state.you);
+  if (state.you) syncSideSlots(state.you);
   const lede = document.getElementById("side-lede");
   if (lede && state.you) {
     const you = state.you;
@@ -1931,6 +2155,11 @@ function patchAuction() {
   }
   updateAuctionTimer();
   observeBidSheet();
+  setBiddingClass();
+  if (window.IplRing && typeof IplRing.scheduleChipLayout === "function") {
+    const ring = document.getElementById("auction-ring");
+    if (ring) IplRing.scheduleChipLayout(ring);
+  }
 }
 
 
@@ -2812,11 +3041,40 @@ function resultsView() {
   `;
 }
 
+let lastFinalBallKey = "";
+let champBurstKey = "";
+
+function maybePlayFinalCue() {
+  if (!window.IplFx) return;
+  const snap = typeof finalSnapshot === "function" ? finalSnapshot() : null;
+  if (!snap || snap.phase !== "live" || !snap.lastBall) return;
+  const d = snap.lastBall;
+  const key = `${snap.inningsIndex}:${snap.ballIndex}:${d.batterId || ""}:${d.runs}:${d.wicket ? 1 : 0}`;
+  if (key === lastFinalBallKey) return;
+  lastFinalBallKey = key;
+  const kind = IplFx.classifyDelivery(d);
+  if (kind) IplFx.playCue(kind);
+}
+
+function maybeCelebrateChampion() {
+  if (!window.IplFx || !state || state.phase !== "results") return;
+  const stage = resultsRevealStage();
+  if (stage === "final" || stage === "standings") return;
+  const champ = championPosition();
+  if (!champ) return;
+  const key = `${state.code || ""}:${champ.name || ""}`;
+  if (champBurstKey === key) return;
+  champBurstKey = key;
+  const team = resultsTeamByNameSafe(champ.name) || champ;
+  IplFx.celebrateChampion({ colors: [team.color, team.color2, "#f5c518", "#ffffff"].filter(Boolean) });
+}
+
 function updateFinalMatchUi() {
   if (resultsRevealStage() !== "final") return;
   const body = document.getElementById("final-live-body");
   if (!body) return;
   body.innerHTML = finalLiveBodyHtml();
+  maybePlayFinalCue();
   document.getElementById("final-scorecard-toggle")?.addEventListener("click", () => {
     finalScorecardOpen = !finalScorecardOpen;
     updateFinalMatchUi();
@@ -3303,8 +3561,8 @@ function wireGlobal() {
 }
 
 function render() {
-  const auctionLive = Boolean(state && state.phase === "auction" && state.auction);
-  document.documentElement.classList.toggle("is-auction", auctionLive);
+  ensurePhaseScripts(state);
+  setBiddingClass();
   syncOverlays();
   renderTop();
   if (!state || !state.phase || !state.code || state.phase === "ended") {
@@ -3525,6 +3783,7 @@ function wireCurrent() {
     });
   }
   bindResultsTeamSheet();
+  maybeCelebrateChampion();
   document.getElementById("final-scorecard-toggle")?.addEventListener("click", () => {
     finalScorecardOpen = !finalScorecardOpen;
     updateFinalMatchUi();
@@ -3809,4 +4068,4 @@ window.addEventListener("resize", () => {
 render();
 
 
-window.IplApp = { get state() { return state; }, get stayOnHome() { return stayOnHome; }, emit, socket, goHome, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize, openResultsTeamSheet, closeResultsTeamSheet, openRulesModal, closeRulesModal, openActionReason, closeActionReason, closeSamayPreview, clampEmotePopover, isLowBudget, playerRating, get hubRatingOpen() { return hubRatingOpen; } };
+window.IplApp = { get state() { return state; }, get stayOnHome() { return stayOnHome; }, emit, socket, goHome, showEmote, syncEmoteDock, openPowerConfirm, closePowerConfirm, canShowPowerConfirm, syncRingSize, openResultsTeamSheet, closeResultsTeamSheet, openRulesModal, closeRulesModal, openActionReason, closeActionReason, closeSamayPreview, clampEmotePopover, isLowBudget, playerRating, get hubRatingOpen() { return hubRatingOpen; }, patchAuction, get lastAuctionPatch() { return lastAuctionPatch; }, loadScript, ensurePhaseScripts };

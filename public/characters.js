@@ -540,7 +540,9 @@
     const opt = attrs || {};
     const alt = esc(opt.alt != null ? opt.alt : pack.character || pack.name || "");
     const cls = esc(opt.className || "team-mark-img");
-    return `<img src="${esc(imageUrl(pack))}" alt="${alt}" class="${cls}" width="256" height="256" decoding="async" draggable="false" />`;
+    const loading = esc(opt.loading || "lazy");
+    const decoding = esc(opt.decoding || "async");
+    return `<img src="${esc(imageUrl(pack))}" alt="${alt}" class="${cls}" width="256" height="256" loading="${loading}" decoding="${decoding}" draggable="false" />`;
   }
 
   return {

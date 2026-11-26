@@ -123,25 +123,32 @@
       if (Number.isFinite(minBid) && purse != null && purse < minBid) tone = "danger";
       else if (Number.isFinite(minBid) && purse != null && purse - minBid < reserveAfterBid(team, opts)) tone = "warn";
     }
+    const shortPurse = purse == null ? "—" : `${purse}p`;
+    let shortNeed;
+    if (banned) shortNeed = "Ban";
+    else if (eliminated) shortNeed = "Out";
+    else if (complete) shortNeed = "✓";
+    else if (need == null) shortNeed = "";
+    else shortNeed = String(need);
     const text = needLabel ? `${purseLabel} · ${needLabel}` : purseLabel;
-    return { purse, purseLabel, need, needLabel, complete, muted, banned, eliminated, tone, text };
+    const shortText = shortNeed ? `${shortPurse} · ${shortNeed}` : shortPurse;
+    return { purse, purseLabel, shortPurse, need, needLabel, shortNeed, complete, muted, banned, eliminated, tone, text, shortText };
   }
 
   function bubbleHtml(view) {
-    const need = view.complete
-      ? `<span class="ring-bubble-tick" title="Squad complete">✓</span>`
-      : (view.needLabel ? `<span class="ring-bubble-need">${esc(view.needLabel)}</span>` : "");
+    const needText = view.complete ? "✓" : (view.shortNeed || "");
+    const need = needText
+      ? `<span class="ring-bubble-need${view.complete ? " ring-bubble-tick" : ""}">${esc(needText)}</span>`
+      : "";
     const cls = [
       "ring-bubble",
       `is-${view.tone}`,
       view.complete ? "is-full" : "",
       view.muted ? "is-muted" : "",
     ].filter(Boolean).join(" ");
-    const pts = `<span class="ring-bubble-pts">${esc(view.purseLabel)}</span>`;
-    const rows = view.complete || view.needLabel
-      ? `${pts}${need}`
-      : pts;
-    return `<span class="${cls}" title="${esc(view.text)}">${rows}</span>`;
+    const pts = `<span class="ring-bubble-pts">${esc(view.shortPurse || view.purseLabel)}</span>`;
+    const sep = need ? `<span class="ring-bubble-sep" aria-hidden="true">·</span>` : "";
+    return `<span class="${cls}" title="${esc(view.text)}">${pts}${sep}${need}</span>`;
   }
 
   function isRingParticipant(team) {
@@ -554,7 +561,7 @@
     const api = (typeof IplCharacters !== "undefined" && IplCharacters) || (typeof IplIdentities !== "undefined" && IplIdentities);
     const cid = team && (team.characterId || team.identityId);
     const imgFn = api && (api.characterImg || api.logoImg);
-    const img = (imgFn && cid) ? imgFn(cid, { alt: name, className: "ring-logo-img" }) : "";
+    const img = (imgFn && cid) ? imgFn(cid, { alt: name, className: "ring-logo-img", loading: "eager" }) : "";
     const face = img || `<span class="ring-logo-fallback">${(name || "?").slice(0, 1)}</span>`;
     return { color, color2, html: `<div class="ring-logo-bob"><div class="ring-logo-face">${face}</div></div>` };
   }
@@ -568,6 +575,302 @@
     if (m >= 50 && m < 130) return { side: "right", x: "4px", y: "38px" };
     if (m >= 230 && m < 310) return { side: "left", x: "-4px", y: "38px" };
     return { side: "radial", out: null };
+  }
+
+  function rectsOverlap(a, b, pad) {
+    const p = Number(pad) || 0;
+    if (!a || !b) return false;
+    return a.left < b.right - p && a.right > b.left + p && a.top < b.bottom - p && a.bottom > b.top + p;
+  }
+
+  function circleHitsRect(cx, cy, r, rect, gap) {
+    if (!rect || !Number.isFinite(cx) || !Number.isFinite(cy)) return false;
+    const g = gap == null ? 1 : gap;
+    const nx = Math.max(rect.left, Math.min(cx, rect.right));
+    const ny = Math.max(rect.top, Math.min(cy, rect.bottom));
+    const dx = nx - cx;
+    const dy = ny - cy;
+    return dx * dx + dy * dy < (r + g) * (r + g);
+  }
+
+  function clampRect(rect, box) {
+    const w = rect.right - rect.left;
+    const h = rect.bottom - rect.top;
+    let left = rect.left;
+    let top = rect.top;
+    if (left < box.left) left = box.left;
+    if (left + w > box.right) left = box.right - w;
+    if (top < box.top) top = box.top;
+    if (top + h > box.bottom) top = box.bottom - h;
+    return { left, top, right: left + w, bottom: top + h };
+  }
+
+  function boxOf(el) {
+    if (!el || !el.getBoundingClientRect) return null;
+    const r = el.getBoundingClientRect();
+    if (!r.width && !r.height) return null;
+    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+  }
+
+  function initialChipRect(face, mid, w, h) {
+    const fx = face.left + face.width / 2;
+    const fy = face.top + face.height / 2;
+    const fr = Math.max(face.width, face.height) / 2;
+    const gap = 6;
+    const m = ((Number(mid) % 360) + 360) % 360;
+    const a = ((m - 90) * Math.PI) / 180;
+    let ux = Math.cos(a);
+    let uy = Math.sin(a);
+    if (uy > 0.28) {
+      ux = m >= 180 ? -1 : 1;
+      uy = 0.18;
+      const len = Math.hypot(ux, uy) || 1;
+      ux /= len;
+      uy /= len;
+    }
+    const cx = fx + ux * (fr + gap + w / 2);
+    const cy = fy + uy * (fr + gap + (h / 2) * 0.7);
+    const rect = { left: cx - w / 2, top: cy - h / 2, right: cx + w / 2, bottom: cy + h / 2 };
+    return pushRectFromCircle(rect, fx, fy, fr, 2);
+  }
+
+  function pushRectFromCircle(rect, cx, cy, r, gap) {
+    const g = gap == null ? 2 : gap;
+    if (!circleHitsRect(cx, cy, r, rect, g)) return rect;
+    const mx = (rect.left + rect.right) / 2;
+    const my = (rect.top + rect.bottom) / 2;
+    let vx = mx - cx;
+    let vy = my - cy;
+    const len = Math.hypot(vx, vy) || 1;
+    vx /= len;
+    vy /= len;
+    const nx = Math.max(rect.left, Math.min(cx, rect.right));
+    const ny = Math.max(rect.top, Math.min(cy, rect.bottom));
+    const hit = Math.hypot(nx - cx, ny - cy);
+    const need = (r + g) - hit + 0.5;
+    if (need <= 0) return rect;
+    return {
+      left: rect.left + vx * need,
+      right: rect.right + vx * need,
+      top: rect.top + vy * need,
+      bottom: rect.bottom + vy * need,
+    };
+  }
+
+  function pushRectsApart(a, b, gap) {
+    const g = gap == null ? 2 : gap;
+    if (!rectsOverlap(a, b, -g)) return [a, b];
+    const acx = (a.left + a.right) / 2;
+    const acy = (a.top + a.bottom) / 2;
+    const bcx = (b.left + b.right) / 2;
+    const bcy = (b.top + b.bottom) / 2;
+    let vx = bcx - acx;
+    let vy = bcy - acy;
+    if (!vx && !vy) { vx = 1; vy = 0; }
+    const len = Math.hypot(vx, vy) || 1;
+    vx /= len;
+    vy /= len;
+    const overlapX = (a.right - b.left + g);
+    const overlapY = (a.bottom - b.top + g);
+    const ox = Math.min(Math.abs(a.right - b.left), Math.abs(b.right - a.left)) + g;
+    const oy = Math.min(Math.abs(a.bottom - b.top), Math.abs(b.bottom - a.top)) + g;
+    const push = Math.min(ox, oy) / 2 + 0.5;
+    return [
+      { left: a.left - vx * push, right: a.right - vx * push, top: a.top - vy * push, bottom: a.bottom - vy * push },
+      { left: b.left + vx * push, right: b.right + vx * push, top: b.top + vy * push, bottom: b.bottom + vy * push },
+    ];
+  }
+
+  function setMetaLocal(pin, x, y) {
+    pin.classList.add("is-side");
+    pin.style.setProperty("--meta-x", `${x}px`);
+    pin.style.setProperty("--meta-y", `${y}px`);
+  }
+
+  function metaCenter(meta) {
+    const r = meta.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+  }
+
+  function calibrateMeta(pin, meta) {
+    setMetaLocal(pin, 0, 0);
+    const c0 = metaCenter(meta);
+    setMetaLocal(pin, 20, 0);
+    const cx = metaCenter(meta);
+    setMetaLocal(pin, 0, 20);
+    const cy = metaCenter(meta);
+    setMetaLocal(pin, 0, 0);
+    return {
+      c0,
+      vx: { x: (cx.x - c0.x) / 20, y: (cx.y - c0.y) / 20 },
+      vy: { x: (cy.x - c0.x) / 20, y: (cy.y - c0.y) / 20 },
+      w: Math.max(24, c0.w),
+      h: Math.max(16, c0.h),
+    };
+  }
+
+  function localForScreen(cal, sx, sy) {
+    const dx = sx - cal.c0.x;
+    const dy = sy - cal.c0.y;
+    const det = cal.vx.x * cal.vy.y - cal.vy.x * cal.vx.y;
+    if (!Number.isFinite(det) || Math.abs(det) < 1e-6) return { x: dx, y: dy };
+    return {
+      x: (dx * cal.vy.y - cal.vy.x * dy) / det,
+      y: (cal.vx.x * dy - dx * cal.vx.y) / det,
+    };
+  }
+
+  function layoutSeatChips(svg) {
+    if (typeof document === "undefined") return [];
+    const layer = svg && svg.parentElement && svg.parentElement.querySelector(".ring-logo-layer");
+    if (!layer) return [];
+    const pins = [...layer.querySelectorAll(".ring-logo-pin:not(.is-leaving)")];
+    const hub = document.getElementById("auction-hub") || document.querySelector(".hub");
+    const hubBox = boxOf(hub);
+    const bid = document.getElementById("bid-box") || document.querySelector(".bid-box");
+    const bidBox = boxOf(bid);
+    const vw = typeof window !== "undefined" ? window.innerWidth : 360;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    const view = {
+      left: 3,
+      top: 3,
+      right: Math.max(4, vw - 3),
+      bottom: Math.max(4, (bidBox ? bidBox.top : vh) - 4),
+    };
+    const seats = pins.map((pin) => {
+      const face = pin.querySelector(".ring-logo-face") || pin.querySelector(".ring-logo-bob") || pin;
+      const meta = pin.querySelector(".ring-seat-meta");
+      const faceBox = boxOf(face);
+      if (!faceBox || !meta) return null;
+      const mid = Number(pin.dataset.mid != null ? pin.dataset.mid : String(pin.style.getPropertyValue("--mid") || "").replace("deg", ""));
+      const cal = calibrateMeta(pin, meta);
+      const rect = initialChipRect(faceBox, mid, cal.w, cal.h);
+      return { pin, face, meta, faceBox, mid, w: cal.w, h: cal.h, rect, cal };
+    }).filter(Boolean);
+
+    for (let iter = 0; iter < 20; iter++) {
+      let moved = false;
+      for (const s of seats) {
+        const fx = s.faceBox.left + s.faceBox.width / 2;
+        const fy = s.faceBox.top + s.faceBox.height / 2;
+        const fr = Math.max(s.faceBox.width, s.faceBox.height) / 2;
+        const next = pushRectFromCircle(s.rect, fx, fy, fr, 3);
+        if (next.left !== s.rect.left || next.top !== s.rect.top) { s.rect = next; moved = true; }
+        if (hubBox) {
+          const hx = hubBox.left + hubBox.width / 2;
+          const hy = hubBox.top + hubBox.height / 2;
+          const hr = Math.min(hubBox.width, hubBox.height) / 2;
+          const after = pushRectFromCircle(s.rect, hx, hy, hr, 3);
+          if (after.left !== s.rect.left || after.top !== s.rect.top) { s.rect = after; moved = true; }
+        }
+        const clamped = clampRect(s.rect, view);
+        if (clamped.left !== s.rect.left || clamped.top !== s.rect.top) { s.rect = clamped; moved = true; }
+      }
+      for (let i = 0; i < seats.length; i++) {
+        for (let j = i + 1; j < seats.length; j++) {
+          const a = seats[i];
+          const b = seats[j];
+          if (rectsOverlap(a.rect, b.rect, -2)) {
+            const pair = pushRectsApart(a.rect, b.rect, 2);
+            a.rect = clampRect(pair[0], view);
+            b.rect = clampRect(pair[1], view);
+            moved = true;
+          }
+          const bf = b.faceBox;
+          const af = a.faceBox;
+          const br = Math.max(bf.width, bf.height) / 2;
+          const ar = Math.max(af.width, af.height) / 2;
+          const awayB = pushRectFromCircle(a.rect, bf.left + bf.width / 2, bf.top + bf.height / 2, br, 3);
+          const awayA = pushRectFromCircle(b.rect, af.left + af.width / 2, af.top + af.height / 2, ar, 3);
+          if (awayB.left !== a.rect.left || awayB.top !== a.rect.top) { a.rect = clampRect(awayB, view); moved = true; }
+          if (awayA.left !== b.rect.left || awayA.top !== b.rect.top) { b.rect = clampRect(awayA, view); moved = true; }
+        }
+      }
+      if (!moved) break;
+    }
+
+    for (const s of seats) {
+      const cx = (s.rect.left + s.rect.right) / 2;
+      const cy = (s.rect.top + s.rect.bottom) / 2;
+      const loc = localForScreen(s.cal, cx, cy);
+      s.pin.classList.toggle("is-side-right", cx >= s.faceBox.left + s.faceBox.width / 2);
+      s.pin.classList.toggle("is-side-left", cx < s.faceBox.left + s.faceBox.width / 2);
+      setMetaLocal(s.pin, loc.x, loc.y);
+    }
+    return seats;
+  }
+
+  function measureRingCollisions(svg) {
+    if (typeof document === "undefined") return { ok: true, overlaps: [], clipped: [] };
+    const layer = (svg && svg.parentElement && svg.parentElement.querySelector(".ring-logo-layer"))
+      || document.querySelector(".ring-logo-layer");
+    if (!layer) return { ok: true, overlaps: [], clipped: [] };
+    const pins = [...layer.querySelectorAll(".ring-logo-pin:not(.is-leaving)")];
+    const hub = document.getElementById("auction-hub") || document.querySelector(".hub");
+    const hubBox = boxOf(hub);
+    const vw = typeof window !== "undefined" ? window.innerWidth : 360;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    const view = { left: 0, top: 0, right: vw, bottom: vh };
+    const seats = pins.map((pin) => {
+      const face = pin.querySelector(".ring-logo-face") || pin.querySelector(".ring-logo-bob");
+      const meta = pin.querySelector(".ring-seat-meta");
+      const name = ((pin.querySelector(".ring-seat-name") || {}).textContent || "").trim();
+      return { name, pin, faceBox: boxOf(face), metaBox: boxOf(meta) };
+    }).filter((s) => s.faceBox && s.metaBox);
+    const overlaps = [];
+    const clipped = [];
+    for (const s of seats) {
+      const fr = Math.max(s.faceBox.width, s.faceBox.height) / 2;
+      const fx = s.faceBox.left + s.faceBox.width / 2;
+      const fy = s.faceBox.top + s.faceBox.height / 2;
+      if (circleHitsRect(fx, fy, fr, s.metaBox, 0.5)) {
+        overlaps.push({ type: "own-avatar", name: s.name });
+      }
+      if (hubBox) {
+        const hx = hubBox.left + hubBox.width / 2;
+        const hy = hubBox.top + hubBox.height / 2;
+        const hr = Math.min(hubBox.width, hubBox.height) / 2;
+        if (circleHitsRect(hx, hy, hr, s.metaBox, 0.5)) overlaps.push({ type: "hub", name: s.name });
+      }
+      if (s.metaBox.left < -0.5 || s.metaBox.top < -0.5 || s.metaBox.right > view.right + 0.5 || s.metaBox.bottom > view.bottom + 0.5) {
+        clipped.push({ name: s.name, ...s.metaBox, vw, vh });
+      }
+    }
+    for (let i = 0; i < seats.length; i++) {
+      for (let j = i + 1; j < seats.length; j++) {
+        const a = seats[i];
+        const b = seats[j];
+        if (rectsOverlap(a.metaBox, b.metaBox, 0.5)) overlaps.push({ type: "chip-chip", names: [a.name, b.name] });
+        const ar = Math.max(a.faceBox.width, a.faceBox.height) / 2;
+        const br = Math.max(b.faceBox.width, b.faceBox.height) / 2;
+        if (circleHitsRect(a.faceBox.left + a.faceBox.width / 2, a.faceBox.top + a.faceBox.height / 2, ar, b.metaBox, 0.5)) {
+          overlaps.push({ type: "chip-avatar", names: [b.name, a.name] });
+        }
+        if (circleHitsRect(b.faceBox.left + b.faceBox.width / 2, b.faceBox.top + b.faceBox.height / 2, br, a.metaBox, 0.5)) {
+          overlaps.push({ type: "chip-avatar", names: [a.name, b.name] });
+        }
+        if (rectsOverlap(a.faceBox, b.faceBox, 0.5)) overlaps.push({ type: "avatar-avatar", names: [a.name, b.name] });
+      }
+    }
+    return { ok: overlaps.length === 0 && clipped.length === 0, overlaps, clipped, count: seats.length };
+  }
+
+  function scheduleChipLayout(svg) {
+    if (typeof requestAnimationFrame !== "function") {
+      layoutSeatChips(svg);
+      return;
+    }
+    const ring = svg && svg._ring;
+    const run = () => {
+      layoutSeatChips(svg);
+      requestAnimationFrame(() => layoutSeatChips(svg));
+    };
+    if (ring) {
+      if (ring._chipLayout) cancelAnimationFrame(ring._chipLayout);
+      ring._chipLayout = requestAnimationFrame(run);
+    } else {
+      requestAnimationFrame(run);
+    }
   }
 
   function syncPin(svg, item) {
@@ -597,6 +900,7 @@
     pin.style.left = `${((x / 400) * 100).toFixed(3)}%`;
     pin.style.top = `${((y / 400) * 100).toFixed(3)}%`;
     pin.style.setProperty("--mid", `${mid}deg`);
+    pin.dataset.mid = String(mid);
     const place = placeMeta(mid);
     pin.classList.toggle("is-side", Boolean(place.side && place.side !== "radial"));
     pin.classList.toggle("is-side-right", place.side === "right");
@@ -755,6 +1059,7 @@
         ring.items.push(item);
       }
       pointToLeader(svg, false);
+      scheduleChipLayout(svg);
       return;
     }
     const sameLayout =
@@ -766,9 +1071,11 @@
         paintLeader(it);
       });
       pointToLeader(svg, true);
+      scheduleChipLayout(svg);
       return;
     }
     animate(svg, ring.items, spec);
+    scheduleChipLayout(svg);
   }
 
   function setTimer(svg, remainingMs, totalMs, paused) {
@@ -838,5 +1145,5 @@
     return size;
   }
 
-  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget, placeMeta };
+  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget, placeMeta, layoutSeatChips, measureRingCollisions, scheduleChipLayout, rectsOverlap, circleHitsRect, clampRect, initialChipRect };
 });

@@ -16,7 +16,7 @@
   --muted: #b7c3b8;
   --danger: #ff5d6c;
   --ok: #3ee0a0;
-  --score: "Rajdhani", "Teko", "DM Sans", sans-serif;
+  --score: "Teko", "DM Sans", system-ui, sans-serif;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
 
@@ -550,6 +550,100 @@ body {
   .auction-stumps { transform: translateX(-50%) scale(0.85); }
 }
 
+
+/* Live-final cricket cues (bat swing / flying bails). Match gavel-slam tone. */
+#cricket-fx,
+.cricket-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+#cricket-fx[hidden] { display: none !important; }
+.cricket-fx-stage {
+  position: relative;
+  width: min(240px, 72vw);
+  height: 180px;
+}
+.cricket-fx-scene { position: absolute; inset: 0; opacity: 0; }
+.cricket-fx.is-four .cricket-fx-shot,
+.cricket-fx.is-six .cricket-fx-shot { opacity: 1; }
+.cricket-fx.is-wicket .cricket-fx-wicket-scene { opacity: 1; }
+.cricket-fx-svg { width: 100%; height: 100%; display: block; overflow: visible; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.5)); }
+.fx-bat { transform-origin: 28px 108px; }
+.cricket-fx.is-play.is-four .fx-bat,
+.cricket-fx.is-play.is-six .fx-bat {
+  animation: bat-swing 560ms cubic-bezier(0.2, 1.25, 0.3, 1) both;
+}
+.fx-ball { transform-origin: 78px 74px; }
+.cricket-fx.is-play.is-four .fx-ball,
+.cricket-fx.is-play.is-six .fx-ball {
+  animation: ball-fly 620ms cubic-bezier(0.15, 0.7, 0.2, 1) 80ms both;
+}
+.cricket-fx.is-play.is-six .fx-ball { animation-name: ball-fly-six; }
+.cricket-fx-stamp {
+  position: absolute;
+  right: 2%;
+  top: 18%;
+  margin: 0;
+  display: none;
+  transform: rotate(-16deg) scale(1.8);
+  opacity: 0;
+  border: 4px solid #f5c518;
+  color: #f5c518;
+  font-family: var(--score, var(--display));
+  font-weight: 700;
+  font-size: clamp(28px, 9vw, 42px);
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 6px 12px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  background: rgba(20, 12, 0, 0.12);
+}
+.cricket-fx-stamp.is-six { border-color: #3ee0a0; color: #3ee0a0; }
+.cricket-fx-stamp.is-wicket,
+.cricket-fx-stamp.is-out { border-color: #ff5d6c; color: #ff5d6c; }
+.cricket-fx.is-four .cricket-fx-stamp.is-four,
+.cricket-fx.is-six .cricket-fx-stamp.is-six,
+.cricket-fx.is-wicket .cricket-fx-stamp.is-wicket { display: block; }
+.cricket-fx-stamp.is-out { display: none; top: 52%; right: 10%; font-size: clamp(18px, 6vw, 26px); }
+.cricket-fx.is-wicket .cricket-fx-stamp.is-out { display: block; }
+.cricket-fx.is-play .cricket-fx-stamp.is-four,
+.cricket-fx.is-play .cricket-fx-stamp.is-six,
+.cricket-fx.is-play .cricket-fx-stamp.is-wicket,
+.cricket-fx.is-play .cricket-fx-stamp.is-out {
+  animation: stamp-slam 520ms cubic-bezier(0.15, 1.45, 0.3, 1) 160ms both;
+}
+.cricket-fx.is-play.is-wicket .fx-bail.b1 { animation: bail-fly-l 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.cricket-fx.is-play.is-wicket .fx-bail.b2 { animation: bail-fly-r 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.cricket-fx.is-play.is-wicket .fx-stump.s2 { animation: stump-tilt 560ms cubic-bezier(0.2, 0.8, 0.3, 1) both; transform-origin: 90px 110px; }
+@keyframes bat-swing {
+  0% { transform: rotate(-70deg); }
+  55% { transform: rotate(28deg); }
+  100% { transform: rotate(16deg); }
+}
+@keyframes ball-fly {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(70px, -64px) scale(0.7); opacity: 0.15; }
+}
+@keyframes ball-fly-six {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(40px, -96px) scale(0.55); opacity: 0.1; }
+}
+@keyframes stump-tilt {
+  0% { transform: rotate(0); }
+  100% { transform: rotate(18deg) translate(6px, 2px); }
+}
+
+html.is-bidding .stadium-floods,
+html.is-bidding .stadium-floods::before,
+html.is-bidding .stadium-floods::after {
+  animation: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stadium-floods::before,
   .stadium-floods::after,
@@ -567,8 +661,20 @@ body {
   .cricket-spinner,
   .result-card.is-fresh,
   .result-card.is-champion,
-  .sold-modal.is-in .sold-card {
+  .sold-modal.is-in .sold-card,
+  .cricket-fx.is-play .fx-bat,
+  .cricket-fx.is-play .fx-ball,
+  .cricket-fx.is-play .fx-bail,
+  .cricket-fx.is-play .fx-stump,
+  .cricket-fx.is-play .cricket-fx-stamp {
     animation: none !important;
+  }
+  .cricket-fx.is-reduced .cricket-fx-stamp.is-four,
+  .cricket-fx.is-reduced .cricket-fx-stamp.is-six,
+  .cricket-fx.is-reduced .cricket-fx-stamp.is-wicket,
+  .cricket-fx.is-reduced .cricket-fx-stamp.is-out {
+    opacity: 1;
+    transform: rotate(-16deg) scale(1);
   }
   .sold-modal.is-in:not(.is-unsold) .stamp-sold,
   .sold-modal.is-in.is-unsold .stamp-unsold,

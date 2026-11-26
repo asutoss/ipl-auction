@@ -718,11 +718,15 @@ describe("ring seat bubbles", () => {
     assert.equal(b.text, "42 pts · 3 left");
   });
 
-  test("bubble markup shows purse in points and open slots on their own rows", () => {
+  test("bubble markup shows a compact purse and slots pill", () => {
     const { bubbleHtml } = require("../public/ring");
-    const html = bubbleHtml(seatBubble({ name: "Mitron", purseLakhs: 42, pending: 3 }, { minBidLakhs: 6 }));
-    assert.match(html, /42 pts/);
-    assert.match(html, /3 left/);
+    const view = seatBubble({ name: "Mitron", purseLakhs: 42, pending: 3 }, { minBidLakhs: 6 });
+    assert.equal(view.shortPurse, "42p");
+    assert.equal(view.shortNeed, "3");
+    assert.equal(view.shortText, "42p · 3");
+    const html = bubbleHtml(view);
+    assert.match(html, /42p/);
+    assert.match(html, /title="42 pts · 3 left"/);
     assert.match(html, /ring-bubble-pts/);
     assert.match(html, /ring-bubble-need/);
     assert.equal(/overall|rating/i.test(html), false);
