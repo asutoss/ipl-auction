@@ -138,6 +138,11 @@ async function playAuction(sockets) {
   throw new Error(`auction did not finish; phase=${sockets[0].state?.phase}`);
 }
 
+/** The rejoin key the server issued to `name` (a real browser keeps it from the join reply). */
+function serverKey(ctx, code, name) {
+  return ctx.manager.get(code).findByName(name).rejoinKey;
+}
+
 describe("e2e: 3 clients through a full game", () => {
   let ctx;
   const sockets = [];
@@ -236,7 +241,7 @@ describe("e2e: 3 clients through a full game", () => {
     priya.disconnect();
     const priya2 = await connect(url, "Priya");
     sockets.push(priya2);
-    const rejoined = await ack(priya2, "joinRoom", { code, name: "Priya" });
+    const rejoined = await ack(priya2, "joinRoom", { code, name: "Priya", rejoinKey: serverKey(ctx, code, "Priya") });
     assert.equal(rejoined.ok, true);
     assert.equal(rejoined.rejoined, true);
     const again = await waitState(priya2, (s) => s.phase === "results" && s.you?.name === "Priya");
@@ -459,6 +464,9 @@ describe("e2e: Kim wipe updates every client's squad", () => {
     assert.equal((await ack(spectator, "joinRoom", { code, name: "Spectator" })).ok, true);
     // Defaults follow the room's shuffled order, so first move everyone off
     // the three co-owners this test needs, then pick them explicitly.
+    // Fillers must also skip co-owners already held by default: if one of the
+    // wanted ids is first in the shuffled order, the other players' defaults
+    // become fillers[0..1] and a swap onto them would be rejected as taken.
     const wanted = ["kim-jong-un", "ravi-kishan", "narendra-modi"];
     const pickRoom = ctx.manager.get(code);
     const fillers = pickRoom.characterOrder.filter((id) => !wanted.includes(id));
@@ -526,7 +534,7 @@ describe("e2e: Kim wipe updates every client's squad", () => {
     victim.disconnect();
     const again = await connect(url, "Victim");
     sockets.push(again);
-    const rejoined = await ack(again, "joinRoom", { code, name: "Victim" });
+    const rejoined = await ack(again, "joinRoom", { code, name: "Victim", rejoinKey: serverKey(ctx, code, "Victim") });
     assert.equal(rejoined.ok, true, rejoined.error);
     const fresh = await waitState(again, (s) => s.you?.name === "Victim" && Array.isArray(s.you.squad));
     assert.deepEqual(fresh.you.squad.map((s) => s.player.id), serverIds);
@@ -634,7 +642,7 @@ describe("e2e: room links, join via URL, and ended rooms", () => {
     guest.disconnect();
     const guest2 = await connect(url, "Guest");
     sockets.push(guest2);
-    const rejoined = await ack(guest2, "joinRoom", { name: "Guest", code });
+    const rejoined = await ack(guest2, "joinRoom", { name: "Guest", code, rejoinKey: joined.rejoinKey });
     assert.equal(rejoined.ok, true, rejoined.error);
     assert.equal(rejoined.rejoined, true);
 
@@ -703,7 +711,7 @@ describe("e2e: room links, join via URL, and ended rooms", () => {
     b.disconnect();
     const b2 = await connect(url, "Bea");
     sockets.push(b2);
-    const again = await ack(b2, "joinRoom", { code, name: "Bea" });
+    const again = await ack(b2, "joinRoom", { code, name: "Bea", rejoinKey: serverKey(ctx, code, "Bea") });
     assert.equal(again.ok, true, again.error);
     const st = await waitState(b2, (s) => s.phase === "results" && s.you?.name === "Bea");
     assert.equal(st.phase, "results");

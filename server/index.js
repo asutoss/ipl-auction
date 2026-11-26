@@ -264,7 +264,7 @@ io.on("connection", (socket) => {
       return cb && cb(result);
     }
     attach(socket, room, result.name);
-    cb && cb({ ok: true, code, name: result.name });
+    cb && cb({ ok: true, code, name: result.name, rejoinKey: result.rejoinKey });
   });
 
   socket.on("joinRoom", (payload = {}, cb) => {
@@ -279,10 +279,17 @@ io.on("connection", (socket) => {
       }
       return cb && cb({ ok: false, error: "No room with that code.", status: "missing" });
     }
-    const result = room.addPlayer(name, socket.id);
+    const rejoinKey = typeof payload.rejoinKey === "string" ? payload.rejoinKey.slice(0, 64) : null;
+    const result = room.addPlayer(name, socket.id, { rejoinKey });
     if (!result.ok) return cb && cb(result);
     attach(socket, room, result.name);
-    cb && cb({ ok: true, code: room.code, name: result.name, rejoined: result.rejoined });
+    cb && cb({ ok: true, code: room.code, name: result.name, rejoined: result.rejoined, rejoinKey: result.rejoinKey });
+  });
+
+  socket.on("setBidTimer", (payload = {}, cb) => {
+    const room = getRoom(socket.data.code);
+    if (!room) return cb && cb({ ok: false, error: "Join a room first." });
+    cb && cb(room.setBidTimer(socket.data.name, payload.seconds));
   });
 
   socket.on("setPurse", (payload = {}, cb) => {

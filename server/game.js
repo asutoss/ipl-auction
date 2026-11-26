@@ -1,4 +1,11 @@
 const { EventEmitter } = require("events");
+const crypto = require("crypto");
+
+/** Bid timer lengths (seconds) the host can choose in the lobby. */
+const BID_TIMER_CHOICES = [10, 15, 25];
+
+/** How long a disconnected team can only be reclaimed with its rejoin key. */
+const REJOIN_GRACE_MS = Number(process.env.REJOIN_GRACE_MS) || 2 * 60 * 1000;
 const { overallRating, derivedFielding, officialHeadshotUrl } = require("./players");
 const { simulateTournament, pickCaptainIfMissing, rollTeamForm, squadStrengthBreakdown } = require("./simulate");
 const { findFinalMatch, buildFinalTimeline } = require("./final-timeline");
@@ -30,7 +37,7 @@ const {
   MIN_START_BID,
   MAX_START_BID,
 } = require("./rules");
-const { getBooster, canAffordAny, publicCatalog, packBooster, applyFormBoosters } = require("./boosters");
+const { getBooster, canAffordAny, publicCatalog, packBooster, applyFormBoosters, priceFor } = require("./boosters");
 const {
   CHARACTERS,
   getCharacter,
@@ -485,7 +492,7 @@ class GameRoom extends EventEmitter {
     return this.findByKey(this.hostKey) || this.franchises[0] || null;
   }
 
-  addPlayer(rawName, socketId) {
+  addPlayer(rawName, socketId, opts = {}) {
     const name = normalizeName(rawName);
     if (!name) return { ok: false, error: "Enter a team name." };
     if (name.length > 24) return { ok: false, error: "Team name must be 24 characters or fewer." };
@@ -496,7 +503,23 @@ class GameRoom extends EventEmitter {
       if (claimedByOther && existing.connected && this.socketIsLive(existing.socketId)) {
         return { ok: false, error: "That team name is already in this room." };
       }
+      // A disconnected team can be reclaimed straight away only with its private
+      // rejoin key (kept by the browser that created it). Without the key, the
+      // name alone works only after the team has been offline for a while, so a
+      // phone that locked for a minute cannot be taken over by someone else.
+      const keyOk = Boolean(opts.rejoinKey) && opts.rejoinKey === existing.rejoinKey;
+      if (!keyOk && existing.rejoinKey) {
+        const offlineFor = existing.disconnectedAt ? Date.now() - existing.disconnectedAt : 0;
+        if (offlineFor < REJOIN_GRACE_MS) {
+          const wait = Math.ceil((REJOIN_GRACE_MS - offlineFor) / 1000);
+          return {
+            ok: false,
+            error: `That team is held for its owner. Rejoin from the same browser, or try again in ${wait} s.`,
+          };
+        }
+      }
       existing.socketId = socketId;
+      existing.disconnectedAt = null;
       existing.connected = true;
       if (this.chaiBreak && this.chaiBreak.actorKey === existing.key) {
         this.clearChaiDisconnectTimer();
@@ -510,7 +533,7 @@ class GameRoom extends EventEmitter {
           hostName: this.host ? this.host.name : null,
         });
       }
-      return { ok: true, rejoined: true, name: existing.name };
+      return { ok: true, rejoined: true, name: existing.name, rejoinKey: existing.rejoinKey };
     }
 
     if (this.phase !== "lobby") {
@@ -526,6 +549,8 @@ class GameRoom extends EventEmitter {
       key: nameKey(name),
       name,
       socketId,
+      rejoinKey: crypto.randomBytes(16).toString("hex"),
+      disconnectedAt: null,
       connected: true,
       franchise: { ...pack },
       purseLakhs: this.purseLakhs,
@@ -547,7 +572,7 @@ class GameRoom extends EventEmitter {
     this.franchises.push(franchise);
     if (!this.hostKey) this.hostKey = franchise.key;
     this.bump("lobby");
-    return { ok: true, rejoined: false, name };
+    return { ok: true, rejoined: false, name, rejoinKey: franchise.rejoinKey };
   }
 
   disconnect(socketId) {
@@ -555,6 +580,7 @@ class GameRoom extends EventEmitter {
     if (!f) return;
     f.connected = false;
     f.socketId = null;
+    f.disconnectedAt = Date.now();
     if (this.chaiBreak && this.chaiBreak.actorKey === f.key) {
       this.armChaiDisconnect();
     }
@@ -585,6 +611,25 @@ class GameRoom extends EventEmitter {
     for (const team of this.franchises) team.purseLakhs = this.purseLakhs;
     this.bump("lobby");
     return { ok: true };
+  }
+
+  /** Host picks how long each lot (and each bid reset) runs: 10, 15 or 25 seconds. */
+  setBidTimer(byName, seconds) {
+    const f = this.findByName(byName);
+    if (!f || f.key !== this.hostKey) return { ok: false, error: "Only the host can set the bid timer." };
+    if (this.phase !== "lobby") return { ok: false, error: "The bid timer is locked once the auction starts." };
+    const secs = Math.round(Number(seconds));
+    if (!BID_TIMER_CHOICES.includes(secs)) {
+      return { ok: false, error: `Bid timer must be ${BID_TIMER_CHOICES.join(", ")} seconds.` };
+    }
+    this.timers.lotStartMs = secs * 1000;
+    this.timers.bidMs = secs * 1000;
+    this.bump("lobby");
+    return { ok: true };
+  }
+
+  bidTimerSeconds() {
+    return Math.round((Number(this.timers && this.timers.bidMs) || 0) / 1000);
   }
 
   selectCharacter(byName, characterId) {
@@ -867,7 +912,7 @@ class GameRoom extends EventEmitter {
     if (withSpot.length === 0) {
       return `Skipped: no team has a spot left for ${article} ${label}.`;
     }
-    const canAfford = withSpot.filter((f) => (Number(f.purseLakhs) || 0) >= cost);
+    const canAfford = withSpot.filter((f) => (Number(f.purseLakhs) || 0) >= this.defaultBidFor(f, player, cost));
     if (canAfford.length === 0) {
       return "Skipped: no team with a spot left can afford his starting bid.";
     }
@@ -1021,6 +1066,23 @@ class GameRoom extends EventEmitter {
    * this role quota is already full). If the chosen team cannot afford the
    * starting bid, eliminate them and continue.
    */
+  /**
+   * What the automatic opening bid costs `team` for `player`: the lot's rolled
+   * start bid, capped so the team still keeps 1 point for every slot it will
+   * need after this player. This keeps the random 1–5 roll from draining a
+   * team that has kept its reserve into elimination. A team already below its
+   * reserve (only possible after a power took points) pays the rolled bid as
+   * before, and is eliminated if it cannot.
+   */
+  defaultBidFor(team, player, startBid) {
+    const rolled = startBid != null ? startBid : MIN_START_BID;
+    const size = (this.mode && this.mode.squadSize) || 11;
+    const slotsAfter = Math.max(0, size - ((team && team.squad) || []).length - 1);
+    const affordable = (Number(team && team.purseLakhs) || 0) - slotsAfter * BASE_PRICE_POINTS;
+    if (affordable < MIN_START_BID) return rolled;
+    return Math.min(rolled, affordable);
+  }
+
   pickDefaultTeam(player, startBid) {
     const cost = startBid != null ? startBid : MIN_START_BID;
     const n = this.franchises.length;
@@ -1032,7 +1094,7 @@ class GameRoom extends EventEmitter {
       if (team.eliminated || team.banned || isSquadComplete(team.squad, this.mode)) continue;
       if (isBidBlocked(this, team)) continue;
       if (!canAddToSquad(team.squad, player, this.mode).ok) continue;
-      if (team.purseLakhs < cost) {
+      if (team.purseLakhs < this.defaultBidFor(team, player, cost)) {
         this.eliminate(team);
         continue;
       }
@@ -1121,13 +1183,14 @@ class GameRoom extends EventEmitter {
       const player = this.queue.shift();
       if (!player || this.soldIds.has(player.id) || this.unaffordableIds.has(player.id) || this.isRetired(player.id)) continue;
       if (!this.neededRoles().has(player.role)) continue;
-      const startBid = this.rollStartBid();
-      const defaultTeam = this.pickDefaultTeam(player, startBid);
+      const rolled = this.rollStartBid();
+      const defaultTeam = this.pickDefaultTeam(player, rolled);
       if (!defaultTeam || defaultTeam.key !== team.key) {
         if (!defaultTeam) this.unaffordableIds.add(player.id);
         if (isOut(team)) break;
         continue;
       }
+      const startBid = this.defaultBidFor(team, player, rolled);
       const added = addToSquad(team, player, startBid, this.mode);
       if (!added.ok) continue;
       const paid = debit(this, team, startBid);
@@ -1241,12 +1304,13 @@ class GameRoom extends EventEmitter {
         this.emitDelta({ type: "skipped", player, reason });
         continue;
       }
+      const openingBid = this.defaultBidFor(defaultTeam, player, startBid);
 
       this.lotId += 1;
       this.auction = {
         nominee: player,
-        startBidLakhs: startBid,
-        currentBidLakhs: startBid,
+        startBidLakhs: openingBid,
+        currentBidLakhs: openingBid,
         currentBidderKey: defaultTeam.key,
         defaultBidderKey: defaultTeam.key,
         optedOut: new Set(),
@@ -1687,6 +1751,8 @@ class GameRoom extends EventEmitter {
       text: packed.text,
       characterId: packed.characterId,
       identityId: packed.identityId,
+      bids: this.auction.bidCount || 0,
+      bidderNames: (this.auction.bidderNames || []).slice(),
     });
     this.lastEvent = packed;
     this.playerIntro = null;
@@ -1777,6 +1843,9 @@ class GameRoom extends EventEmitter {
 
     this.auction.currentBidLakhs = amount;
     this.auction.currentBidderKey = team.key;
+    this.auction.bidCount = (this.auction.bidCount || 0) + 1;
+    if (!this.auction.bidderNames) this.auction.bidderNames = [];
+    if (!this.auction.bidderNames.includes(team.name)) this.auction.bidderNames.push(team.name);
     if (jayTax) {
       const paid = transfer(this, team, taxHost, 1);
       this.auction.lastBroadcastTax = { from: team.name, to: taxHost.name, paid };
@@ -1907,7 +1976,7 @@ class GameRoom extends EventEmitter {
         kept.push(player);
         continue;
       }
-      const startBid = this.rollStartBid();
+      const startBid = this.defaultBidFor({ squad: shadowSquad, purseLakhs: shadowPurse }, player, this.rollStartBid());
       if (!canAddToSquad(shadowSquad, player, this.mode).ok || shadowPurse < startBid) {
         if (shadowPurse < startBid) this.unaffordableIds.add(player.id);
         kept.push(player);
@@ -2045,7 +2114,7 @@ class GameRoom extends EventEmitter {
       if (!f.squad.some((s) => s.player.id === f.captainId)) f.captainId = null;
     }
     const needingCaptain = this.activeFranchises().filter((f) => !f.captainId && f.squad.length);
-    const shopOpen = this.activeFranchises().some((f) => canAffordAny(f));
+    const shopOpen = this.activeFranchises().some((f) => canAffordAny(f, this.purseLakhs));
     if (needingCaptain.length === 0 && !shopOpen) {
       this.finishCaptains();
       return;
@@ -2059,7 +2128,7 @@ class GameRoom extends EventEmitter {
     if (this.phase !== "captains") return;
     const needing = this.activeFranchises().filter((f) => !f.captainId && f.squad.length);
     if (needing.length) return;
-    if (this.activeFranchises().some((f) => canAffordAny(f))) return;
+    if (this.activeFranchises().some((f) => canAffordAny(f, this.purseLakhs))) return;
     this.finishCaptains();
   }
 
@@ -2076,7 +2145,8 @@ class GameRoom extends EventEmitter {
     if (team.boosters.some((b) => b.id === item.id)) {
       return { ok: false, error: "You already bought that booster." };
     }
-    if (team.purseLakhs < item.pricePoints) {
+    const price = priceFor(item, this.purseLakhs);
+    if (team.purseLakhs < price) {
       return { ok: false, error: "Not enough points for that booster." };
     }
     let target = null;
@@ -2086,11 +2156,11 @@ class GameRoom extends EventEmitter {
       if (target.key === team.key) return { ok: false, error: "You cannot curse your own team." };
       if (target.eliminated) return { ok: false, error: "That team is already eliminated." };
     }
-    team.purseLakhs -= item.pricePoints;
+    team.purseLakhs -= price;
     const bought = packBooster({
       id: item.id,
       name: item.name,
-      pricePoints: item.pricePoints,
+      pricePoints: price,
       targetName: target ? target.name : null,
     });
     team.boosters.push(bought);
@@ -2335,6 +2405,48 @@ class GameRoom extends EventEmitter {
       powerUsed: power.used,
       formPct: f.formPct != null ? f.formPct : null,
     };
+  }
+
+  /**
+   * Fun auction awards for the results page, from the sale log: the most
+   * expensive buy, the steal of the auction (best rating per point among lots
+   * that were actually auctioned, not auto-filled) and the biggest bidding war.
+   */
+  packAuctionAwards() {
+    const sales = (this.soldLog || []).filter((e) => e && e.player && !e.wiped && !e.auto);
+    if (!sales.length) return [];
+    const row = (e) => ({
+      playerName: e.player.name,
+      role: e.player.role,
+      buyerName: e.buyerName,
+      priceLakhs: Number(e.priceLakhs) || 0,
+      color: e.color || null,
+      characterId: e.characterId || null,
+    });
+    const awards = [];
+    const priciest = sales.reduce((best, e) => ((Number(e.priceLakhs) || 0) > (Number(best.priceLakhs) || 0) ? e : best));
+    awards.push({ id: "priciest", title: "Most expensive buy", ...row(priciest) });
+    const value = (e) => overallRating(e.player) / Math.max(1, Number(e.priceLakhs) || 1);
+    const steal = sales.reduce((best, e) => {
+      const d = value(e) - value(best);
+      if (d > 0) return e;
+      if (d === 0 && overallRating(e.player) > overallRating(best.player)) return e;
+      return best;
+    });
+    if (steal !== priciest) {
+      awards.push({ id: "steal", title: "Steal of the auction", rating: Math.round(overallRating(steal.player)), ...row(steal) });
+    }
+    const war = sales.reduce((best, e) => ((e.bids || 0) > (best.bids || 0) ? e : best));
+    if ((war.bids || 0) >= 2) {
+      awards.push({
+        id: "war",
+        title: "Biggest bidding war",
+        bids: war.bids,
+        teams: (war.bidderNames || []).length,
+        ...row(war),
+      });
+    }
+    return awards;
   }
 
   summarizeTournament(includeMatches) {
@@ -3186,6 +3298,9 @@ class GameRoom extends EventEmitter {
       code: this.code,
       phase: this.phase,
       purseLakhs: this.purseLakhs,
+      bidTimerSeconds: this.bidTimerSeconds(),
+      auctionAwards: this.phase === "results" ? this.packAuctionAwards() : [],
+      bidTimerChoices: BID_TIMER_CHOICES,
       paused: Boolean(this.paused),
       pausedBy: this.pausedBy,
       pauseRemainingMs: this.paused ? this.pauseRemainingMs : null,
@@ -3213,7 +3328,8 @@ class GameRoom extends EventEmitter {
       captainEndsAt: this.captainEndsAt,
       formBoostReveal: this.phase === "formBoosts" ? this.packFormBoostReveal() : null,
       prepFeed: this.prepFeed || [],
-      boosterCatalog: this.phase === "captains" && !this.formBoostReveal ? publicCatalog() : [],
+      boosterCatalog: this.phase === "captains" && !this.formBoostReveal ? publicCatalog(this.purseLakhs) : [],
+      boosterPreview: this.phase === "lobby" || this.phase === "auction" ? publicCatalog(this.purseLakhs).map((b) => ({ id: b.id, name: b.name, pricePoints: b.pricePoints })) : [],
       captainsPending: this.phase === "captains" && !this.formBoostReveal
         ? this.activeFranchises().filter((f) => !f.captainId && f.squad.length).map((f) => ({
             name: f.name,

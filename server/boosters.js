@@ -83,11 +83,25 @@ function getBooster(id) {
   return BOOSTERS.find((b) => b.id === id) || null;
 }
 
-function cheapestPrice(ownedIds = []) {
+/** Purse the catalogue prices were set for (a default Classical room). */
+const PRICE_BASE_PURSE = 100;
+
+/**
+ * Booster price in a room whose teams started with `startPurse` points:
+ * the catalogue price scaled to that purse, so Rapid/Bullet (and rooms where
+ * the host changed the purse) get a shop they can realistically use.
+ */
+function priceFor(booster, startPurse = PRICE_BASE_PURSE) {
+  const base = Number(booster && booster.pricePoints) || 0;
+  const purse = Number(startPurse) > 0 ? Number(startPurse) : PRICE_BASE_PURSE;
+  return Math.max(1, Math.round((base * purse) / PRICE_BASE_PURSE));
+}
+
+function cheapestPrice(ownedIds = [], startPurse = PRICE_BASE_PURSE) {
   const owned = new Set(ownedIds);
   const left = BOOSTERS.filter((b) => !owned.has(b.id));
   if (!left.length) return Infinity;
-  return Math.min(...left.map((b) => b.pricePoints));
+  return Math.min(...left.map((b) => priceFor(b, startPurse)));
 }
 
 function hasBooster(team, id) {
@@ -98,9 +112,9 @@ function ownedIds(team) {
   return (team.boosters || []).map((b) => b.id);
 }
 
-function canAffordAny(team) {
+function canAffordAny(team, startPurse = PRICE_BASE_PURSE) {
   if (!team || team.eliminated) return false;
-  return (team.purseLakhs || 0) >= cheapestPrice(ownedIds(team));
+  return (team.purseLakhs || 0) >= cheapestPrice(ownedIds(team), startPurse);
 }
 
 function packImpact(b) {
@@ -123,11 +137,11 @@ function catalogByImpact(list) {
   });
 }
 
-function publicCatalog() {
+function publicCatalog(startPurse = PRICE_BASE_PURSE) {
   return catalogByImpact(BOOSTERS.map((b) => ({
     id: b.id,
     name: b.name,
-    pricePoints: b.pricePoints,
+    pricePoints: priceFor(b, startPurse),
     blurb: b.blurb,
     needsTarget: Boolean(b.needsTarget),
     effect: b.effect || null,
@@ -273,6 +287,8 @@ module.exports = {
   FORM_RIVAL_ID,
   getBooster,
   cheapestPrice,
+  priceFor,
+  PRICE_BASE_PURSE,
   hasBooster,
   ownedIds,
   canAffordAny,

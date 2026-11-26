@@ -20,6 +20,9 @@ const { findFinalMatch, buildFinalTimeline, snapshotAtElapsed } = require("../se
 
 const { meta, players } = loadPlayers();
 
+/** Rejoin the way a real browser does: with the team's private rejoin key. */
+const keyOf = (room, name) => ({ rejoinKey: room.findByName(name).rejoinKey });
+
 function roomWith(names, timers, opts = {}) {
   const mode = opts.mode || "classical";
   const { getMode } = require("../server/rules");
@@ -987,6 +990,42 @@ describe("booster shop", () => {
     return room;
   }
 
+  test("booster prices scale with the room's starting purse", () => {
+    const { publicCatalog, priceFor } = require("../server/boosters");
+    const bus = getBooster("bus-breakdown"); // 30 in a 100-point room
+    const drs = getBooster("drs-wizard"); // 10 in a 100-point room
+    assert.equal(priceFor(bus, 100), 30);
+    assert.equal(priceFor(bus, 50), 15);
+    assert.equal(priceFor(bus, 30), 9);
+    assert.equal(priceFor(drs, 30), 3);
+    assert.equal(priceFor(drs, 5), 1, "never below 1 point");
+    assert.deepEqual(publicCatalog().map((b) => b.pricePoints), publicCatalog(100).map((b) => b.pricePoints));
+
+    // A Bullet room (30-point purse) charges the scaled price.
+    const room = roomWith(["Ashutosh", "Priya"], {}, { mode: "bullet" });
+    giveSquad(room, "Ashutosh", { BAT: 1, WK: 1, BOWL: 1 });
+    giveSquad(room, "Priya", { BAT: 1, WK: 1, BOWL: 1 });
+    room.findByName("Ashutosh").purseLakhs = 10;
+    room.findByName("Priya").purseLakhs = 10;
+    room.auction = null;
+    room.beginCaptainPhase();
+    assert.equal(room.phase, "captains");
+    const shop = room.getState("Ashutosh").boosterCatalog;
+    assert.equal(shop.find((b) => b.id === "bus-breakdown").pricePoints, 9);
+    assert.equal(room.buyBooster("Ashutosh", "drs-wizard").ok, true);
+    assert.equal(room.findByName("Ashutosh").purseLakhs, 7);
+    assert.equal(room.findByName("Ashutosh").boosters[0].pricePoints, 3);
+  });
+
+  test("booster prices are previewed in the lobby and during the auction", () => {
+    const room = roomWith(["Ashutosh", "Priya"], {}, { mode: "rapid" });
+    const lobby = room.getState("Priya").boosterPreview;
+    assert.ok(lobby.length >= 6);
+    assert.equal(lobby.find((b) => b.id === "bus-breakdown").pricePoints, 15);
+    room.startAuction("Ashutosh");
+    assert.equal(room.getState("Priya").boosterPreview.length, lobby.length);
+  });
+
   test("catalog has priced funny boosters and enforces one of each", () => {
     assert.ok(BOOSTERS.length >= 6);
     for (const b of BOOSTERS) {
@@ -1359,7 +1398,7 @@ describe("team characters", () => {
     assert.deepEqual(fromAsh, room.characterOrder);
     // Rejoin does not reshuffle.
     room.disconnect(room.findByName("Ashutosh").socketId);
-    const rejoin = room.addPlayer("Ashutosh", "sock-rejoin");
+    const rejoin = room.addPlayer("Ashutosh", "sock-rejoin", keyOf(room, "Ashutosh"));
     assert.equal(rejoin.ok, true);
     assert.equal(rejoin.rejoined, true);
     assert.deepEqual(room.getState("Ashutosh").characters.map((c) => c.id), fromAsh);
@@ -1420,6 +1459,27 @@ describe("random starting bids", () => {
       seen.add(bid);
     }
     assert.ok(seen.size >= 3, `only saw ${[...seen]}`);
+  });
+
+  test("opening bid is capped so a team that kept its reserve is never eliminated by the roll", () => {
+    const room = roomWith(["Ashutosh", "Priya"], {}, { mode: "rapid" });
+    const a = room.findByName("Ashutosh");
+    // Rapid squad is 5. Give Ashutosh 1 player, so after this lot he needs 3 more.
+    const wk = players.find((p) => p.role === "WK");
+    a.squad.push({ player: wk, priceLakhs: 1 });
+    room.soldIds.add(wk.id);
+    a.purseLakhs = 5; // exactly keeps 1 pt per slot (4 open) plus 1 spare
+    room.forcedStartBid = 5;
+    room.rrIndex = 0;
+    const bat = players.find((p) => p.role === "BAT" && !room.soldIds.has(p.id));
+    room.queue = [bat, players.find((p) => p.role === "BOWL")];
+    room.phase = "auction";
+    room.nominateNext();
+    assert.equal(a.eliminated, false);
+    assert.equal(room.auction.defaultBidderKey, "ashutosh");
+    // 5 points minus 3 reserved slots leaves 2 to spend on this player.
+    assert.equal(room.auction.startBidLakhs, 2);
+    assert.equal(room.auction.currentBidLakhs, 2);
   });
 
   test("default team is eliminated only when it cannot afford the starting bid", () => {
@@ -1683,7 +1743,7 @@ describe("team names and character catalog", () => {
     const logo = team.franchise.id;
     room.disconnect(team.socketId);
     assert.equal(team.connected, false);
-    const again = room.addPlayer("night owls", "sock-rejoin");
+    const again = room.addPlayer("night owls", "sock-rejoin", keyOf(room, "night owls"));
     assert.equal(again.ok, true);
     assert.equal(again.rejoined, true);
     assert.equal(again.name, "Night Owls");
@@ -1692,13 +1752,119 @@ describe("team names and character catalog", () => {
     assert.equal(room.franchises.length, 2);
   });
 
+  test("auction awards: priciest buy, steal, and biggest bidding war", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    room.forcedStartBid = 1;
+    const kohli = players.find((p) => p.id === "virat-kohli");
+    const nair = players.find((p) => p.id === "karun-nair");
+    const bowl = players.find((p) => p.role === "BOWL");
+    room.queue = [kohli, nair, bowl];
+    room.phase = "auction";
+    room.rrIndex = 0;
+    room.nominateNext();
+    // Kohli: a 4-bid war between Priya and Rohan (raises of +1, +2, +2, +5), sold for 11.
+    assert.equal(room.auction.nominee.id, kohli.id);
+    assert.equal(room.bid("Priya", 2).ok, true);
+    assert.equal(room.bid("Rohan", 4).ok, true);
+    assert.equal(room.bid("Priya", 6).ok, true);
+    assert.equal(room.bid("Rohan", 11).ok, true);
+    room.optOut("Ashutosh");
+    room.optOut("Priya");
+    // Karun Nair goes for the opening 1 point, no bids.
+    assert.equal(room.auction.nominee.id, nair.id);
+    room.optOut(room.auction.currentBidderKey === "ashutosh" ? "Priya" : "Ashutosh");
+    room.optOut(room.auction.currentBidderKey === "rohan" ? "Priya" : "Rohan");
+    assert.equal(room.soldLog.length, 2);
+    assert.equal(room.soldLog[0].bids, 4);
+    assert.deepEqual(room.soldLog[0].bidderNames.sort(), ["Priya", "Rohan"]);
+
+    const awards = room.packAuctionAwards();
+    const byId = Object.fromEntries(awards.map((a) => [a.id, a]));
+    assert.equal(byId.priciest.playerName, kohli.name);
+    assert.equal(byId.priciest.buyerName, "Rohan");
+    assert.equal(byId.priciest.priceLakhs, 11);
+    assert.equal(byId.steal.playerName, nair.name);
+    assert.equal(byId.steal.priceLakhs, 1);
+    assert.equal(byId.war.playerName, kohli.name);
+    assert.equal(byId.war.bids, 4);
+    assert.equal(byId.war.teams, 2);
+
+    // Auto-filled and wiped players never win awards.
+    room.soldLog.push({ player: players.find((p) => p.role === "AR"), priceLakhs: 1, buyerName: "Ashutosh", auto: true });
+    room.soldLog[0].wiped = true;
+    const again = room.packAuctionAwards();
+    assert.ok(!again.some((a) => a.playerName === kohli.name));
+    assert.ok(!again.some((a) => a.priceLakhs === 1 && a.buyerName === "Ashutosh" && a.role === "AR"));
+  });
+
+  test("host can set the bid timer in the lobby; it drives lot and bid timers", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    assert.equal(room.setBidTimer("Priya", 10).ok, false, "only the host");
+    assert.equal(room.setBidTimer("Ashutosh", 7).ok, false, "only listed choices");
+    assert.equal(room.setBidTimer("Ashutosh", 10).ok, true);
+    assert.equal(room.getState("Priya").bidTimerSeconds, 10);
+    assert.deepEqual(room.getState("Priya").bidTimerChoices, [10, 15, 25]);
+    room.startAuction("Ashutosh");
+    assert.equal(room.setBidTimer("Ashutosh", 25).ok, false, "locked once the auction starts");
+    assert.equal(room.auction.timerMs, 10_000);
+    const before = Date.now();
+    const leader = room.auction.currentBidderKey === "priya" ? "Ashutosh" : "Priya";
+    assert.equal(room.bid(leader, room.auction.currentBidLakhs + 1).ok, true);
+    assert.ok(room.auction.endsAt - before <= 10_100 && room.auction.endsAt - before >= 9_900, String(room.auction.endsAt - before));
+  });
+
+  test("a disconnected team cannot be taken over by name alone until its grace period ends", () => {
+    const room = roomWith(["Ashutosh", "Priya"]);
+    room.startAuction("Ashutosh");
+    const priya = room.findByName("Priya");
+    room.disconnect(priya.socketId);
+
+    // Someone else types her team name straight away: refused.
+    const grab = room.addPlayer("Priya", "intruder");
+    assert.equal(grab.ok, false);
+    assert.match(grab.error, /held for its owner/);
+    assert.equal(priya.connected, false);
+
+    // A wrong key is no better than no key.
+    assert.equal(room.addPlayer("Priya", "intruder", { rejoinKey: "nope" }).ok, false);
+
+    // After the grace period, name-only rejoin works (lost-phone recovery).
+    priya.disconnectedAt = Date.now() - 3 * 60 * 1000;
+    const late = room.addPlayer("Priya", "new-device");
+    assert.equal(late.ok, true);
+    assert.equal(late.rejoined, true);
+    assert.equal(late.rejoinKey, priya.rejoinKey, "the new device receives the key so it can rejoin quickly next time");
+  });
+
+  test("rejoin keys are never sent to other players", () => {
+    const room = roomWith(["Ashutosh", "Priya", "Rohan"]);
+    const keys = room.franchises.map((f) => f.rejoinKey);
+    assert.ok(keys.every((k) => typeof k === "string" && k.length >= 32));
+    assert.equal(new Set(keys).size, keys.length);
+    room.startAuction("Ashutosh");
+    for (const name of ["Ashutosh", "Priya", "Rohan"]) {
+      const json = JSON.stringify(room.getState(name));
+      for (const k of keys) assert.ok(!json.includes(k), `state for ${name} leaks a rejoin key`);
+    }
+    giveSquad(room, "Ashutosh", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Priya", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    giveSquad(room, "Rohan", { BAT: 4, WK: 1, AR: 2, BOWL: 4 });
+    room.auction = null;
+    room.beginCaptainPhase();
+    room.finishCaptains();
+    if (room.phase === "formBoosts") room.finishFormBoostReveal();
+    assert.equal(room.phase, "results");
+    const out = JSON.stringify([room.getState("Priya"), room.getMatches()]);
+    for (const k of keys) assert.ok(!out.includes(k), "results leak a rejoin key");
+  });
+
   test("rejoins mid-auction, mid-captains, or results with the same franchise and full state", () => {
     const room = roomWith(["Ashutosh", "Priya"]);
     room.startAuction("Ashutosh");
     const purse = room.findByName("Priya").purseLakhs;
     const sock = room.findByName("Priya").socketId;
     room.disconnect(sock);
-    const again = room.addPlayer("Priya", "priya-auction");
+    const again = room.addPlayer("Priya", "priya-auction", keyOf(room, "Priya"));
     assert.equal(again.ok, true);
     assert.equal(again.rejoined, true);
     const midAuction = room.getState("Priya");
@@ -1711,14 +1877,14 @@ describe("team names and character catalog", () => {
     room.auction = null;
     room.findByName("Priya").captainId = room.findByName("Priya").squad[0] ? room.findByName("Priya").squad[0].player.id : null;
     room.disconnect(room.findByName("Priya").socketId);
-    assert.equal(room.addPlayer("Priya", "priya-captains").rejoined, true);
+    assert.equal(room.addPlayer("Priya", "priya-captains", keyOf(room, "Priya")).rejoined, true);
     const midCaptains = room.getState("Priya");
     assert.equal(midCaptains.phase, "captains");
     assert.equal(midCaptains.you.name, "Priya");
 
     room.phase = "results";
     room.disconnect(room.findByName("Priya").socketId);
-    assert.equal(room.addPlayer("Priya", "priya-results").rejoined, true);
+    assert.equal(room.addPlayer("Priya", "priya-results", keyOf(room, "Priya")).rejoined, true);
     const midResults = room.getState("Priya");
     assert.equal(midResults.phase, "results");
     assert.equal(midResults.you.purseLakhs, purse);
@@ -1730,7 +1896,7 @@ describe("team names and character catalog", () => {
     room.startAuction("Ashutosh");
     room.disconnect(room.findByName("Ashutosh").socketId);
     assert.equal(room.host.name, "Priya");
-    assert.equal(room.addPlayer("Ashutosh", "ash-back").ok, true);
+    assert.equal(room.addPlayer("Ashutosh", "ash-back", keyOf(room, "Ashutosh")).ok, true);
     assert.equal(room.host.name, "Priya", "returning host should not steal the role back");
     assert.equal(room.getState("Ashutosh").hostName, "Priya");
   });
@@ -1741,7 +1907,7 @@ describe("team names and character catalog", () => {
     priya.connected = true;
     priya.socketId = "stale-socket";
     room.isSocketLive = (id) => id !== "stale-socket";
-    const again = room.addPlayer("Priya", "fresh-socket");
+    const again = room.addPlayer("Priya", "fresh-socket", keyOf(room, "Priya"));
     assert.equal(again.ok, true);
     assert.equal(again.rejoined, true);
     assert.equal(room.findByName("Priya").socketId, "fresh-socket");

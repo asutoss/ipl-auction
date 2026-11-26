@@ -2605,3 +2605,20 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 html.is-bidding .ring-logo-pin.is-leader .ring-logo-bob {
   animation: none !important;
 }
+/* Booster price preview (lobby + auction side panel) */
+.booster-preview { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.booster-preview summary { cursor: pointer; line-height: 1.4; }
+.booster-preview ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.booster-preview li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+
+/* Auction awards on the results page */
+.auction-awards h2 { margin: 2px 0 12px; }
+.award-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.award-card { border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); border-radius: 14px; padding: 12px 14px; background: color-mix(in srgb, var(--c) 10%, transparent); }
+.award-card p { margin: 0; }
+.award-title { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.award-player { font-weight: 700; font-size: 18px; margin-top: 4px !important; }
+.award-detail { font-size: 14px; color: var(--muted); margin-top: 2px !important; }
+
+/* Sound on/off toggle in the top bar */
+.sound-toggle { padding-left: 10px; padding-right: 10px; min-width: 40px; line-height: 1; }

@@ -6,6 +6,8 @@ const { CHARACTERS, characterLines, publicCharacter } = require("../public/chara
 const { POWERS, applyPower, listValidCopyPowers } = require("../server/powers");
 const { applyDelta } = require("../public/state");
 const { shortenPowerReason } = require("../public/power-reasons");
+/** Rejoin the way a real browser does: with the team's private rejoin key. */
+const keyOf = (room, name) => ({ rejoinKey: room.findByName(name).rejoinKey });
 
 const { meta, players } = loadPlayers();
 
@@ -326,7 +328,7 @@ describe("Dolly — Chai Break", () => {
     start(room);
     assert.equal(room.usePower("A").ok, true);
     room.disconnect("sock-0");
-    room.addPlayer("A", "sock-0-re");
+    room.addPlayer("A", "sock-0-re", keyOf(room, "A"));
     assert.equal(room.chaiDisconnectTimer, null);
     await new Promise((r) => setTimeout(r, 100));
     assert.ok(room.chaiBreak);

@@ -337,9 +337,46 @@ function toast(msg) {
   }, 2800);
 }
 
+const REJOIN_KEYS = "ipl-rejoin-keys";
+
+/** Private per-team rejoin keys, kept in this browser (most recent 20 rooms). */
+function rejoinSlot(code, name) {
+  return `${String(code || "").trim().toUpperCase()}:${String(name || "").trim().toLowerCase()}`;
+}
+function loadRejoinKey(code, name) {
+  try {
+    const all = JSON.parse(localStorage.getItem(REJOIN_KEYS) || "{}");
+    return (all[rejoinSlot(code, name)] || {}).key || null;
+  } catch {
+    return null;
+  }
+}
+function saveRejoinKey(code, name, key) {
+  if (!code || !name || !key) return;
+  try {
+    const all = JSON.parse(localStorage.getItem(REJOIN_KEYS) || "{}");
+    all[rejoinSlot(code, name)] = { key, at: Date.now() };
+    const keep = Object.entries(all).sort((a, b) => (b[1].at || 0) - (a[1].at || 0)).slice(0, 20);
+    localStorage.setItem(REJOIN_KEYS, JSON.stringify(Object.fromEntries(keep)));
+  } catch {
+    /* ignore: private mode or storage blocked */
+  }
+}
+
 function emit(event, payload) {
+  const body = { ...(payload || {}) };
+  if (event === "joinRoom" && !body.rejoinKey) {
+    const key = loadRejoinKey(body.code, body.name);
+    if (key) body.rejoinKey = key;
+  }
   return new Promise((resolve) => {
-    socket.emit(event, payload || {}, (res) => resolve(res || { ok: true }));
+    socket.emit(event, body, (res) => {
+      const out = res || { ok: true };
+      if ((event === "joinRoom" || event === "createRoom") && out.ok && out.rejoinKey) {
+        saveRejoinKey(out.code || body.code, out.name || body.name, out.rejoinKey);
+      }
+      resolve(out);
+    });
   });
 }
 
@@ -568,6 +605,10 @@ function showSoldModal(evt) {
     modal.classList.remove("is-in");
     void modal.offsetWidth;
     modal.classList.add("is-in");
+    if (evt.type === "sold" && window.IplSounds && soldRevealLeftMs() > (Number(evt.revealMs) || 5000) - 2500) {
+      const me = state && state.you;
+      IplSounds.play(me && evt.buyerName && me.name === evt.buyerName ? "soldYou" : "sold");
+    }
     if (evt.type === "sold" && window.IplFx && typeof IplFx.celebrateSold === "function") {
       IplFx.celebrateSold({
         color: evt.color || evt.buyerColor,
@@ -1053,6 +1094,10 @@ function placeRulesButton(home) {
   if (actions) actions.insertBefore(rulesBtn, actions.firstChild);
 }
 
+function soundToggleHtml() {
+  return window.IplSounds ? IplSounds.toggleHtml() : "";
+}
+
 function renderTop() {
   parkRulesButton();
   if (!state || !state.code || state.phase === "ended") {
@@ -1074,7 +1119,7 @@ function renderTop() {
   if (state.phase === "lobby") {
     topMeta.innerHTML = `
       ${youPill}
-      <span class="top-actions">${hostEnd}</span>
+      <span class="top-actions">${soundToggleHtml()}${hostEnd}</span>
     `;
     placeRulesButton(false);
     return;
@@ -1086,6 +1131,7 @@ function renderTop() {
     ${youPill}
     ${you ? `<span class="pill">Purse <strong>${money(you.purseLakhs)}</strong></span>` : ""}
     <span class="top-actions">
+      ${soundToggleHtml()}
       ${canPause ? `<button class="btn secondary" id="pause" type="button" ${state.paused || state.powerReveal ? "disabled" : ""}>${pauseLabel}</button>` : ""}
       ${hostEnd}
     </span>
@@ -1178,6 +1224,25 @@ function homeView() {
   `;
 }
 
+let boosterPreviewOpen = false;
+
+/** Booster prices for after the auction, so players know what to save for. */
+function boosterPreviewHtml() {
+  const list = (state && state.boosterPreview) || [];
+  if (!list.length) return "";
+  const prices = list.map((b) => Number(b.pricePoints) || 0);
+  const lo = Math.min(...prices);
+  const hi = Math.max(...prices);
+  const rows = [...list]
+    .sort((a, b) => (Number(a.pricePoints) || 0) - (Number(b.pricePoints) || 0))
+    .map((b) => `<li><span>${esc(b.name)}</span><span class="tag">${money(b.pricePoints)}</span></li>`)
+    .join("");
+  return `<details class="booster-preview" id="booster-preview" ${boosterPreviewOpen ? "open" : ""}>
+      <summary>Boosters after the auction: ${lo === hi ? money(lo) : `${lo}–${money(hi)}`}. Save points if you want one.</summary>
+      <ul>${rows}</ul>
+    </details>`;
+}
+
 function lobbyView() {
   const isHost = state.you && state.you.isHost;
   const ready = state.franchises.length >= state.minPlayers;
@@ -1245,6 +1310,15 @@ function lobbyView() {
         </select>
       </div>`
     : `<p class="lobby-purse-read">${money(state.purseLakhs)} each</p>`;
+  const timerChoices = state.bidTimerChoices || [];
+  const timerSelect = isHost && timerChoices.length
+    ? `<div class="lobby-purse lobby-timer">
+        <label for="bid-timer">Bid timer</label>
+        <select id="bid-timer">
+          ${timerChoices.map((n) => `<option value="${n}" ${state.bidTimerSeconds === n ? "selected" : ""}>${n} s</option>`).join("")}
+        </select>
+      </div>`
+    : state.bidTimerSeconds ? `<p class="lobby-purse-read">${esc(String(state.bidTimerSeconds))} s per bid</p>` : "";
   const startHint = isHost
     ? `<p class="hint">Min ${state.minPlayers} teams to start.</p>`
     : `<p class="hint">Waiting for the host to start.</p>`;
@@ -1262,7 +1336,9 @@ function lobbyView() {
       <div class="lobby-settings">
         <p class="lobby-mode">${esc(mode.name)} · ${esc(mode.compositionLabel)}</p>
         ${purseSelect}
+        ${timerSelect}
       </div>
+      ${boosterPreviewHtml()}
       <div class="lobby-teams">
         <p class="lobby-teams-label">Teams ${state.franchises.length} / ${state.maxPlayers}</p>
         <div class="franchise-grid">${cards}</div>
@@ -1712,6 +1788,7 @@ function maybeHapticOutbid(a) {
     } catch {
       /* ignore */
     }
+    if (window.IplSounds) IplSounds.play("outbid");
   }
   lastYouLed = youLead;
 }
@@ -1864,6 +1941,7 @@ function auctionView() {
         <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm", you.name) : ""}${you ? esc(you.name) : "Squad"}</h3>
         ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede" id="side-lede">${you.banned ? "Banned for match fixing · " : you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.complete ? " · squad complete" : (() => { const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0); return n ? ` · need ${n} more` : ""; })()}${formPctOf(you) != null ? ` · ${formLabel(you)}` : ""}</p>` : ""}
         ${you ? `<div id="side-slots">${squadSlots(you)}</div>` : ""}
+        ${boosterPreviewHtml()}
       </aside>
     </section>
   `;
@@ -1921,6 +1999,14 @@ function updateAuctionTimer() {
   const text = intro ? "Soon" : (frozen ? "Paused" : (a.endsAt ? `${secs}s` : "Soon"));
   const low = !intro && secs <= 3 && !frozen && Boolean(a.endsAt);
   const paused = frozen || intro || !a.endsAt;
+  if (window.IplSounds) {
+    IplSounds.tickCheck({
+      secs,
+      open: Boolean(a.endsAt) && state.phase === "auction" && !isSoldRevealActive(),
+      frozen: frozen || intro,
+      lotKey: String((a.nominee && a.nominee.id) || ""),
+    });
+  }
   const zero = !intro && secs <= 0 && !frozen && Boolean(a.endsAt);
   for (const id of ["timer", "live-timer"]) {
     const t = document.getElementById(id);
@@ -3023,6 +3109,30 @@ function bindResultsTeamSheet() {
   document.getElementById("results-team-sheet-backdrop")?.addEventListener("click", closeResultsTeamSheet);
 }
 
+/** Most expensive buy, steal of the auction and biggest bidding war (from the server). */
+function auctionAwardsHtml() {
+  const awards = (state && state.auctionAwards) || [];
+  if (!awards.length) return "";
+  const icon = { priciest: "💰", steal: "🕵️", war: "⚔️" };
+  const detail = (a) => {
+    if (a.id === "war") return `${a.bids} bids from ${a.teams} team${a.teams === 1 ? "" : "s"} · ${esc(a.buyerName)} won at ${money(a.priceLakhs)}`;
+    if (a.id === "steal") return `${esc(a.buyerName)} got him for ${money(a.priceLakhs)}${a.rating ? ` · rated ${a.rating}` : ""}`;
+    return `${esc(a.buyerName)} paid ${money(a.priceLakhs)}`;
+  };
+  const cards = awards.map((a) => `
+      <article class="award-card" style="--c:${esc(a.color || "var(--gold)")}">
+        <p class="award-title"><span aria-hidden="true">${icon[a.id] || "🏆"}</span> ${esc(a.title)}</p>
+        <p class="award-player">${esc(a.playerName)} ${a.role ? roleTag(a.role) : ""}</p>
+        <p class="award-detail">${detail(a)}</p>
+      </article>`).join("");
+  return `
+    <section class="panel auction-awards" aria-labelledby="auction-awards-title">
+      <p class="kicker">From the auction</p>
+      <h2 id="auction-awards-title">Auction awards</h2>
+      <div class="award-grid">${cards}</div>
+    </section>`;
+}
+
 function resultsView() {
   const t = state.tournament;
   if (!t) {
@@ -3037,6 +3147,7 @@ function resultsView() {
     <section class="results">
       ${championHeroHtml()}
       ${standingsRevealHtml(false)}
+      ${auctionAwardsHtml()}
       <div class="results-share-actions">
         <button class="btn" type="button" id="share-results">Share results</button>
       </div>
@@ -3711,6 +3822,10 @@ function wireCurrent() {
   if (!state) return;
   if (state.phase === "lobby") {
     wireShare();
+    document.getElementById("bid-timer")?.addEventListener("change", async (e) => {
+      const res = await emit("setBidTimer", { seconds: Number(e.target.value) });
+      if (res && !res.ok) toast(res.error || "Could not change the bid timer.");
+    });
     document.getElementById("purse")?.addEventListener("change", async (e) => {
       await emit("setPurse", { pursePoints: Number(e.target.value) });
     });
@@ -4037,6 +4152,9 @@ window.addEventListener("resize", () => {
   if (state && state.phase === "auction") fitHubName();
 });
 window.addEventListener("orientationchange", () => syncRingSize(true));
+document.addEventListener("toggle", (e) => {
+  if (e.target && e.target.id === "booster-preview") boosterPreviewOpen = e.target.open;
+}, true);
 window.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape") closeResultsTeamSheet();
 });
