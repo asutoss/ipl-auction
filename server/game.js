@@ -1,6 +1,9 @@
 const { EventEmitter } = require("events");
 const crypto = require("crypto");
 
+/** Delta types that can change the "still in" list on their own. */
+const STILL_IN_EVENTS = new Set(["powerReveal", "powerApplied", "powerWait", "powerWaitEnded", "chaiEnded", "banned", "eliminated", "resumed", "paused"]);
+
 /** Bid timer lengths (seconds) the host can choose in the lobby. */
 const BID_TIMER_CHOICES = [10, 15, 25];
 
@@ -321,6 +324,11 @@ class GameRoom extends EventEmitter {
   }
 
   emitDelta(evt) {
+    // Powers, bans and eliminations can change who is still in the running
+    // without a bid or opt-out, so those deltas carry the current list too.
+    if (evt && STILL_IN_EVENTS.has(evt.type) && !evt.stillIn && this.phase === "auction" && this.auction) {
+      evt = { ...evt, stillIn: this.packStillIn() };
+    }
     this.emit("delta", evt);
   }
 
@@ -1872,6 +1880,8 @@ class GameRoom extends EventEmitter {
         currentBidderShort: team.name,
         currentBidderColor: team.franchise.text || team.franchise.color,
         hasBidder: true,
+        // Purses changed by Jay Shah's broadcast fee, so every client stays in sync.
+        teams: jayTax ? [team, taxHost].map((f) => ({ name: f.name, purseLakhs: f.purseLakhs })) : undefined,
       });
     }
     return { ok: true };
@@ -2313,6 +2323,7 @@ class GameRoom extends EventEmitter {
         franchiseName: f.name,
         title: "Eliminated - insufficient purse",
         eliminated: true,
+        banned: Boolean(f.banned) || f.eliminatedReason === "match_fixing",
         leaguePosition: null,
         points: 0,
         nrr: 0,

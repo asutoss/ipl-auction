@@ -246,6 +246,28 @@ describe("Prabhas — Adipurush VFX", () => {
     const reused = room.usePower("C");
     assert.equal(reused.ok, false);
   });
+
+  test("teams who cannot see the hidden player can still bid on it (no '??? quota full')", () => {
+    const room = roomWith(["A", "B", "C"]);
+    setChar(room, "A", IDS.modi);
+    setChar(room, "B", IDS.prabhas);
+    setChar(room, "C", IDS.ravi);
+    start(room);
+    assert.equal(room.usePower("B").ok, true);
+    room.sellCurrent();
+    assert.equal(room.auction.vfxHidden, true);
+    for (const name of ["A", "C"]) {
+      const st = room.getState(name);
+      if (st.auction.currentBidderName === name) continue;
+      assert.equal(st.auction.nominee.role, "???");
+      assert.equal(st.auction.youCanBid, true, `${name} server says ${st.auction.youReason}`);
+      // The browser re-derives eligibility from its own state; it must agree.
+      const client = JSON.parse(JSON.stringify(st));
+      applyDelta(client, { type: "optOut", stillIn: st.auction.stillIn });
+      assert.equal(client.auction.youCanBid, true, `${name} client says ${client.auction.youReason}`);
+      assert.doesNotMatch(String(client.auction.youReason || ""), /\?\?\?/);
+    }
+  });
 });
 
 describe("Orry — What Do You Even Do?", () => {

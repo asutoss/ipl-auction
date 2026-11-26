@@ -203,7 +203,7 @@ io.on("connection", (socket) => {
 
   socket.on("createRoom", (payload = {}, cb) => {
     const name = normalizeName(payload.name);
-    if (!name) return cb && cb({ ok: false, error: "Enter a display name." });
+    if (!name) return cb && cb({ ok: false, error: "Enter a team name." });
     const limited = manager.allowCreate(clientKeys(socket));
     if (!limited.ok) return cb && cb(limited);
     if (!manager.canAcceptRoom()) return cb && cb(manager.roomCapError());
@@ -270,7 +270,7 @@ io.on("connection", (socket) => {
   socket.on("joinRoom", (payload = {}, cb) => {
     const name = normalizeName(payload.name);
     const code = String(payload.code || "").trim().toUpperCase();
-    if (!name) return cb && cb({ ok: false, error: "Enter a display name." });
+    if (!name) return cb && cb({ ok: false, error: "Enter a team name." });
     const room = getRoom(code);
     if (!room) {
       const info = manager.lookup(code);

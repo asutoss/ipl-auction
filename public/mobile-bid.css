@@ -490,3 +490,44 @@ html.is-auction .btn-rules {
   min-width: 40px;
   padding: 8px 10px;
 }
+
+/* Compact top bar on phones for every in-room phase (the auction has its own, above). */
+@media (max-width: 700px) {
+  html.is-inroom:not(.is-auction) .topbar:has(#top-meta:not([hidden])) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+  }
+  html.is-inroom:not(.is-auction) .topbar:has(#top-meta:not([hidden])) .brand {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: max-content;
+    padding: 4px 8px 4px 6px;
+  }
+  html.is-inroom:not(.is-auction) .brand-kicker { display: none; }
+  html.is-inroom:not(.is-auction) .brand h1 { font-size: 15px; white-space: nowrap; line-height: 1.1; }
+  html.is-inroom:not(.is-auction) .brand-ball { width: 20px; height: 20px; }
+  html.is-inroom:not(.is-auction) .topbar:has(#top-meta:not([hidden])) .top-meta {
+    display: contents;
+  }
+  html.is-inroom:not(.is-auction) .top-actions {
+    order: 2;
+    flex: none;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-left: auto;
+  }
+  html.is-inroom:not(.is-auction) .top-actions .btn,
+  html.is-inroom:not(.is-auction) .top-actions .btn-rules {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  html.is-inroom:not(.is-auction) .top-meta > .pill {
+    order: 3;
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+}

@@ -138,6 +138,8 @@ let stayOnHome = false;
 let endingByUs = false;
 let bootGen = 0;
 let selectedMode = "classical";
+// What the player has typed on the start page, kept across re-renders (failed create/join).
+let homeDraft = null;
 let bidDraft = null;
 let reveal = null; // { startedAt, skipped }
 let tickTimer = null;
@@ -1098,6 +1100,20 @@ function soundToggleHtml() {
   return window.IplSounds ? IplSounds.toggleHtml() : "";
 }
 
+const PHASE_LABELS = {
+  lobby: "Lobby",
+  auction: "Auction",
+  captains: "Captain & boosters",
+  formBoosts: "Form swings",
+  simulating: "Simulating",
+  results: "Results",
+  ended: "Ended",
+};
+
+function phaseLabel(phase) {
+  return PHASE_LABELS[phase] || String(phase || "");
+}
+
 function renderTop() {
   parkRulesButton();
   if (!state || !state.code || state.phase === "ended") {
@@ -1127,7 +1143,7 @@ function renderTop() {
   topMeta.innerHTML = `
     <span class="pill">Room <strong>${esc(state.code)}</strong></span>
     ${modePill()}
-    <span class="pill">${esc(state.phase)}</span>
+    <span class="pill">${esc(phaseLabel(state.phase))}</span>
     ${youPill}
     ${you ? `<span class="pill">Purse <strong>${money(you.purseLakhs)}</strong></span>` : ""}
     <span class="top-actions">
@@ -1190,7 +1206,7 @@ function homeView() {
     <section class="home">
       <div class="panel name-bar">
         <label for="name">Team name</label>
-        <input id="name" maxlength="24" placeholder="e.g. Night Owls" autocomplete="nickname" enterkeyhint="done" autocapitalize="words" spellcheck="false" />
+        <input id="name" maxlength="24" placeholder="e.g. Night Owls" autocomplete="nickname" enterkeyhint="go" autocapitalize="words" spellcheck="false" />
         <p class="hint">Must be unique in the room. Rejoin with the same name and code.</p>
       </div>
       <section class="hero">
@@ -1927,6 +1943,12 @@ function auctionView() {
             </div>
           </div>
         </div>
+      </div>
+      <aside class="panel side">
+        <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm", you.name) : ""}${you ? esc(you.name) : "Squad"}</h3>
+        ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede" id="side-lede">${you.banned ? "Banned for match fixing · " : you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.complete ? " · squad complete" : (() => { const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0); return n ? ` · need ${n} more` : ""; })()}${formPctOf(you) != null ? ` · ${formLabel(you)}` : ""}</p>` : ""}
+        ${you ? `<div id="side-slots">${squadSlots(you)}</div>` : ""}
+        ${boosterPreviewHtml()}
         <div class="bid-box" id="bid-box">
           <div id="power-btn-wrap">${powerButtonHtml()}</div>
           <div class="bid-cta">
@@ -1936,12 +1958,6 @@ function auctionView() {
           </div>
           <p class="error">${esc(lastError)}</p>
         </div>
-      </div>
-      <aside class="panel side">
-        <h3 style="display:flex;gap:8px;align-items:center">${you ? teamMark(you.franchise, "sm", you.name) : ""}${you ? esc(you.name) : "Squad"}</h3>
-        ${you ? `<p class="purse">${money(you.purseLakhs)}</p><p class="lede" id="side-lede">${you.banned ? "Banned for match fixing · " : you.eliminated ? "Eliminated - insufficient purse · " : ""}${you.squad.length} player${you.squad.length === 1 ? "" : "s"}${you.complete ? " · squad complete" : (() => { const n = Object.values(you.remainingQuota || {}).reduce((s, v) => s + v, 0); return n ? ` · need ${n} more` : ""; })()}${formPctOf(you) != null ? ` · ${formLabel(you)}` : ""}</p>` : ""}
-        ${you ? `<div id="side-slots">${squadSlots(you)}</div>` : ""}
-        ${boosterPreviewHtml()}
       </aside>
     </section>
   `;
@@ -2189,6 +2205,7 @@ function setBiddingClass() {
   const bidding = auctionLive && !(typeof isSoldRevealActive === "function" && isSoldRevealActive()) && !(typeof isPlayerIntroActive === "function" && isPlayerIntroActive()) && !(typeof isLastTeamFillActive === "function" && isLastTeamFillActive());
   document.documentElement.classList.toggle("is-auction", auctionLive);
   document.documentElement.classList.toggle("is-bidding", bidding);
+  document.documentElement.classList.toggle("is-inroom", Boolean(state && state.code && state.phase && state.phase !== "ended"));
 }
 
 function patchAuction() {
@@ -2385,7 +2402,7 @@ function prepCard(team) {
   if (expanded) {
     const capBlock = captain
       ? `<div class="prep-detail-cap"><strong>${esc(captainRevealText(captain.name, team))}</strong> <span class="tag">Captain</span></div>`
-      : `<p class="lede">Captain still choosing...</p>`;
+      : `<p class="lede">${team.banned ? "Banned for match fixing." : team.eliminated ? "Eliminated - cannot pick a captain." : "Captain still choosing..."}</p>`;
     const boostLines = (team.boosters || []).map((b) => {
       const full = catalog.get(b.id) || b;
       const chance = titleChanceLabel(full);
@@ -2401,7 +2418,7 @@ function prepCard(team) {
         <div class="prep-card-face">${shot}</div>
         <div class="prep-card-copy">
           <h3>${esc(team.name)}</h3>
-          <p class="prep-captain-line">${captain ? esc(captainRevealText(captain.name, team)) : "choosing..."}</p>
+          <p class="prep-captain-line">${team.banned ? "Banned" : team.eliminated ? "Eliminated" : captain ? esc(captainRevealText(captain.name, team)) : "choosing..."}</p>
           <div class="prep-chips">${chips}</div>
         </div>
         <div class="prep-card-meta">
@@ -2521,8 +2538,6 @@ function captainView() {
         <div class="prep-clock" id="prep-clock">${left}</div>
         <p class="lede">Name a captain and spend leftover points. Ends early when nobody can buy another booster.</p>
       </header>
-      ${tickerView()}
-      <div class="prep-board">${board}</div>
       <div class="panel prep-you">
         <h2>Choose your captain</h2>
         <p class="lede">Captain adds a hidden 0–5% boost, revealed after you pick. Auto-picks if time runs out.${you && formPctOf(you) != null ? ` ${formLabel(you)}.` : ""}</p>
@@ -2534,6 +2549,8 @@ function captainView() {
         <div class="booster-grid">${shop || `<p class="lede">No boosters available.</p>`}</div>
         <p class="error">${esc(lastError)}</p>
       </div>
+      ${tickerView()}
+      <div class="prep-board">${board}</div>
       ${cursePickerView()}
     </section>
   `;
@@ -2903,17 +2920,19 @@ function resultStandingsCard(pos, fresh) {
   const score = pos.squadScore != null ? String(pos.squadScore) : "—";
   const cid = characterIdOf(pos);
   const mark = teamMark({ id: cid, characterId: cid, color: pos.color, color2: pos.color2, text: pos.text }, "sm", pos.name);
-  return `<article class="result-card ${champ ? "is-champion" : ""} ${fresh ? "is-fresh" : ""}" style="--c:${esc(pos.color || "")};--ct:${esc(pos.text || pos.color || "")};--c2:${esc(pos.color2 || "")}" role="button" tabindex="0" data-team-name="${esc(pos.name || "")}" aria-label="View ${esc(pos.name || "team")} squad">
+  const out = Boolean(pos.eliminated || pos.banned);
+  const outLabel = pos.banned ? "Banned" : "Eliminated";
+  return `<article class="result-card ${champ ? "is-champion" : ""} ${fresh ? "is-fresh" : ""} ${out ? "is-eliminated" : ""}" style="--c:${esc(pos.color || "")};--ct:${esc(pos.text || pos.color || "")};--c2:${esc(pos.color2 || "")}" role="button" tabindex="0" data-team-name="${esc(pos.name || "")}" aria-label="View ${esc(pos.name || "team")} squad">
     ${champ ? `<div class="champ-burst" aria-hidden="true"></div>` : ""}
     <span class="result-pos">${esc(pos.position)}</span>
     ${mark}
     <h3 class="result-name">${esc(pos.name || pos.short || "")}</h3>
     <div class="result-meta">
-      <div class="result-score-block">
+      ${out ? `<p class="result-out-label" title="${esc(pos.title || outLabel)}">${outLabel}</p>` : `<div class="result-score-block">
         <p class="result-score"><strong>${esc(score)}</strong><span>/1000</span></p>
         <p class="result-score-label">Overall</p>
-      </div>
-      ${form ? `<p class="result-form">${form}</p>` : ""}
+      </div>`}
+      ${form && !out ? `<p class="result-form">${form}</p>` : ""}
     </div>
   </article>`;
 }
@@ -2931,7 +2950,7 @@ function standingsRevealHtml(pending) {
     ? `Revealing ${shown.length} of ${Math.max(0, total - 2)}`
     : "The rest of the field";
   return `
-    <div class="panel results-reveal">
+    <div class="panel results-reveal${pending ? "" : " is-complete"}">
       <div class="results-reveal-head">
         <div>
           <p class="kicker">${kicker}</p>
@@ -3676,7 +3695,14 @@ function wireGlobal() {
   });
 }
 
+let lastRenderedPhase;
+
 function render() {
+  const phaseNow = state && state.code ? state.phase : null;
+  if (phaseNow !== lastRenderedPhase) {
+    lastRenderedPhase = phaseNow;
+    window.scrollTo(0, 0);
+  }
   ensurePhaseScripts(state);
   setBiddingClass();
   syncOverlays();
@@ -3777,6 +3803,26 @@ function wireHome() {
   const savedName = (session && session.name) || loadSavedName();
   if (nameEl && savedName && !nameEl.value) nameEl.value = savedName;
   if (codeEl && session?.code && !codeEl.value && !(landing && landing.code)) codeEl.value = session.code;
+  if (homeDraft) {
+    if (nameEl && homeDraft.name != null) nameEl.value = homeDraft.name;
+    if (codeEl && homeDraft.code != null) codeEl.value = homeDraft.code;
+  }
+  const saveDraft = () => {
+    homeDraft = { name: nameEl ? nameEl.value : "", code: codeEl ? codeEl.value : null };
+  };
+  nameEl?.addEventListener("input", saveDraft);
+  codeEl?.addEventListener("input", saveDraft);
+  let submitting = false;
+  const submitFromEnter = (ev) => {
+    if (ev.key !== "Enter" || ev.isComposing) return;
+    ev.preventDefault();
+    if (submitting) return;
+    const hasCode = (landing && landing.code) || (codeEl && codeEl.value.trim());
+    const btn = document.getElementById(hasCode || !document.getElementById("create") ? "join" : "create");
+    if (btn) btn.click();
+  };
+  nameEl?.addEventListener("keydown", submitFromEnter);
+  codeEl?.addEventListener("keydown", submitFromEnter);
   document.getElementById("go-home")?.addEventListener("click", () => goHome());
   document.querySelectorAll("[data-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -3789,28 +3835,38 @@ function wireHome() {
     });
   });
   document.getElementById("create")?.addEventListener("click", async () => {
+    if (submitting) return;
+    submitting = true;
     lastError = "";
     const name = (nameEl?.value || "").trim();
+    saveDraft();
     const res = await emit("createRoom", { name, mode: selectedMode });
+    submitting = false;
     if (!res.ok) {
       lastError = res.error || "Could not create room.";
       render();
       return;
     }
+    homeDraft = null;
     stayOnHome = false;
     saveSession(res.code, res.name);
     if (res.code) setRoomUrl(res.code);
   });
   document.getElementById("join")?.addEventListener("click", async () => {
+    if (submitting) return;
+    submitting = true;
     lastError = "";
     const name = (nameEl?.value || "").trim();
     const code = ((landing && landing.code) || (codeEl?.value || "")).trim();
+    saveDraft();
     const res = await emit("joinRoom", { name, code });
+    submitting = false;
     if (!res.ok) {
       lastError = res.error || "Could not join room.";
       render();
       return;
     }
+    homeDraft = null;
     landing = null;
     stayOnHome = false;
     saveSession(res.code, res.name);

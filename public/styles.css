@@ -1910,6 +1910,18 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transfor
 .results-reveal-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .results-reveal-head h2 { margin: 0; }
 .results-reveal-stage { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.results-reveal.is-complete { min-height: 0; }
+.results-reveal.is-complete .results-reveal-stage { flex: none; justify-content: flex-start; }
+.result-card.is-eliminated { opacity: 0.6; filter: grayscale(0.6); }
+.result-out-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bad, #ff7a4a);
+  white-space: nowrap;
+}
 .results-reveal-list { display: flex; flex-direction: column-reverse; gap: 8px; }
 .result-card {
   display: grid;
@@ -2622,3 +2634,27 @@ html.is-bidding .ring-logo-pin.is-leader .ring-logo-bob {
 
 /* Sound on/off toggle in the top bar */
 .sound-toggle { padding-left: 10px; padding-right: 10px; min-width: 40px; line-height: 1; }
+
+/* Desktop / laptop: keep the bid controls docked to the viewport bottom so
+   they are visible without scrolling while the lot timer runs. (Phones dock
+   the bid bar in mobile-bid.css.) */
+@media (min-width: 701px) {
+  /* overflow-x:hidden turns these into scroll containers and breaks sticky; clip does not. */
+  html.is-auction,
+  html.is-auction body,
+  html.is-auction #main { overflow-x: clip; overflow-y: visible; }
+  html.is-auction .bid-box {
+    position: sticky;
+    bottom: 10px;
+    z-index: 30;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.45);
+    padding: 10px 14px 12px;
+  }
+  html.is-auction .bid-box .bid-label { display: none; }
+  html.is-auction .bid-box .bid-bar { display: flex; gap: 8px; align-items: stretch; }
+  html.is-auction .bid-box .bid-primary { flex: 1 1 auto; width: auto; min-height: 46px; }
+  html.is-auction .bid-box .bid-extras { flex: 0 1 auto; }
+  html.is-auction .bid-box .bid-optout { flex: 0 0 110px; width: auto; }
+  html.is-auction .bid-box .power-btn { min-height: 40px; margin-bottom: 6px; }
+  html.is-auction .bid-box .why { margin-bottom: 6px; }
+}

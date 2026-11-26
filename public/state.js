@@ -21,12 +21,30 @@
     return `${v} pt${v === 1 ? "" : "s"}`;
   }
 
+  /**
+   * The nominee's role, or null when the client cannot know it: Prabhas's
+   * Adipurush VFX masks the player (role "???") for everyone but him. The
+   * server still enforces role quotas, so the client must not guess.
+   */
+  function knownRole(auction) {
+    const role = auction && auction.nominee && auction.nominee.role;
+    return ["BAT", "WK", "AR", "BOWL"].includes(role) ? role : null;
+  }
+
+  /** Points to keep back after this bid: 1 per slot still needed after this player. */
+  function reserveAfter(you, auction) {
+    const needed = { BAT: 0, WK: 0, AR: 0, BOWL: 0, ...((you && you.remainingQuota) || {}) };
+    const role = knownRole(auction);
+    if (role) needed[role] = Math.max(0, (needed[role] || 0) - 1);
+    const total = ["BAT", "WK", "AR", "BOWL"].reduce((sum, r) => sum + Math.max(0, needed[r] || 0), 0);
+    return role ? total : Math.max(0, total - 1);
+  }
+
   function bidBlockReason(you, auction, amount) {
     if (!you || !auction) return "You cannot bid right now.";
     if (you.banned) return "You are banned for match fixing.";
     if (you.eliminated) return "You are eliminated.";
-    const p = auction.nominee;
-    const role = p && p.role;
+    const role = knownRole(auction);
     const slots = slotCounts(you, role);
     if (you.complete || slots.squadLeft <= 0) {
       return `Squad full (${slots.squadHave}/${slots.squadCap} spots)`;
@@ -39,11 +57,7 @@
     if (Number.isFinite(bid) && bid > purse) {
       return `Not enough balance (need ${formatPoints(bid)}, have ${formatPoints(purse)})`;
     }
-    const needed = { BAT: 0, WK: 0, AR: 0, BOWL: 0, ...(you.remainingQuota || {}) };
-    if (role && Object.prototype.hasOwnProperty.call(needed, role)) {
-      needed[role] = Math.max(0, (needed[role] || 0) - 1);
-    }
-    const reserve = ROLE_ORDER.reduce((sum, r) => sum + Math.max(0, needed[r] || 0), 0);
+    const reserve = reserveAfter(you, auction);
     if (Number.isFinite(bid) && purse - bid < reserve) {
       return `Not enough balance (need ${formatPoints(bid + reserve)} to bid and fill remaining spots, have ${formatPoints(purse)})`;
     }
@@ -56,6 +70,13 @@
     const you = state.you;
     if (!a) return;
     a.stillIn = (a.stillIn || []).map((t) => ({ ...t, isYou: Boolean(you && t.name === you.name) }));
+    // Mirror the server: nobody can bid or opt out while a power is on screen.
+    if (state.powerReveal || state.powerWait) {
+      a.youCanBid = false;
+      a.youCanOptOut = false;
+      a.youReason = state.powerReveal ? "A power is being revealed." : "A power is waiting for a choice.";
+      return;
+    }
     if (state.playerIntro || a.playerIntro || state.playerIntroUntil) {
       a.youCanBid = false;
       a.youCanOptOut = false;
@@ -134,7 +155,7 @@
   function canVoluntaryBid(you, auction) {
     if (!you || !auction) return false;
     if (you.eliminated || you.complete) return false;
-    const role = auction.nominee && auction.nominee.role;
+    const role = knownRole(auction);
     if (role && you.remainingQuota && (you.remainingQuota[role] || 0) <= 0) return false;
     return true;
   }
@@ -143,13 +164,7 @@
     if (!canVoluntaryBid(you, auction)) return false;
     const bid = Number(amount);
     if (!Number.isFinite(bid) || bid > you.purseLakhs) return false;
-    const needed = { BAT: 0, WK: 0, AR: 0, BOWL: 0, ...(you.remainingQuota || {}) };
-    const role = auction.nominee && auction.nominee.role;
-    if (role && Object.prototype.hasOwnProperty.call(needed, role)) {
-      needed[role] = Math.max(0, (needed[role] || 0) - 1);
-    }
-    const reserve = ROLE_ORDER.reduce((sum, r) => sum + Math.max(0, needed[r] || 0), 0);
-    return you.purseLakhs - bid >= reserve;
+    return you.purseLakhs - bid >= reserveAfter(you, auction);
   }
 
   function bidChoices(state) {
@@ -247,6 +262,11 @@
         if (evt.minBidLakhs != null) state.auction.minBidLakhs = evt.minBidLakhs;
         if (evt.incrementLakhs != null) state.auction.incrementLakhs = evt.incrementLakhs;
         state.auction.isDefaultBidLeading = Boolean(evt.isDefaultBidLeading);
+        // Jay Shah's broadcast fee moves a point between two purses on a bid.
+        if (Array.isArray(evt.teams)) {
+          applyTeamPatches(state, evt);
+          syncYou(state);
+        }
         decorateAuctionYou(state);
         break;
       }
@@ -614,6 +634,13 @@
       if (evt.youPower.powerUsesLeft != null) state.you.powerUsesLeft = evt.youPower.powerUsesLeft;
       if (evt.youPower.powerUsed != null) state.you.powerUsed = Boolean(evt.youPower.powerUsed);
     }
+    if (Array.isArray(evt.stillIn) && state.auction && evt.type !== "lotStart") {
+      state.auction.stillIn = evt.stillIn;
+    }
+    // Any event can change who may bid (powers start or end, purses or squads
+    // change), so re-derive your bid/opt-out eligibility after every delta.
+    // Otherwise each client keeps whatever it last computed and players drift.
+    if (state.phase === "auction" && state.auction) decorateAuctionYou(state);
     return state;
   }
 
