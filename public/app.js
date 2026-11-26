@@ -3697,11 +3697,35 @@ function wireGlobal() {
 
 let lastRenderedPhase;
 
+/**
+ * Phones dock the bid bar over the bottom of the screen. On short phones that
+ * can cover the player on the block, so when a new lot starts, scroll just
+ * enough to show the player's name above the dock, without pushing the price
+ * and timer card off the top.
+ */
+function queueLotIntoView() {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (!state || state.phase !== "auction") return;
+    const dock = document.getElementById("bid-box");
+    const name = document.getElementById("hub-name");
+    const card = document.getElementById("live-bid");
+    if (!dock || !name || getComputedStyle(dock).position !== "fixed") return;
+    const dockTop = dock.getBoundingClientRect().top;
+    const nameRect = name.getBoundingClientRect();
+    const overlap = nameRect.bottom + 8 - dockTop;
+    if (overlap <= 0 && nameRect.top >= 0) return;
+    const cardTop = card ? card.getBoundingClientRect().top : 0;
+    const by = nameRect.top < 0 ? nameRect.top - 8 : Math.min(overlap, Math.max(0, cardTop));
+    if (Math.abs(by) >= 1) window.scrollBy({ top: by, behavior: "smooth" });
+  }));
+}
+
 function render() {
   const phaseNow = state && state.code ? state.phase : null;
   if (phaseNow !== lastRenderedPhase) {
     lastRenderedPhase = phaseNow;
     window.scrollTo(0, 0);
+    if (phaseNow === "auction") queueLotIntoView();
   }
   ensurePhaseScripts(state);
   setBiddingClass();
@@ -4172,6 +4196,10 @@ socket.on("delta", (evt) => {
     lastError = "";
     lastYouLed = null;
     hubRatingOpen = false;
+    queueLotIntoView();
+  } else if (evt && evt.type === "playerIntroEnded") {
+    // The bid dock grows once bidding opens, so re-check the player is visible.
+    queueLotIntoView();
   }
   if (state.phase === "results" && (prevPhase !== "results" || (evt && evt.type === "resultsReveal" && evt.complete)) && !isResultsRevealPending()) {
     // Match-by-match output is no longer shown on the results page.
