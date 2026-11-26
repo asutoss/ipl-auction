@@ -681,6 +681,98 @@
     ];
   }
 
+  function inflateRect(r, g) {
+    if (!r) return null;
+    const pad = Number(g) || 0;
+    return { left: r.left - pad, top: r.top - pad, right: r.right + pad, bottom: r.bottom + pad, width: r.width + pad * 2, height: r.height + pad * 2 };
+  }
+
+  function pushRectFromBox(rect, wall, gap) {
+    if (!wall) return rect;
+    const w = inflateRect(wall, gap == null ? 2 : gap);
+    if (!rectsOverlap(rect, w, 0)) return rect;
+    const cx = (rect.left + rect.right) / 2;
+    const cy = (rect.top + rect.bottom) / 2;
+    const wx = (wall.left + wall.right) / 2;
+    const wy = (wall.top + wall.bottom) / 2;
+    const overlapX = Math.min(rect.right - w.left, w.right - rect.left);
+    const overlapY = Math.min(rect.bottom - w.top, w.bottom - rect.top);
+    if (overlapX < overlapY) {
+      const dir = cx < wx ? -1 : 1;
+      const d = overlapX + 0.5;
+      return { left: rect.left + dir * d, right: rect.right + dir * d, top: rect.top, bottom: rect.bottom };
+    }
+    const dir = cy < wy ? -1 : 1;
+    const d = overlapY + 0.5;
+    return { left: rect.left, right: rect.right, top: rect.top + dir * d, bottom: rect.bottom + dir * d };
+  }
+
+  function ringOuterEllipse(svg) {
+    const node = svg || document.getElementById("auction-ring");
+    if (!node) return null;
+    if (node.createSVGPoint && node.getScreenCTM) {
+      const ctm = node.getScreenCTM();
+      if (ctm) {
+        const map = (x, y) => {
+          const p = node.createSVGPoint();
+          p.x = x;
+          p.y = y;
+          return p.matrixTransform(ctm);
+        };
+        const c = map(CX, CY);
+        const top = map(CX, CY - R_OUTER);
+        const right = map(CX + R_OUTER, CY);
+        const rx = Math.abs(right.x - c.x);
+        const ry = Math.abs(top.y - c.y);
+        if (rx > 4 && ry > 4) return { cx: c.x, cy: c.y, rx, ry };
+      }
+    }
+    const box = boxOf(node);
+    if (!box) return null;
+    return {
+      cx: box.left + box.width / 2,
+      cy: box.top + box.height / 2,
+      rx: (box.width / 2) * (R_OUTER / 200),
+      ry: (box.height / 2) * (R_OUTER / 200),
+    };
+  }
+
+  function ellipseHitsRect(el, rect, gap) {
+    if (!el || !rect) return false;
+    const rx = el.rx + (gap || 0);
+    const ry = el.ry + (gap || 0);
+    if (rx <= 0 || ry <= 0) return false;
+    const nx = Math.max(rect.left, Math.min(el.cx, rect.right));
+    const ny = Math.max(rect.top, Math.min(el.cy, rect.bottom));
+    const dx = (nx - el.cx) / rx;
+    const dy = (ny - el.cy) / ry;
+    return dx * dx + dy * dy < 1;
+  }
+
+  function pushRectFromEllipse(rect, el, gap) {
+    if (!el || !ellipseHitsRect(el, rect, gap)) return rect;
+    const rx = el.rx + (gap || 0);
+    const ry = el.ry + (gap || 0);
+    const cx = (rect.left + rect.right) / 2;
+    const cy = (rect.top + rect.bottom) / 2;
+    let vx = (cx - el.cx) / (rx || 1);
+    let vy = (cy - el.cy) / (ry || 1);
+    if (!vx && !vy) { vx = 0; vy = -1; }
+    const len = Math.hypot(vx, vy) || 1;
+    const extra = 1 - len + 0.04;
+    if (extra <= 0) return rect;
+    const dx = (vx / len) * extra * rx;
+    const dy = (vy / len) * extra * ry;
+    return { left: rect.left + dx, right: rect.right + dx, top: rect.top + dy, bottom: rect.bottom + dy };
+  }
+
+  function layoutObstacles() {
+    const live = boxOf(document.querySelector(".live-bid") || document.getElementById("live-bid"));
+    const bid = boxOf(document.getElementById("bid-box") || document.querySelector(".bid-box"));
+    const dock = boxOf(document.querySelector(".emote-dock"));
+    return { live, bid, dock };
+  }
+
   function setMetaLocal(pin, x, y) {
     pin.classList.add("is-side");
     pin.style.setProperty("--meta-x", `${x}px`);
@@ -727,15 +819,15 @@
     const pins = [...layer.querySelectorAll(".ring-logo-pin:not(.is-leaving)")];
     const hub = document.getElementById("auction-hub") || document.querySelector(".hub");
     const hubBox = boxOf(hub);
-    const bid = document.getElementById("bid-box") || document.querySelector(".bid-box");
-    const bidBox = boxOf(bid);
+    const walls = layoutObstacles();
+    const ringEl = ringOuterEllipse(svg);
     const vw = typeof window !== "undefined" ? window.innerWidth : 360;
     const vh = typeof window !== "undefined" ? window.innerHeight : 800;
     const view = {
       left: 3,
-      top: 3,
+      top: Math.max(3, walls.live ? walls.live.bottom + 6 : 3),
       right: Math.max(4, vw - 3),
-      bottom: Math.max(4, (bidBox ? bidBox.top : vh) - 4),
+      bottom: Math.max(4, (walls.bid ? walls.bid.top : vh) - 6),
     };
     const seats = pins.map((pin) => {
       const face = pin.querySelector(".ring-logo-face") || pin.querySelector(".ring-logo-bob") || pin;
@@ -763,6 +855,16 @@
           const after = pushRectFromCircle(s.rect, hx, hy, hr, 3);
           if (after.left !== s.rect.left || after.top !== s.rect.top) { s.rect = after; moved = true; }
         }
+        if (ringEl) {
+          const offRing = pushRectFromEllipse(s.rect, ringEl, 3);
+          if (offRing.left !== s.rect.left || offRing.top !== s.rect.top) { s.rect = offRing; moved = true; }
+        }
+        const awayLive = pushRectFromBox(s.rect, walls.live, 4);
+        if (awayLive.left !== s.rect.left || awayLive.top !== s.rect.top) { s.rect = awayLive; moved = true; }
+        const awayBid = pushRectFromBox(s.rect, walls.bid, 4);
+        if (awayBid.left !== s.rect.left || awayBid.top !== s.rect.top) { s.rect = awayBid; moved = true; }
+        const awayDock = pushRectFromBox(s.rect, walls.dock, 4);
+        if (awayDock.left !== s.rect.left || awayDock.top !== s.rect.top) { s.rect = awayDock; moved = true; }
         const clamped = clampRect(s.rect, view);
         if (clamped.left !== s.rect.left || clamped.top !== s.rect.top) { s.rect = clamped; moved = true; }
       }
@@ -808,6 +910,8 @@
     const pins = [...layer.querySelectorAll(".ring-logo-pin:not(.is-leaving)")];
     const hub = document.getElementById("auction-hub") || document.querySelector(".hub");
     const hubBox = boxOf(hub);
+    const walls = layoutObstacles();
+    const ringEl = ringOuterEllipse(svg || document.getElementById("auction-ring"));
     const vw = typeof window !== "undefined" ? window.innerWidth : 360;
     const vh = typeof window !== "undefined" ? window.innerHeight : 800;
     const view = { left: 0, top: 0, right: vw, bottom: vh };
@@ -832,6 +936,10 @@
         const hr = Math.min(hubBox.width, hubBox.height) / 2;
         if (circleHitsRect(hx, hy, hr, s.metaBox, 0.5)) overlaps.push({ type: "hub", name: s.name });
       }
+      if (ringEl && ellipseHitsRect(ringEl, s.metaBox, 0.5)) overlaps.push({ type: "ring-band", name: s.name });
+      if (walls.live && rectsOverlap(s.metaBox, walls.live, 0.5)) overlaps.push({ type: "live-bid", name: s.name });
+      if (walls.bid && rectsOverlap(s.metaBox, walls.bid, 0.5)) overlaps.push({ type: "bid-bar", name: s.name });
+      if (walls.dock && rectsOverlap(s.metaBox, walls.dock, 0.5)) overlaps.push({ type: "emote-dock", name: s.name });
       if (s.metaBox.left < -0.5 || s.metaBox.top < -0.5 || s.metaBox.right > view.right + 0.5 || s.metaBox.bottom > view.bottom + 0.5) {
         clipped.push({ name: s.name, ...s.metaBox, vw, vh });
       }
@@ -1145,5 +1253,5 @@
     return size;
   }
 
-  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget, placeMeta, layoutSeatChips, measureRingCollisions, scheduleChipLayout, rectsOverlap, circleHitsRect, clampRect, initialChipRect };
+  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget, placeMeta, layoutSeatChips, measureRingCollisions, scheduleChipLayout, rectsOverlap, circleHitsRect, clampRect, initialChipRect, ellipseHitsRect, ringOuterEllipse };
 });

@@ -257,7 +257,42 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
               powerSame: !power || (document.getElementById("use-power") && document.getElementById("use-power").dataset.probe === "1"),
             };
           }
-          return { measure, pills, allPins, leaving, franchiseCount, dockHits, dockBox, liveH, patch, contain: document.querySelector(".ring-wrap") ? getComputedStyle(document.querySelector(".ring-wrap")).contain : "" };
+          function isShown(el) {
+            if (!el) return false;
+            const s = getComputedStyle(el);
+            if (s.display === "none" || s.visibility === "hidden" || Number(s.opacity) === 0) return false;
+            const r = el.getBoundingClientRect();
+            return r.width > 8 && r.height > 8;
+          }
+          const hub = document.getElementById("auction-hub");
+          const shot = document.getElementById("hub-headshot") || (hub && hub.querySelector(".player-headshot"));
+          const rating = document.getElementById("hub-rating");
+          const rates = hub && hub.querySelector(".hub-rates");
+          const shownValues = [...(hub ? hub.querySelectorAll(".hub-stat-value") : [])]
+            .filter(isShown)
+            .map((el) => el.textContent.trim());
+          const shownLabels = [...(hub ? hub.querySelectorAll(".hub-stat-label") : [])]
+            .filter(isShown)
+            .map((el) => el.textContent.trim());
+          const visibleHubText = hub
+            ? [...hub.querySelectorAll("*")]
+              .filter(isShown)
+              .map((el) => el.childNodes.length ? [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("") : "")
+              .join(" ")
+              .replace(/\s+/g, " ")
+              .trim()
+            : "";
+          const hubInfo = {
+            isRating: Boolean(hub && hub.classList.contains("is-rating")),
+            shotShown: isShown(shot),
+            shotH: shot ? Math.round(shot.getBoundingClientRect().height) : 0,
+            ratingShown: isShown(rating),
+            ratesShown: isShown(rates),
+            shownLabels,
+            shownValues,
+            visibleHubText,
+          };
+          return { measure, pills, allPins, leaving, franchiseCount, dockHits, dockBox, liveH, patch, hubInfo, contain: document.querySelector(".ring-wrap") ? getComputedStyle(document.querySelector(".ring-wrap")).contain : "" };
         });
         if (report.pills.length !== count) {
           throw new Error(`${count}-team pin count mismatch pills=${JSON.stringify(report.pills)} all=${report.allPins} leaving=${report.leaving} franchises=${report.franchiseCount}`);
@@ -270,9 +305,48 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
           assert.ok(p.need, `${p.name} missing slots: ${JSON.stringify(p)}`);
           assert.match(p.title, /pts/, `${p.name} missing full title`);
         }
+        const hub = report.hubInfo || {};
+        assert.equal(hub.shotShown, true, `${count}-team hub headshot hidden: ${JSON.stringify(hub)}`);
+        assert.ok(hub.shotH >= 36, `${count}-team hub headshot too small: ${JSON.stringify(hub)}`);
+        assert.equal(hub.isRating, false, "hub ratings should be closed by default");
+        assert.equal(hub.ratingShown, false, "bat/bowl panel visible before tap");
+        assert.equal(hub.ratesShown, false, "inline Bat/Bowl line still visible");
+        assert.equal(hub.shownValues.length, 0, "bat/bowl values visible by default: " + JSON.stringify(hub));
+        assert.equal(/\bBat\s+\d|\bBowl\s+\d/i.test(hub.visibleHubText), false, "bat/bowl ratings in default hub: " + hub.visibleHubText);
         if (count === 6) {
           assert.equal(report.dockHits, false, "emote dock overlaps a ring chip");
           assert.ok(report.liveH > 0 && report.liveH <= 120, `live-bid card still tall: ${report.liveH}`);
+          await host.evaluate(() => {
+            const hubEl = document.getElementById("auction-hub");
+            if (hubEl) hubEl.click();
+          });
+          const tapped = await host.evaluate(() => {
+            function isShown(el) {
+              if (!el) return false;
+              const s = getComputedStyle(el);
+              if (s.display === "none" || s.visibility === "hidden" || Number(s.opacity) === 0) return false;
+              const r = el.getBoundingClientRect();
+              return r.width > 8 && r.height > 8;
+            }
+            const hubEl = document.getElementById("auction-hub");
+            const shot = document.getElementById("hub-headshot") || (hubEl && hubEl.querySelector(".player-headshot"));
+            const rating = document.getElementById("hub-rating");
+            return {
+              isRating: Boolean(hubEl && hubEl.classList.contains("is-rating")),
+              shotShown: isShown(shot),
+              shotH: shot ? Math.round(shot.getBoundingClientRect().height) : 0,
+              ratingShown: isShown(rating),
+              labels: [...(rating ? rating.querySelectorAll(".hub-stat-label") : [])].map((el) => el.textContent.trim()),
+              values: [...(rating ? rating.querySelectorAll(".hub-stat-value") : [])].map((el) => el.textContent.trim()),
+            };
+          });
+          assert.equal(tapped.isRating, true, "tap did not open bat/bowl: " + JSON.stringify(tapped));
+          assert.equal(tapped.ratingShown, true, "bat/bowl panel hidden after tap");
+          assert.equal(tapped.labels.join(" "), "Bat Bowl");
+          assert.equal(tapped.values.length, 2);
+          assert.ok(tapped.values.every((v) => v && v !== "—"), "missing rating values: " + JSON.stringify(tapped.values));
+          assert.equal(tapped.shotShown, true, "headshot hidden after opening ratings: " + JSON.stringify(tapped));
+          assert.ok(tapped.shotH >= 32, "headshot too small after tap: " + JSON.stringify(tapped));
         }
         assert.ok(report.patch, "patchAuction was not exported");
         assert.equal(report.patch.bidRebuilt, false, "bid buttons rebuilt");

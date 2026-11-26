@@ -210,21 +210,23 @@ function definePower(spec) {
 definePower({
   id: "demonetisation",
   name: "Demonetisation",
-  description: "Every other team loses 10 points.",
+  description: "You gain 5 points. Every other live team loses 5 points.",
   canUse(room, team) {
     if (!rivals(room, team).length) return { ok: false, error: "There is no other team to demonetise." };
     return { ok: true };
   },
   apply(room, team) {
     const hits = [];
+    const gained = credit(room, team, 5);
     for (const f of rivals(room, team)) {
-      const paid = debit(room, f, 10);
+      const paid = debit(room, f, 5);
       hits.push({ name: f.name, lost: paid, purseLakhs: f.purseLakhs, banned: isBanned(f) });
     }
     return {
       ok: true,
       effect: "demonetisation",
-      message: `${displayName(team)} used Demonetisation, everyone lost 10 points`,
+      message: `${displayName(team)} used Demonetisation, gained 5 points and everyone else lost 5`,
+      gained,
       hits,
     };
   },

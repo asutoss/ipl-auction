@@ -12,9 +12,9 @@
     "power": {
       "id": "demonetisation",
       "name": "Demonetisation",
-      "description": "Every other team loses 10 points. A team that reaches 0 is banned for match fixing.",
-      "shortDesc": "Every other team loses 10 points.",
-      "funnyDesc": "Just like the 8pm note ban in 2016, every other team loses 10 points overnight. Mitron, bas 50 din dijiye.",
+      "description": "You gain 5 points. Every other live team loses 5 points. A team that reaches 0 is banned for match fixing.",
+      "shortDesc": "You gain 5 points; others lose 5.",
+      "funnyDesc": "Just like the 8pm note ban in 2016, you pocket 5 points and every other team loses 5 overnight. Mitron, bas 50 din dijiye.",
       "uses": 1,
       "params": {}
     },

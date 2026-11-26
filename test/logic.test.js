@@ -1581,7 +1581,7 @@ describe("team names and character catalog", () => {
       assert.deepEqual(t.lines.map((l) => l.text), EXPECTED_LINES[t.id], t.id);
     }
     const EXPECTED_SHORT = {
-      "narendra-modi": "Every other team loses 10 points.",
+      "narendra-modi": "You gain 5 points; others lose 5.",
       "prabhas": "Only you can see the next player.",
       "orry": "Copy a random valid power right now.",
       "dolly-chaiwala": "Pause the auction until you end it.",
@@ -2151,10 +2151,12 @@ describe("character powers", () => {
     assert.equal(room.pause("Priya").ok, false);
     await new Promise((r) => setTimeout(r, 30));
     assert.ok(room.powerReveal, "reveal should still be in progress");
+    const ashPurse = room.findByName("Ashutosh").purseLakhs;
     assert.equal(room.findByName("Priya").purseLakhs, priyaPurse, "effect applies after the reveal");
     await new Promise((r) => setTimeout(r, 80));
     assert.equal(room.powerReveal, null);
-    assert.equal(room.findByName("Priya").purseLakhs, Math.max(0, priyaPurse - 10));
+    assert.equal(room.findByName("Priya").purseLakhs, Math.max(0, priyaPurse - 5));
+    assert.equal(room.findByName("Ashutosh").purseLakhs, ashPurse + 5);
     const left = room.auction.endsAt - Date.now();
     assert.ok(left <= held + 40, `left=${left} held=${held}`);
     assert.ok(left >= held - 90, `left=${left} held=${held}`);

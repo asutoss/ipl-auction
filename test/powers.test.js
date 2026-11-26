@@ -93,7 +93,7 @@ describe("power registry", () => {
 describe("power confirm copy", () => {
   test("every power has the approved funny confirm description", () => {
     const EXPECTED_FUNNY = {
-      "narendra-modi": "Just like the 8pm note ban in 2016, every other team loses 10 points overnight. Mitron, bas 50 din dijiye.",
+      "narendra-modi": "Just like the 8pm note ban in 2016, you pocket 5 points and every other team loses 5 overnight. Mitron, bas 50 din dijiye.",
       "prabhas": "Adipurush's VFX was so bad nobody could make anything out, so the next player is hidden from everyone but you.",
       "orry": "Nobody knows what Orry does, so he just copies someone else's power. Very on brand.",
       "dolly-chaiwala": "Bill Gates stopped for Dolly's chai, so the whole auction waits too, until Dolly says it's over.",
@@ -129,7 +129,7 @@ describe("power confirm copy", () => {
     setChar(room, "B", IDS.dolly);
     start(room);
     const you = room.getState("A").you;
-    assert.equal(you.power.shortDesc, "Every other team loses 10 points.");
+    assert.equal(you.power.shortDesc, "You gain 5 points; others lose 5.");
     const dolly = room.getState("B").you;
     assert.equal(dolly.power.shortDesc, "Pause the auction until you end it.");
     assert.ok(you.power.shortDesc.trim().split(/\s+/).length <= 10);
@@ -141,7 +141,8 @@ describe("power confirm copy", () => {
     setChar(room, "B", IDS.dolly);
     start(room);
     assert.equal(room.usePower("A").ok, true);
-    assert.equal(room.findByName("B").purseLakhs, 90);
+    assert.equal(room.findByName("B").purseLakhs, 95);
+    assert.equal(room.findByName("A").purseLakhs, 105);
   });
 
   test("lotStart deltas refresh canUsePower so a confirm can open", () => {
@@ -168,24 +169,25 @@ describe("power confirm copy", () => {
 });
 
 describe("Modi — Demonetisation", () => {
-  test("every other team loses 10 points, floored at 0, and a toast is logged", () => {
+  test("the user gains 5 points, every other live team loses 5, floored at 0, and a toast is logged", () => {
     const room = roomWith(["A", "B", "C"]);
     setChar(room, "A", IDS.modi);
     setChar(room, "B", IDS.ravi);
     setChar(room, "C", IDS.arnab);
     start(room);
-    room.findByName("C").purseLakhs = 6;
+    room.findByName("C").purseLakhs = 4;
     const b0 = room.findByName("B").purseLakhs;
     const a0 = room.findByName("A").purseLakhs;
     assert.equal(room.usePower("A").ok, true);
-    assert.equal(room.findByName("A").purseLakhs, a0);
-    assert.equal(room.findByName("B").purseLakhs, b0 - 10);
+    assert.equal(room.findByName("A").purseLakhs, a0 + 5);
+    assert.equal(room.findByName("B").purseLakhs, b0 - 5);
     assert.equal(room.findByName("C").purseLakhs, 0);
     assert.equal(room.findByName("C").banned, true);
     assert.equal(room.findByName("C").eliminatedReason, "match_fixing");
     const snap = room.getState("A");
     assert.match(snap.powerToast.message, /Demonetisation/i);
-    assert.match(snap.powerToast.message, /lost 10/i);
+    assert.match(snap.powerToast.message, /gained 5/i);
+    assert.match(snap.powerToast.message, /lost 5/i);
     assert.equal(snap.franchises.find((f) => f.name === "C").banned, true);
     assert.equal(snap.franchises.find((f) => f.name === "C").eliminatedReason, "Banned for match fixing");
   });
@@ -206,7 +208,7 @@ describe("Modi — Demonetisation", () => {
       }
     }
     start(room);
-    c.purseLakhs = 6;
+    c.purseLakhs = 4;
     assert.equal(room.usePower("A").ok, true);
     assert.equal(c.purseLakhs, 0);
     assert.equal(Boolean(c.banned), false);
@@ -262,11 +264,13 @@ describe("Orry — What Do You Even Do?", () => {
       const idx = options.findIndex((o) => o.powerId === "demonetisation");
       return idx >= 0 ? idx : 0;
     };
+    const a0 = room.findByName("A").purseLakhs;
     const b0 = room.findByName("B").purseLakhs;
     const used = room.usePower("A");
     assert.equal(used.ok, true, used.error);
     assert.equal(used.copiedPowerId, "demonetisation");
-    assert.equal(room.findByName("B").purseLakhs, b0 - 10);
+    assert.equal(room.findByName("A").purseLakhs, a0 + 5);
+    assert.equal(room.findByName("B").purseLakhs, b0 - 5);
     assert.match(room.powerToast.message, /What Do You Even Do/i);
     assert.match(room.powerToast.message, /Demonetisation/i);
   });

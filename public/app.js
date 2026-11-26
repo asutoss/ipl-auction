@@ -1828,8 +1828,7 @@ function auctionView() {
                 ${isMarqueePlayer(p) ? `<span class="marquee-badge">Marquee</span>` : ""}
                 <p class="hub-name ${p.vfxHidden ? "is-vfx" : ""}" id="hub-name">${esc(p.name)}</p>
                 <div class="hub-meta ${p.vfxHidden ? "is-vfx" : ""}">
-                  ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span><span class="hub-rates">Hidden</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
-                  <span class="hub-rates">Bat ${p.batting} · Bowl ${p.bowling}</span>
+                  ${p.vfxHidden ? `<span class="tag vfx-tag">VFX</span>` : `${roleTag(p.role)}${p.overseas ? `<span class="tag os">Overseas</span>` : ""}
                   <div class="hub-rating" id="hub-rating">
                     <div class="hub-stat">
                       <p class="hub-stat-label">Bat</p>
