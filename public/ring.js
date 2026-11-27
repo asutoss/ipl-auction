@@ -816,6 +816,77 @@
     };
   }
 
+
+  function intersectBox(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    const left = Math.max(a.left, b.left);
+    const top = Math.max(a.top, b.top);
+    const right = Math.min(a.right, b.right);
+    const bottom = Math.min(a.bottom, b.bottom);
+    return { left, top, right, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+  }
+
+  function clipsAxis(style, axis) {
+    const v = axis === "x" ? style.overflowX : style.overflowY;
+    return Boolean(v) && v !== "visible";
+  }
+
+  /**
+   * Visible box a chip may occupy: the player card's inner edge and every
+   * overflow-clipping ancestor, inset by VIEW_EDGE so glyphs are not clipped.
+   */
+  function clippingView(fromEl, vw, vh) {
+    let box = { left: 0, top: 0, right: vw, bottom: vh, width: vw, height: vh };
+    const card = (fromEl && fromEl.closest
+      && (fromEl.closest(".player-card") || fromEl.closest(".auction-stage") || fromEl.closest(".panel")))
+      || (typeof document !== "undefined" && document.querySelector(".player-card, .auction-stage"));
+    if (card && card.getBoundingClientRect) {
+      const r = card.getBoundingClientRect();
+      const cs = getComputedStyle(card);
+      const pl = parseFloat(cs.paddingLeft) || 0;
+      const pr = parseFloat(cs.paddingRight) || 0;
+      const pt = parseFloat(cs.paddingTop) || 0;
+      const pb = parseFloat(cs.paddingBottom) || 0;
+      const bl = parseFloat(cs.borderLeftWidth) || 0;
+      const br = parseFloat(cs.borderRightWidth) || 0;
+      const bt = parseFloat(cs.borderTopWidth) || 0;
+      const bb = parseFloat(cs.borderBottomWidth) || 0;
+      box = intersectBox(box, {
+        left: r.left + bl + pl,
+        top: r.top + bt + pt,
+        right: r.right - br - pr,
+        bottom: r.bottom - bb - pb,
+      });
+    }
+    let node = fromEl;
+    while (node && node !== document.documentElement) {
+      if (node !== document.body && node.getBoundingClientRect) {
+        const cs = getComputedStyle(node);
+        if (clipsAxis(cs, "x") || clipsAxis(cs, "y")) {
+          const r = node.getBoundingClientRect();
+          const bl = parseFloat(cs.borderLeftWidth) || 0;
+          const br = parseFloat(cs.borderRightWidth) || 0;
+          const bt = parseFloat(cs.borderTopWidth) || 0;
+          const bb = parseFloat(cs.borderBottomWidth) || 0;
+          box = intersectBox(box, {
+            left: clipsAxis(cs, "x") ? r.left + bl : box.left,
+            top: clipsAxis(cs, "y") ? r.top + bt : box.top,
+            right: clipsAxis(cs, "x") ? r.right - br : box.right,
+            bottom: clipsAxis(cs, "y") ? r.bottom - bb : box.bottom,
+          });
+        }
+      }
+      node = node.parentElement;
+    }
+    return {
+      left: box.left + VIEW_EDGE,
+      top: box.top + VIEW_EDGE,
+      right: box.right - VIEW_EDGE,
+      bottom: box.bottom - VIEW_EDGE,
+    };
+  }
+
   function layoutSeatChips(svg) {
     if (typeof document === "undefined") return [];
     const layer = svg && svg.parentElement && svg.parentElement.querySelector(".ring-logo-layer");
@@ -827,11 +898,12 @@
     const ringEl = ringOuterEllipse(svg);
     const vw = typeof window !== "undefined" ? window.innerWidth : 360;
     const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    const clip = clippingView(layer, vw, vh);
     const view = {
-      left: VIEW_EDGE,
-      top: Math.max(VIEW_EDGE, walls.live ? walls.live.bottom + 6 : VIEW_EDGE),
-      right: Math.max(VIEW_EDGE + 1, vw - VIEW_EDGE),
-      bottom: Math.max(VIEW_EDGE + 1, (walls.bid ? walls.bid.top : vh) - 6),
+      left: clip.left,
+      top: Math.max(clip.top, walls.live ? walls.live.bottom + 6 : clip.top),
+      right: Math.max(clip.left + 1, clip.right),
+      bottom: Math.max(clip.top + 1, Math.min(clip.bottom, (walls.bid ? walls.bid.top : vh) - 6)),
     };
     const seats = pins.map((pin) => {
       const face = pin.querySelector(".ring-logo-face") || pin.querySelector(".ring-logo-bob") || pin;
@@ -1010,19 +1082,184 @@
         if (!moved) break;
       }
     }
-    for (const s of seats) {
-      const box = boxOf(s.meta);
-      if (!box) continue;
+    function snapBox(box) {
+      if (!box) return { dx: 0, dy: 0 };
       let dx = 0;
       let dy = 0;
       if (box.left < view.left) dx = view.left - box.left;
       if (box.right + dx > view.right) dx = view.right - box.right;
       if (box.top < view.top) dy = view.top - box.top;
       if (box.bottom + dy > view.bottom) dy = view.bottom - box.bottom;
-      if (dx || dy) {
-        const loc = localForScreen(s.cal, (box.left + box.right) / 2 + dx, (box.top + box.bottom) / 2 + dy);
+      if (dx > 0) dx += 1;
+      else if (dx < 0) dx -= 1;
+      if (dy > 0) dy += 1;
+      else if (dy < 0) dy -= 1;
+      return { dx, dy };
+    }
+    for (const s of seats) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const box = boxOf(s.meta);
+        const name = boxOf(s.pin.querySelector(".ring-seat-name"));
+        const a = snapBox(box);
+        const b = snapBox(name);
+        const dx = a.dx || b.dx;
+        const dy = a.dy || b.dy;
+        if (!dx && !dy) break;
+        const source = box || name;
+        const loc = localForScreen(s.cal, (source.left + source.right) / 2 + dx, (source.top + source.bottom) / 2 + dy);
         setMetaLocal(s.pin, loc.x, loc.y);
       }
+    }
+    if (ringEl) {
+      for (const s of seats) {
+        for (let iter = 0; iter < 8; iter++) {
+          const box = boxOf(s.meta);
+          const name = boxOf(s.pin.querySelector(".ring-seat-name"));
+          if (!box || !ellipseHitsRect(ringEl, box, 0.5)) break;
+          const off = pushRectFromEllipse(box, ringEl, 6);
+          const candidates = [off];
+          for (const dy of [-10, 10, -18, 18, -28, 28]) {
+            candidates.push({ left: box.left, top: box.top + dy, right: box.right, bottom: box.bottom + dy });
+          }
+          let moved = false;
+          for (const next of candidates) {
+            if (next.left < view.left || next.right > view.right || next.top < view.top || next.bottom > view.bottom) continue;
+            if (name) {
+              const nl = name.left + (next.left - box.left);
+              const nr = name.right + (next.right - box.right);
+              const nt = name.top + (next.top - box.top);
+              const nb = name.bottom + (next.bottom - box.bottom);
+              if (nl < view.left || nr > view.right || nt < view.top || nb > view.bottom) continue;
+            }
+            if (ellipseHitsRect(ringEl, next, 0.5)) continue;
+            if (hubBox) {
+              const hx = hubBox.left + hubBox.width / 2;
+              const hy = hubBox.top + hubBox.height / 2;
+              const hr = Math.min(hubBox.width, hubBox.height) / 2;
+              if (circleHitsRect(hx, hy, hr, next, 3)) continue;
+            }
+            if (walls.live && rectsOverlap(next, walls.live, 2)) continue;
+            if (walls.bid && rectsOverlap(next, walls.bid, 2)) continue;
+            if (walls.dock && rectsOverlap(next, walls.dock, 2)) continue;
+            let hitsChip = false;
+            for (const other of seats) {
+              if (other === s) continue;
+              const ob = boxOf(other.meta);
+              if (ob && rectsOverlap(next, ob, 2)) { hitsChip = true; break; }
+            }
+            if (hitsChip) continue;
+            const loc = localForScreen(s.cal, (next.left + next.right) / 2, (next.top + next.bottom) / 2);
+            setMetaLocal(s.pin, loc.x, loc.y);
+            moved = true;
+            break;
+          }
+          if (!moved) break;
+        }
+      }
+    }
+    function inClip(r) {
+      return r && r.left >= view.left - 0.5 && r.right <= view.right + 0.5
+        && r.top >= view.top - 0.5 && r.bottom <= view.bottom + 0.5;
+    }
+    function rectOk(r, skip) {
+      if (!inClip(r)) return false;
+      if (ringEl && ellipseHitsRect(ringEl, r, 0.5)) return false;
+      if (hubBox) {
+        const hx = hubBox.left + hubBox.width / 2;
+        const hy = hubBox.top + hubBox.height / 2;
+        const hr = Math.min(hubBox.width, hubBox.height) / 2;
+        if (circleHitsRect(hx, hy, hr, r, 3)) return false;
+      }
+      if (walls.live && rectsOverlap(r, walls.live, -2)) return false;
+      if (walls.bid && rectsOverlap(r, walls.bid, -2)) return false;
+      if (walls.dock && rectsOverlap(r, walls.dock, -2)) return false;
+      for (const other of seats) {
+        if (other === skip) continue;
+        const ob = boxOf(other.meta);
+        if (ob && rectsOverlap(r, ob, -2)) return false;
+      }
+      return true;
+    }
+    function applyRect(seat, rect) {
+      const loc = localForScreen(seat.cal, (rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
+      setMetaLocal(seat.pin, loc.x, loc.y);
+    }
+    for (let iter = 0; iter < 10; iter++) {
+      let moved = false;
+      for (let i = 0; i < seats.length; i++) {
+        for (let j = i + 1; j < seats.length; j++) {
+          const a = boxOf(seats[i].meta);
+          const b = boxOf(seats[j].meta);
+          // pad is a shrink: use -2 so a 2px gap (or a 2px overlap) counts as a hit.
+          if (!a || !b || !rectsOverlap(a, b, -2)) continue;
+          const needY = Math.max(4, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) + 4);
+          const needX = Math.max(4, Math.min(a.right, b.right) - Math.max(a.left, b.left) + 4);
+          function shift(r, dx, dy) {
+            return { left: r.left + dx, right: r.right + dx, top: r.top + dy, bottom: r.bottom + dy };
+          }
+          const candidates = [
+            [shift(a, 0, -needY), b],
+            [shift(a, 0, needY), b],
+            [a, shift(b, 0, -needY)],
+            [a, shift(b, 0, needY)],
+            [shift(a, 0, -needY), shift(b, 0, needY)],
+            [shift(a, 0, needY), shift(b, 0, -needY)],
+            [shift(a, -needX, 0), b],
+            [shift(a, needX, 0), b],
+            [a, shift(b, -needX, 0)],
+            [a, shift(b, needX, 0)],
+          ];
+          const [p, q] = pushRectsApart(a, b, 2);
+          candidates.push([clampRect(p, view), clampRect(q, view)]);
+          for (const [ra, rb] of candidates) {
+            const ca = clampRect(ra, view);
+            const cb = clampRect(rb, view);
+            if (rectsOverlap(ca, cb, -2)) continue;
+            if (!inClip(ca) || !inClip(cb)) continue;
+            if (ringEl && (ellipseHitsRect(ringEl, ca, 0.5) || ellipseHitsRect(ringEl, cb, 0.5))) continue;
+            applyRect(seats[i], ca);
+            applyRect(seats[j], cb);
+            if (rectOk(ca, seats[i]) && rectOk(cb, seats[j])) {
+              moved = true;
+              break;
+            }
+            applyRect(seats[i], a);
+            applyRect(seats[j], b);
+          }
+        }
+      }
+      if (!moved) break;
+    }
+    const wallList = [walls.dock, walls.bid, walls.live].filter(Boolean);
+    for (let iter = 0; iter < 8; iter++) {
+      let moved = false;
+      for (const seat of seats) {
+        const box = boxOf(seat.meta);
+        if (!box) continue;
+        const hit = wallList.find((w) => rectsOverlap(box, w, -2));
+        if (!hit) continue;
+        const needY = Math.max(4, Math.min(box.bottom, hit.bottom) - Math.max(box.top, hit.top) + 4);
+        const needX = Math.max(4, Math.min(box.right, hit.right) - Math.max(box.left, hit.left) + 4);
+        const opts = [
+          { left: box.left - needX, right: box.right - needX, top: box.top, bottom: box.bottom },
+          { left: box.left + needX, right: box.right + needX, top: box.top, bottom: box.bottom },
+          { left: box.left, right: box.right, top: box.top - needY, bottom: box.bottom - needY },
+          { left: box.left, right: box.right, top: box.top + needY, bottom: box.bottom + needY },
+        ];
+        for (const opt of opts) {
+          const c = clampRect(opt, view);
+          if (!inClip(c)) continue;
+          if (wallList.some((w) => rectsOverlap(c, w, -2))) continue;
+          if (!rectOk(c, seat)) continue;
+          applyRect(seat, c);
+          if (rectOk(c, seat) && !wallList.some((w) => rectsOverlap(boxOf(seat.meta) || c, w, -2))) {
+            moved = true;
+            break;
+          }
+          applyRect(seat, box);
+        }
+      }
+      if (!moved) break;
     }
     return seats;
 
@@ -1040,12 +1277,13 @@
     const ringEl = ringOuterEllipse(svg || document.getElementById("auction-ring"));
     const vw = typeof window !== "undefined" ? window.innerWidth : 360;
     const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-    const view = { left: 0, top: 0, right: vw, bottom: vh };
+    const view = clippingView(layer, vw, vh);
     const seats = pins.map((pin) => {
       const face = pin.querySelector(".ring-logo-face") || pin.querySelector(".ring-logo-bob");
       const meta = pin.querySelector(".ring-seat-meta");
-      const name = ((pin.querySelector(".ring-seat-name") || {}).textContent || "").trim();
-      return { name, pin, faceBox: boxOf(face), metaBox: boxOf(meta) };
+      const nameEl = pin.querySelector(".ring-seat-name");
+      const name = ((nameEl || {}).textContent || "").trim();
+      return { name, pin, faceBox: boxOf(face), metaBox: boxOf(meta), nameBox: boxOf(nameEl) };
     }).filter((s) => s.faceBox && s.metaBox);
     const overlaps = [];
     const clipped = [];
@@ -1066,8 +1304,14 @@
       if (walls.live && rectsOverlap(s.metaBox, walls.live, 0.5)) overlaps.push({ type: "live-bid", name: s.name });
       if (walls.bid && rectsOverlap(s.metaBox, walls.bid, 0.5)) overlaps.push({ type: "bid-bar", name: s.name });
       if (walls.dock && rectsOverlap(s.metaBox, walls.dock, 0.5)) overlaps.push({ type: "emote-dock", name: s.name });
-      if (s.metaBox.left < 2 || s.metaBox.top < -0.5 || s.metaBox.right > view.right - 2 || s.metaBox.bottom > view.bottom + 0.5) {
-        clipped.push({ name: s.name, ...s.metaBox, vw, vh });
+      const nameBox = s.nameBox || s.metaBox;
+      // Names must sit fully inside the inset clip box; the pill may be 1px looser
+      // because of subpixel transforms, as long as the letters stay in view.
+      if (
+        nameBox.left < view.left - 0.5 || nameBox.right > view.right + 0.5
+        || s.metaBox.left < view.left - 1.5 || s.metaBox.right > view.right + 1.5
+      ) {
+        clipped.push({ name: s.name, ...s.metaBox, nameLeft: nameBox.left, nameRight: nameBox.right, view, vw, vh });
       }
     }
     for (let i = 0; i < seats.length; i++) {
@@ -1354,7 +1598,7 @@
    * Mobile ring size from width (and orientation) only — never from viewport
    * height, so URL-bar show/hide or an innerHeight-only resize cannot change it.
    */
-  const MIN_RING_PX = 120;
+  const MIN_RING_PX = 205;
   const MIN_STAGE_PAD = 18;
   const VIEW_EDGE = 6;
 
@@ -1378,7 +1622,10 @@
     return { top: 32, bottom: 34 };
   }
 
-  /** Size the ring (and stage padding) so it fits above the bid dock on short phones. */
+  /**
+   * Keep a full-size ring on phones (never below 205px in portrait). If a short
+   * screen is tight, shrink only the stage padding and let the page scroll.
+   */
   function ringLayout(dims) {
     const width = Number(dims && (dims.width != null ? dims.width : dims));
     const height = Number(dims && dims.height);
@@ -1386,6 +1633,7 @@
     const sizeByWidth = ringSizeByWidth(width, { landscape });
     const pref = preferredStagePad(width, height, landscape);
     if (sizeByWidth == null) return { size: null, padTop: null, padBot: null };
+    const size = landscape ? sizeByWidth : Math.max(sizeByWidth, MIN_RING_PX);
     let avail = Number(dims && dims.availableHeight);
     if (!Number.isFinite(avail) || avail <= 0) {
       if (Number.isFinite(height) && height > 0) {
@@ -1394,19 +1642,20 @@
       }
     }
     if (!Number.isFinite(avail) || avail <= 0) {
-      return { size: sizeByWidth, padTop: pref.top, padBot: pref.bottom };
+      return { size, padTop: pref.top, padBot: pref.bottom };
     }
-    const maxRing = Math.max(MIN_RING_PX, Math.floor(avail - MIN_STAGE_PAD * 2));
-    const size = Math.min(sizeByWidth, maxRing);
     const leftover = avail - size;
     if (leftover >= pref.top + pref.bottom) {
       return { size, padTop: pref.top, padBot: pref.bottom };
     }
-    const budget = Math.max(MIN_STAGE_PAD * 2, leftover);
-    const ratio = pref.top / (pref.top + pref.bottom);
-    const padTop = Math.max(MIN_STAGE_PAD, Math.min(pref.top, Math.floor(budget * ratio)));
-    const padBot = Math.max(MIN_STAGE_PAD, Math.min(pref.bottom, Math.floor(budget - padTop)));
-    return { size, padTop, padBot };
+    if (leftover >= MIN_STAGE_PAD * 2) {
+      const budget = leftover;
+      const ratio = pref.top / (pref.top + pref.bottom);
+      const padTop = Math.max(MIN_STAGE_PAD, Math.min(pref.top, Math.floor(budget * ratio)));
+      const padBot = Math.max(MIN_STAGE_PAD, Math.min(pref.bottom, Math.floor(budget - padTop)));
+      return { size, padTop, padBot };
+    }
+    return { size, padTop: MIN_STAGE_PAD, padBot: MIN_STAGE_PAD };
   }
 
   function ringSizePx(width, opts) {

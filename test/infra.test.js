@@ -983,18 +983,17 @@ describe("auction ring size", () => {
     assert.equal(ringSizePx(1200, { landscape: false }), null);
   });
 
-  test("shrinks on short viewports so the ring fits above the bid dock", () => {
+  test("keeps a full-size ring on short 360px phones (page may scroll)", () => {
     const tall = ringSizePx(360, { landscape: false, height: 800 });
     const short = ringSizePx(360, { landscape: false, height: 640, bidSheet: 235 });
     const tight = ringSizePx(360, { landscape: false, availableHeight: 171 });
-    assert.ok(tall > 0 && tall <= 220, tall);
-    assert.ok(short < tall, `short=${short} tall=${tall}`);
-    assert.ok(short >= 120, short);
-    assert.ok(tight <= 135, tight);
-    assert.ok(tight >= 120, tight);
+    assert.ok(tall >= 205 && tall <= 220, tall);
+    assert.equal(short, tall);
+    assert.ok(tight >= 205, tight);
+    assert.equal(tight, tall);
     const layout = ringLayout({ width: 360, height: 640, availableHeight: 171, landscape: false });
     assert.equal(layout.size, tight);
-    assert.ok(layout.size + layout.padTop + layout.padBot <= 171);
+    assert.ok(layout.size >= 205);
     assert.ok(layout.padTop >= 18 && layout.padBot >= 18);
   });
 
@@ -1029,7 +1028,8 @@ describe("auction ring size", () => {
     const again = applyRingSize(fake, { width: 390, landscape: false });
     assert.equal(again, size);
     const short = applyRingSize(fake, { width: 360, height: 640, availableHeight: 171, landscape: false });
-    assert.ok(short < size);
+    assert.ok(short >= 205);
+    assert.equal(short, applyRingSize(fake, { width: 360, landscape: false }));
     assert.equal(fake.style._props["--ring-size"], `${short}px`);
   });
 });

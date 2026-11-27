@@ -330,7 +330,22 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
           const bidCoversName = overlaps(bidRect, nameRect);
           const bidSheet = getComputedStyle(document.documentElement).getPropertyValue("--bid-sheet").trim();
           const ringSize = getComputedStyle(document.documentElement).getPropertyValue("--ring-size").trim();
-          return { measure, pills, allPins, leaving, franchiseCount, dockHits, dockBox, liveH, patch, hubInfo, contain: document.querySelector(".ring-wrap") ? getComputedStyle(document.querySelector(".ring-wrap")).contain : "", bidCoversHub, bidCoversName, bidSheet, ringSize, bidTop: bidRect && bidRect.top, hubBottom: hubRect && hubRect.bottom, nameBottom: nameRect && nameRect.bottom, viewport: { w: window.innerWidth, h: window.innerHeight } };
+          const card = document.querySelector(".player-card") || document.querySelector(".auction-stage");
+          const main = document.getElementById("main");
+          function innerClip(el) {
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            const cs = getComputedStyle(el);
+            const left = r.left + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0) + 6;
+            const right = r.right - (parseFloat(cs.borderRightWidth) || 0) - (parseFloat(cs.paddingRight) || 0) - 6;
+            return { left, right, id: el.id || el.className };
+          }
+          const clips = [innerClip(card), innerClip(main), { left: 6, right: 354, id: "viewport" }].filter(Boolean);
+          const clip = clips.reduce((a, b) => ({ left: Math.max(a.left, b.left), right: Math.min(a.right, b.right) }));
+          const stumps = document.querySelector(".auction-stumps");
+          const stumpsBox = stumps ? stumps.getBoundingClientRect() : null;
+          const stumpsCoverName = Boolean(nameRect && stumpsBox && nameRect.left < stumpsBox.right && nameRect.right > stumpsBox.left && nameRect.top < stumpsBox.bottom && nameRect.bottom > stumpsBox.top);
+          return { measure, pills, allPins, leaving, franchiseCount, dockHits, dockBox, liveH, patch, hubInfo, contain: document.querySelector(".ring-wrap") ? getComputedStyle(document.querySelector(".ring-wrap")).contain : "", bidCoversHub, bidCoversName, bidSheet, ringSize, bidTop: bidRect && bidRect.top, hubBottom: hubRect && hubRect.bottom, nameBottom: nameRect && nameRect.bottom, viewport: { w: window.innerWidth, h: window.innerHeight }, clip, stumpsCoverName };
         });
         if (report.pills.length !== count) {
           throw new Error(`${count}-team pin count mismatch pills=${JSON.stringify(report.pills)} all=${report.allPins} leaving=${report.leaving} franchises=${report.franchiseCount}`);
@@ -346,11 +361,18 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
           assert.ok(p.overflowX <= 1, `team name clipped horizontally: ${JSON.stringify(p)}`);
           assert.ok(p.overflowY <= 1, `team name clipped vertically: ${JSON.stringify(p)}`);
           if (p.nameBox) {
-            assert.ok(p.nameBox.left >= 2 && p.nameBox.right <= 358, `team name clips the 360px edge: ${JSON.stringify(p)}`);
+            const clip = report.clip || { left: 0, right: 360 };
+            assert.ok(
+              p.nameBox.left >= clip.left - 0.5 && p.nameBox.right <= clip.right + 0.5,
+              `team name clips the card edge: ${JSON.stringify({ name: p.name, nameBox: p.nameBox, clip })}`
+            );
           }
         }
         assert.equal(report.bidCoversHub, false, `bid dock covers the hub: ${JSON.stringify({ bidTop: report.bidTop, hubBottom: report.hubBottom, bidSheet: report.bidSheet, ringSize: report.ringSize })}`);
         assert.equal(report.bidCoversName, false, `bid dock covers the player name: ${JSON.stringify({ bidTop: report.bidTop, nameBottom: report.nameBottom })}`);
+        const ringPx = parseFloat(report.ringSize);
+        if (Number.isFinite(ringPx)) assert.ok(ringPx >= 205, `ring crushed to ${report.ringSize} at ${JSON.stringify(report.viewport)}`);
+        assert.equal(report.stumpsCoverName, false, "golden stumps overlap the player name");
         const hub = report.hubInfo || {};
         assert.equal(hub.shotShown, true, `${count}-team hub headshot hidden: ${JSON.stringify(hub)}`);
         assert.ok(hub.shotH >= 36, `${count}-team hub headshot too small: ${JSON.stringify(hub)}`);

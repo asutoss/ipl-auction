@@ -242,7 +242,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
 
   .live-bid-wrap {
     position: sticky;
-    top: calc(48px + env(safe-area-inset-top, 0px));
+    top: calc(40px + env(safe-area-inset-top, 0px));
     z-index: 27;
     margin: 0 0 8px;
   }
@@ -285,7 +285,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
     align-items: center;
     gap: 0;
     min-height: 0;
-    padding: var(--stage-pad-top, 44px) 8px var(--stage-pad-bottom, 48px);
+    padding: var(--stage-pad-top, 44px) 4px var(--stage-pad-bottom, 48px);
   }
   html.is-auction .hub .hub-bid,
   html.is-auction .hub .hub-timer,
@@ -293,7 +293,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
   html.is-auction .hub-inner { gap: 4px; }
   html.is-auction .hub .hub-name { font-size: clamp(16px, 5.4vw, 22px); }
   .ring-seat-name { font-size: 8px; width: max-content; max-width: min(112px, 31vw); line-height: 1.15; white-space: normal; overflow: visible; overflow-wrap: normal; word-break: normal; }
-  .ring-seat-name.is-long { width: 64px; min-width: 64px; }
+  .ring-seat-name.is-long { width: 52px; min-width: 52px; }
   .ring-seat-meta { width: max-content; max-width: min(112px, 31vw); }
   .ring-bubble { font-size: 9px; padding: 1px 6px; max-width: 72px; flex-direction: row; gap: 3px; }
   .ring-logo-bob { width: 48px; height: 48px; }
@@ -410,7 +410,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
   html.is-auction .ring-wrap {
     width: var(--ring-size, min(220px, 62vw));
   }
-  html.is-auction .auction-stage { padding: var(--stage-pad-top, 36px) 8px var(--stage-pad-bottom, 40px); }
+  html.is-auction .auction-stage { padding: var(--stage-pad-top, 36px) 4px var(--stage-pad-bottom, 40px); }
   .ring-seat-meta { --meta-out: -36px; }
   .ring-bubble { font-size: 9px; max-width: 80px; }
 
@@ -529,5 +529,157 @@ html.is-auction .btn-rules {
     order: 3;
     padding: 3px 8px;
     font-size: 11px;
+  }
+}
+
+
+/* Compact in-room header + side-by-side bid dock on phones.
+   Frees ~100px so a full 210–220px ring fits without crushing avatars. */
+@media (max-width: 700px) {
+  html.is-inroom .topbar,
+  html.is-inroom .topbar:has(#top-meta:not([hidden])),
+  html.is-auction .topbar,
+  html.is-auction .topbar:has(#top-meta:not([hidden])) {
+    display: flex !important;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    grid-template-columns: unset;
+    justify-items: unset;
+    margin-bottom: 4px;
+  }
+  html.is-inroom .topbar .brand,
+  html.is-auction .topbar .brand,
+  html.is-inroom .topbar:has(#top-meta:not([hidden])) .brand,
+  html.is-auction .topbar:has(#top-meta:not([hidden])) .brand {
+    width: auto !important;
+    min-width: 0;
+    flex: 0 0 auto;
+    padding: 2px 2px 2px 0;
+  }
+  html.is-inroom .brand h1,
+  html.is-inroom .brand-kicker,
+  html.is-auction .brand h1,
+  html.is-auction .brand-kicker {
+    display: none !important;
+  }
+  html.is-inroom .brand-ball,
+  html.is-auction .brand-ball {
+    width: 22px;
+    height: 22px;
+  }
+  html.is-inroom .top-meta,
+  html.is-auction .top-meta,
+  html.is-inroom .topbar:has(#top-meta:not([hidden])) .top-meta,
+  html.is-auction .topbar:has(#top-meta:not([hidden])) .top-meta {
+    display: flex;
+    flex: 1 1 auto;
+    width: auto !important;
+    max-width: none;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+  html.is-inroom .top-meta > .pill,
+  html.is-auction .top-meta > .pill {
+    display: none !important;
+  }
+  html.is-inroom .top-actions,
+  html.is-auction .top-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+  html.is-inroom .top-actions .btn,
+  html.is-inroom .top-actions .btn-rules,
+  html.is-auction .top-actions .btn,
+  html.is-auction .top-actions .btn-rules,
+  html.is-auction .sound-toggle {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  html.is-auction .bid-box {
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  html.is-auction .bid-box .power-btn {
+    min-height: 44px;
+    margin: 0 0 6px;
+    padding: 4px 8px 4px 4px;
+  }
+  html.is-auction .bid-box .power-btn .team-mark-wrap,
+  html.is-auction .bid-box .power-btn .team-mark { width: 28px; height: 28px; }
+  html.is-auction .bid-box .power-btn-copy strong { font-size: 15px; }
+  html.is-auction .bid-box .power-why,
+  html.is-auction .bid-box .why {
+    margin: 0 0 6px;
+    font-size: 12px;
+  }
+  html.is-auction .bid-box .bid-bar {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-areas:
+      "primary optout"
+      "extras extras";
+    gap: 8px;
+    align-items: stretch;
+  }
+  html.is-auction .bid-box .bid-primary {
+    grid-area: primary;
+    flex: none;
+    width: auto;
+    min-height: 44px;
+    border-radius: 14px;
+    padding: 8px 12px;
+  }
+  html.is-auction .bid-box .bid-primary-label { font-size: 20px; }
+  html.is-auction .bid-box .bid-raises,
+  html.is-auction .bid-box .bid-extras {
+    grid-area: extras;
+  }
+  html.is-auction .bid-box .bid-optout {
+    grid-area: optout;
+    flex: none;
+    width: auto;
+    min-width: 0;
+    min-height: 44px;
+    border-radius: 14px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 700px) {
+  html.is-auction #app {
+    padding-left: max(4px, env(safe-area-inset-left, 0px));
+    padding-right: max(4px, env(safe-area-inset-right, 0px));
+  }
+  html.is-auction .panel,
+  html.is-auction .player-card.panel {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+  html.is-auction .live-bid-wrap { margin-left: 6px; margin-right: 6px; }
+  html.is-auction .player-card > .lede { padding: 0 8px; }
+  html.is-auction .auction-stage {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  html.is-auction .ring-seat-name.is-long,
+  html.is-auction .ring-seat-meta.is-long .ring-seat-name {
+    width: 52px;
+    min-width: 52px;
+  }
+}
+
+@media (max-width: 700px) {
+  html.is-auction .emote-dock,
+  html.is-auction .emote-dock.is-fixed,
+  .ring-wrap .emote-dock {
+    right: max(4px, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
   }
 }
