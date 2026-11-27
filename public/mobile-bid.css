@@ -285,7 +285,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
     align-items: center;
     gap: 0;
     min-height: 0;
-    padding: 44px 8px 48px;
+    padding: var(--stage-pad-top, 44px) 8px var(--stage-pad-bottom, 48px);
   }
   html.is-auction .hub .hub-bid,
   html.is-auction .hub .hub-timer,
@@ -410,7 +410,7 @@ button, .btn, .emote-btn, .character-choice, .game-mode {
   html.is-auction .ring-wrap {
     width: var(--ring-size, min(220px, 62vw));
   }
-  html.is-auction .auction-stage { padding: 36px 8px 40px; }
+  html.is-auction .auction-stage { padding: var(--stage-pad-top, 36px) 8px var(--stage-pad-bottom, 40px); }
   .ring-seat-meta { --meta-out: -36px; }
   .ring-bubble { font-size: 9px; max-width: 80px; }
 

@@ -968,13 +968,12 @@ describe("official headshots", () => {
 });
 
 describe("auction ring size", () => {
-  const { ringSizePx, shouldRefreshRingSize, applyRingSize } = require("../public/ring");
+  const { ringSizePx, ringLayout, shouldRefreshRingSize, applyRingSize } = require("../public/ring");
 
-  test("depends on width and orientation, not viewport height", () => {
+  test("depends on width and orientation; tall phones keep the width size", () => {
     const phone = ringSizePx(390, { landscape: false });
     assert.equal(ringSizePx(390, { landscape: false }), phone);
     assert.equal(ringSizePx(390, { landscape: false, height: 844 }), phone);
-    assert.equal(ringSizePx(390, { landscape: false, height: 520 }), phone);
     assert.ok(phone > 0 && phone <= 260, phone);
     const wide = ringSizePx(414, { landscape: false });
     assert.ok(wide >= phone);
@@ -984,18 +983,39 @@ describe("auction ring size", () => {
     assert.equal(ringSizePx(1200, { landscape: false }), null);
   });
 
-  test("refreshes only when width or orientation changes", () => {
-    const portrait = { width: 390, height: 844, landscape: false };
-    assert.equal(shouldRefreshRingSize(null, portrait), true);
-    assert.equal(shouldRefreshRingSize(portrait, { width: 390, height: 600, landscape: false }), false);
-    assert.equal(shouldRefreshRingSize(portrait, { width: 390, height: 844, landscape: false }), false);
-    assert.equal(shouldRefreshRingSize(portrait, { width: 430, height: 844, landscape: false }), true);
-    assert.equal(shouldRefreshRingSize(portrait, { width: 844, height: 390, landscape: true }), true);
+  test("shrinks on short viewports so the ring fits above the bid dock", () => {
+    const tall = ringSizePx(360, { landscape: false, height: 800 });
+    const short = ringSizePx(360, { landscape: false, height: 640, bidSheet: 235 });
+    const tight = ringSizePx(360, { landscape: false, availableHeight: 171 });
+    assert.ok(tall > 0 && tall <= 220, tall);
+    assert.ok(short < tall, `short=${short} tall=${tall}`);
+    assert.ok(short >= 120, short);
+    assert.ok(tight <= 135, tight);
+    assert.ok(tight >= 120, tight);
+    const layout = ringLayout({ width: 360, height: 640, availableHeight: 171, landscape: false });
+    assert.equal(layout.size, tight);
+    assert.ok(layout.size + layout.padTop + layout.padBot <= 171);
+    assert.ok(layout.padTop >= 18 && layout.padBot >= 18);
   });
 
-  test("applyRingSize writes a pixel width and ignores later height-only updates", () => {
-    const el = { style: new Map(), setProperty(k, v) { this.style.set(k, v); }, removeProperty(k) { this.style.delete(k); }, getPropertyValue(k) { return this.style.get(k); } };
-    // mimic CSSStyleDeclaration enough for applyRingSize
+  test("refreshes when width, orientation, height, or bid-dock space changes", () => {
+    const portrait = { width: 390, height: 844, landscape: false };
+    assert.equal(shouldRefreshRingSize(null, portrait), true);
+    assert.equal(shouldRefreshRingSize(portrait, { width: 390, height: 844, landscape: false }), false);
+    assert.equal(shouldRefreshRingSize(portrait, { width: 390, height: 600, landscape: false }), true);
+    assert.equal(shouldRefreshRingSize(portrait, { width: 430, height: 844, landscape: false }), true);
+    assert.equal(shouldRefreshRingSize(portrait, { width: 844, height: 390, landscape: true }), true);
+    assert.equal(shouldRefreshRingSize(
+      { ...portrait, availableHeight: 330, bidSheet: 200 },
+      { ...portrait, availableHeight: 330, bidSheet: 200 }
+    ), false);
+    assert.equal(shouldRefreshRingSize(
+      { ...portrait, availableHeight: 330, bidSheet: 200 },
+      { ...portrait, availableHeight: 170, bidSheet: 235 }
+    ), true);
+  });
+
+  test("applyRingSize writes ring size and stage padding", () => {
     const fake = {
       style: {
         _props: {},
@@ -1005,8 +1025,12 @@ describe("auction ring size", () => {
     };
     const size = applyRingSize(fake, { width: 390, landscape: false });
     assert.equal(fake.style._props["--ring-size"], `${size}px`);
+    assert.match(String(fake.style._props["--stage-pad-top"] || ""), /px$/);
     const again = applyRingSize(fake, { width: 390, landscape: false });
     assert.equal(again, size);
+    const short = applyRingSize(fake, { width: 360, height: 640, availableHeight: 171, landscape: false });
+    assert.ok(short < size);
+    assert.equal(fake.style._props["--ring-size"], `${short}px`);
   });
 });
 

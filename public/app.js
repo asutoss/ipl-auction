@@ -1813,18 +1813,23 @@ function observeBidSheet() {
   const box = document.getElementById("bid-box");
   const root = document.documentElement;
   const apply = () => {
-    if (!box) {
+    if (!box || !box.isConnected) {
       root.style.removeProperty("--bid-sheet");
       return;
     }
     const h = Math.ceil(box.getBoundingClientRect().height);
-    if (h > 0) root.style.setProperty("--bid-sheet", `${h + 12}px`);
+    if (!(h > 0)) return;
+    const next = `${h + 12}px`;
+    if (root.style.getPropertyValue("--bid-sheet") === next) return;
+    root.style.setProperty("--bid-sheet", next);
+    syncRingSize(true);
+    queueLotIntoView();
   };
-  apply();
   if (bidSheetObs) {
     bidSheetObs.disconnect();
     bidSheetObs = null;
   }
+  apply();
   if (!box || typeof ResizeObserver === "undefined") return;
   bidSheetObs = new ResizeObserver(apply);
   bidSheetObs.observe(box);
@@ -1975,7 +1980,29 @@ let lastRingViewport = null;
 
 function currentRingViewport() {
   const landscape = typeof window.matchMedia === "function" && window.matchMedia("(orientation: landscape)").matches;
-  return { width: window.innerWidth, landscape: Boolean(landscape) };
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const bid = document.getElementById("bid-box");
+  const live = document.getElementById("live-bid") || document.querySelector(".live-bid-wrap");
+  const topbar = document.querySelector(".topbar");
+  let bidSheet = 0;
+  if (bid) {
+    const br = bid.getBoundingClientRect();
+    if (br.height > 0) bidSheet = Math.ceil(br.height) + 12;
+  }
+  if (!bidSheet) {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--bid-sheet");
+    bidSheet = parseFloat(raw) || 0;
+  }
+  const liveBox = live ? live.getBoundingClientRect() : null;
+  const top = liveBox && liveBox.height > 0
+    ? liveBox.bottom
+    : (topbar ? topbar.getBoundingClientRect().bottom + 8 : 0);
+  const bidBox = bid ? bid.getBoundingClientRect() : null;
+  const bidFixed = Boolean(bid && bidBox && bidBox.height > 0 && getComputedStyle(bid).position === "fixed");
+  const bottom = bidFixed ? bidBox.top : (bidSheet ? height - bidSheet : 0);
+  const availableHeight = top && bottom && bottom > top ? bottom - top : 0;
+  return { width, height, landscape: Boolean(landscape), bidSheet, availableHeight };
 }
 
 function syncRingSize(force) {
@@ -3707,16 +3734,21 @@ function queueLotIntoView() {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (!state || state.phase !== "auction") return;
     const dock = document.getElementById("bid-box");
+    const hub = document.getElementById("auction-hub");
     const name = document.getElementById("hub-name");
     const card = document.getElementById("live-bid");
-    if (!dock || !name || getComputedStyle(dock).position !== "fixed") return;
+    if (!dock || getComputedStyle(dock).position !== "fixed") return;
+    const nameStyle = name ? getComputedStyle(name) : null;
+    const nameVisible = Boolean(name && nameStyle && nameStyle.display !== "none" && nameStyle.visibility !== "hidden");
+    const target = nameVisible ? name : hub;
+    if (!target) return;
     const dockTop = dock.getBoundingClientRect().top;
-    const nameRect = name.getBoundingClientRect();
-    const overlap = nameRect.bottom + 8 - dockTop;
-    if (overlap <= 0 && nameRect.top >= 0) return;
+    const targetRect = target.getBoundingClientRect();
+    const overlap = targetRect.bottom + 8 - dockTop;
+    if (overlap <= 0 && targetRect.top >= 0) return;
     const cardTop = card ? card.getBoundingClientRect().top : 0;
-    const by = nameRect.top < 0 ? nameRect.top - 8 : Math.min(overlap, Math.max(0, cardTop));
-    if (Math.abs(by) >= 1) window.scrollBy({ top: by, behavior: "smooth" });
+    const by = targetRect.top < 0 ? targetRect.top - 8 : Math.min(overlap, Math.max(0, cardTop));
+    if (Math.abs(by) >= 1) window.scrollBy({ top: by, behavior: "auto" });
   }));
 }
 

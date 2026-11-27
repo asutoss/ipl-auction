@@ -828,10 +828,10 @@
     const vw = typeof window !== "undefined" ? window.innerWidth : 360;
     const vh = typeof window !== "undefined" ? window.innerHeight : 800;
     const view = {
-      left: 3,
-      top: Math.max(3, walls.live ? walls.live.bottom + 6 : 3),
-      right: Math.max(4, vw - 3),
-      bottom: Math.max(4, (walls.bid ? walls.bid.top : vh) - 6),
+      left: VIEW_EDGE,
+      top: Math.max(VIEW_EDGE, walls.live ? walls.live.bottom + 6 : VIEW_EDGE),
+      right: Math.max(VIEW_EDGE + 1, vw - VIEW_EDGE),
+      bottom: Math.max(VIEW_EDGE + 1, (walls.bid ? walls.bid.top : vh) - 6),
     };
     const seats = pins.map((pin) => {
       const face = pin.querySelector(".ring-logo-face") || pin.querySelector(".ring-logo-bob") || pin;
@@ -1010,6 +1010,20 @@
         if (!moved) break;
       }
     }
+    for (const s of seats) {
+      const box = boxOf(s.meta);
+      if (!box) continue;
+      let dx = 0;
+      let dy = 0;
+      if (box.left < view.left) dx = view.left - box.left;
+      if (box.right + dx > view.right) dx = view.right - box.right;
+      if (box.top < view.top) dy = view.top - box.top;
+      if (box.bottom + dy > view.bottom) dy = view.bottom - box.bottom;
+      if (dx || dy) {
+        const loc = localForScreen(s.cal, (box.left + box.right) / 2 + dx, (box.top + box.bottom) / 2 + dy);
+        setMetaLocal(s.pin, loc.x, loc.y);
+      }
+    }
     return seats;
 
   }
@@ -1052,7 +1066,7 @@
       if (walls.live && rectsOverlap(s.metaBox, walls.live, 0.5)) overlaps.push({ type: "live-bid", name: s.name });
       if (walls.bid && rectsOverlap(s.metaBox, walls.bid, 0.5)) overlaps.push({ type: "bid-bar", name: s.name });
       if (walls.dock && rectsOverlap(s.metaBox, walls.dock, 0.5)) overlaps.push({ type: "emote-dock", name: s.name });
-      if (s.metaBox.left < -0.5 || s.metaBox.top < -0.5 || s.metaBox.right > view.right + 0.5 || s.metaBox.bottom > view.bottom + 0.5) {
+      if (s.metaBox.left < 2 || s.metaBox.top < -0.5 || s.metaBox.right > view.right - 2 || s.metaBox.bottom > view.bottom + 0.5) {
         clipped.push({ name: s.name, ...s.metaBox, vw, vh });
       }
     }
@@ -1340,7 +1354,11 @@
    * Mobile ring size from width (and orientation) only — never from viewport
    * height, so URL-bar show/hide or an innerHeight-only resize cannot change it.
    */
-  function ringSizePx(width, opts) {
+  const MIN_RING_PX = 120;
+  const MIN_STAGE_PAD = 18;
+  const VIEW_EDGE = 6;
+
+  function ringSizeByWidth(width, opts) {
     const w = Number(width);
     const landscape = Boolean(opts && opts.landscape);
     if (!Number.isFinite(w) || w <= 0) return null;
@@ -1353,19 +1371,79 @@
     return null;
   }
 
+  function preferredStagePad(width, height, landscape) {
+    if (landscape && width <= 900) return { top: 16, bottom: 16 };
+    if (width <= 700 && Number.isFinite(height) && height <= 780) return { top: 36, bottom: 40 };
+    if (width <= 700) return { top: 44, bottom: 48 };
+    return { top: 32, bottom: 34 };
+  }
+
+  /** Size the ring (and stage padding) so it fits above the bid dock on short phones. */
+  function ringLayout(dims) {
+    const width = Number(dims && (dims.width != null ? dims.width : dims));
+    const height = Number(dims && dims.height);
+    const landscape = Boolean(dims && dims.landscape);
+    const sizeByWidth = ringSizeByWidth(width, { landscape });
+    const pref = preferredStagePad(width, height, landscape);
+    if (sizeByWidth == null) return { size: null, padTop: null, padBot: null };
+    let avail = Number(dims && dims.availableHeight);
+    if (!Number.isFinite(avail) || avail <= 0) {
+      if (Number.isFinite(height) && height > 0) {
+        const bid = Number(dims && dims.bidSheet) || 230;
+        avail = height - (80 + 120 + bid);
+      }
+    }
+    if (!Number.isFinite(avail) || avail <= 0) {
+      return { size: sizeByWidth, padTop: pref.top, padBot: pref.bottom };
+    }
+    const maxRing = Math.max(MIN_RING_PX, Math.floor(avail - MIN_STAGE_PAD * 2));
+    const size = Math.min(sizeByWidth, maxRing);
+    const leftover = avail - size;
+    if (leftover >= pref.top + pref.bottom) {
+      return { size, padTop: pref.top, padBot: pref.bottom };
+    }
+    const budget = Math.max(MIN_STAGE_PAD * 2, leftover);
+    const ratio = pref.top / (pref.top + pref.bottom);
+    const padTop = Math.max(MIN_STAGE_PAD, Math.min(pref.top, Math.floor(budget * ratio)));
+    const padBot = Math.max(MIN_STAGE_PAD, Math.min(pref.bottom, Math.floor(budget - padTop)));
+    return { size, padTop, padBot };
+  }
+
+  function ringSizePx(width, opts) {
+    if (opts && (opts.availableHeight || opts.height || opts.bidSheet)) {
+      return ringLayout({ width, ...opts }).size;
+    }
+    return ringSizeByWidth(width, opts);
+  }
+
   function shouldRefreshRingSize(prev, next) {
     if (!next) return false;
     if (!prev) return true;
-    return Number(prev.width) !== Number(next.width) || Boolean(prev.landscape) !== Boolean(next.landscape);
+    if (Number(prev.width) !== Number(next.width) || Boolean(prev.landscape) !== Boolean(next.landscape)) return true;
+    const changed = (a, b, min) => {
+      const x = Number(a);
+      const y = Number(b);
+      return Number.isFinite(x) && Number.isFinite(y) && Math.abs(x - y) >= min;
+    };
+    return changed(prev.height, next.height, 24)
+      || changed(prev.availableHeight, next.availableHeight, 8)
+      || changed(prev.bidSheet, next.bidSheet, 8);
   }
 
   function applyRingSize(el, dims) {
     if (!el || !el.style) return null;
-    const size = ringSizePx(dims && dims.width, { landscape: dims && dims.landscape });
-    if (size) el.style.setProperty("--ring-size", `${size}px`);
-    else el.style.removeProperty("--ring-size");
-    return size;
+    const layout = ringLayout(dims || {});
+    if (layout.size) {
+      el.style.setProperty("--ring-size", `${layout.size}px`);
+      if (layout.padTop != null) el.style.setProperty("--stage-pad-top", `${layout.padTop}px`);
+      if (layout.padBot != null) el.style.setProperty("--stage-pad-bottom", `${layout.padBot}px`);
+    } else {
+      el.style.removeProperty("--ring-size");
+      el.style.removeProperty("--stage-pad-top");
+      el.style.removeProperty("--stage-pad-bottom");
+    }
+    return layout.size;
   }
 
-  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget, placeMeta, layoutSeatChips, measureRingCollisions, scheduleChipLayout, rectsOverlap, circleHitsRect, clampRect, initialChipRect, ellipseHitsRect, ringOuterEllipse };
+  return { mount, update, setTimer, anchorFor, seatBubble, seatsFromState, slotsNeeded, bubbleHtml, ringSizePx, ringLayout, shouldRefreshRingSize, applyRingSize, layout, isRingParticipant, participatingSeats, segmentTarget, placeMeta, layoutSeatChips, measureRingCollisions, scheduleChipLayout, rectsOverlap, circleHitsRect, clampRect, initialChipRect, ellipseHitsRect, ringOuterEllipse };
 });

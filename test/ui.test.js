@@ -170,7 +170,7 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
       try {
         for (let i = 0; i < count; i++) {
           const page = await ctx.newPage();
-          await page.setViewport({ ...VIEW, deviceScaleFactor: 1 });
+          await page.setViewport({ ...(opts.viewport || VIEW), deviceScaleFactor: 1 });
           await page.goto(`${origin}/`, { waitUntil: "domcontentloaded", timeout: 20000 });
           await waitFor(page, () => Boolean(window.IplApp && window.IplApp.socket && window.IplApp.socket.connected), "socket " + i);
           pages.push(page);
@@ -319,7 +319,18 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
             shownValues,
             visibleHubText,
           };
-          return { measure, pills, allPins, leaving, franchiseCount, dockHits, dockBox, liveH, patch, hubInfo, contain: document.querySelector(".ring-wrap") ? getComputedStyle(document.querySelector(".ring-wrap")).contain : "" };
+          const bidBox = document.getElementById("bid-box");
+          const bidRect = bidBox ? bidBox.getBoundingClientRect() : null;
+          const hubEl = document.getElementById("auction-hub");
+          const hubRect = hubEl ? hubEl.getBoundingClientRect() : null;
+          const nameEl = document.getElementById("hub-name");
+          const nameRect = nameEl && getComputedStyle(nameEl).display !== "none" ? nameEl.getBoundingClientRect() : null;
+          const overlaps = (a, b) => a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+          const bidCoversHub = overlaps(bidRect, hubRect);
+          const bidCoversName = overlaps(bidRect, nameRect);
+          const bidSheet = getComputedStyle(document.documentElement).getPropertyValue("--bid-sheet").trim();
+          const ringSize = getComputedStyle(document.documentElement).getPropertyValue("--ring-size").trim();
+          return { measure, pills, allPins, leaving, franchiseCount, dockHits, dockBox, liveH, patch, hubInfo, contain: document.querySelector(".ring-wrap") ? getComputedStyle(document.querySelector(".ring-wrap")).contain : "", bidCoversHub, bidCoversName, bidSheet, ringSize, bidTop: bidRect && bidRect.top, hubBottom: hubRect && hubRect.bottom, nameBottom: nameRect && nameRect.bottom, viewport: { w: window.innerWidth, h: window.innerHeight } };
         });
         if (report.pills.length !== count) {
           throw new Error(`${count}-team pin count mismatch pills=${JSON.stringify(report.pills)} all=${report.allPins} leaving=${report.leaving} franchises=${report.franchiseCount}`);
@@ -335,9 +346,11 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
           assert.ok(p.overflowX <= 1, `team name clipped horizontally: ${JSON.stringify(p)}`);
           assert.ok(p.overflowY <= 1, `team name clipped vertically: ${JSON.stringify(p)}`);
           if (p.nameBox) {
-            assert.ok(p.nameBox.left >= -0.5 && p.nameBox.right <= 360.5, `team name off the 360px screen: ${JSON.stringify(p)}`);
+            assert.ok(p.nameBox.left >= 2 && p.nameBox.right <= 358, `team name clips the 360px edge: ${JSON.stringify(p)}`);
           }
         }
+        assert.equal(report.bidCoversHub, false, `bid dock covers the hub: ${JSON.stringify({ bidTop: report.bidTop, hubBottom: report.hubBottom, bidSheet: report.bidSheet, ringSize: report.ringSize })}`);
+        assert.equal(report.bidCoversName, false, `bid dock covers the player name: ${JSON.stringify({ bidTop: report.bidTop, nameBottom: report.nameBottom })}`);
         const hub = report.hubInfo || {};
         assert.equal(hub.shotShown, true, `${count}-team hub headshot hidden: ${JSON.stringify(hub)}`);
         assert.ok(hub.shotH >= 36, `${count}-team hub headshot too small: ${JSON.stringify(hub)}`);
@@ -460,6 +473,7 @@ describe("360px ring layout and in-place auction patch", { skip: !HAS_CHROME }, 
       await runRing(6, { forceWk: true, checkTap: true });
       await runRing(4, { names: LONG_NAMES, checkTap: false });
       await runRing(6, { names: LONG_NAMES, forceWk: true, checkTap: true });
+      await runRing(6, { names: LONG_NAMES, forceWk: true, checkTap: true, viewport: { width: 360, height: 640 } });
     } finally {
       await browser.close();
       await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
